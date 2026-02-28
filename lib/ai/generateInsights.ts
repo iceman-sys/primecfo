@@ -1,3 +1,4 @@
+
 /**
  * Generate plain-English AI insights from financial context.
  * Uses OpenAI API; requires OPENAI_API_KEY in env.
@@ -9,6 +10,15 @@ import type { AIInsight } from '@/lib/financialData';
 
 const URGENCIES = ['action_required', 'watch', 'positive', 'info'] as const;
 type Urgency = (typeof URGENCIES)[number];
+
+type ParsedInsightItem = {
+  title?: string;
+  description?: string;
+  urgency?: string;
+  category?: string;
+  metric?: string;
+  metricValue?: string;
+};
 
 function isValidUrgency(s: string): s is Urgency {
   return URGENCIES.includes(s as Urgency);
@@ -65,9 +75,9 @@ Return a single JSON object with key "insights" whose value is an array of objec
   const raw = res.choices?.[0]?.message?.content;
   if (!raw?.trim()) return [];
 
-  let parsed: { insights?: Array<{ title?: string; description?: string; urgency?: string; category?: string; metric?: string; metricValue?: string }> };
+  let parsed: { insights?: ParsedInsightItem[] };
   try {
-    parsed = JSON.parse(raw) as { insights?: unknown[] };
+    parsed = JSON.parse(raw) as { insights?: ParsedInsightItem[] };
   } catch {
     return [];
   }
