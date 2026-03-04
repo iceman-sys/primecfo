@@ -2,7 +2,8 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
-import { FileText, Download, Calendar, ChevronDown, ChevronRight, Loader2, Printer } from "lucide-react";
+import { FileText, Download, ChevronDown, ChevronRight, Loader2, Printer } from "lucide-react";
+import { Select } from "@/app/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClientContext } from "@/contexts/ClientContext";
 import { getReports, syncReports, SyncError, type ReportRange, type PeriodType } from "@/lib/api/client";
@@ -84,7 +85,7 @@ function ReportTable({
         </div>
       </div>
 
-      <div className="overflow-x-auto overflow-y-auto max-h-[60vh] rounded-lg border border-slate-700/50 bg-slate-900/30">
+      <div className="scrollbar-reports overflow-x-auto overflow-y-auto max-h-[60vh] rounded-xl border border-slate-700/50 bg-slate-900/30">
         <table className="w-full border-collapse" aria-label={`${reportTitle}, ${singlePeriod?.label ?? range}`}>
           <caption className="sr-only">
             {reportTitle} for {singlePeriod?.label ?? range}
@@ -173,10 +174,9 @@ const ReportViewer: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"pnl" | "balance_sheet" | "cash_flow">("pnl");
   const urlRange = searchParams.get("range");
   const initialRange: ReportRange =
-    urlRange && VALID_RANGES.includes(urlRange as ReportRange) ? (urlRange as ReportRange) : "12m";
+    urlRange && VALID_RANGES.includes(urlRange as ReportRange) ? (urlRange as ReportRange) : "3m";
   const [range, setRange] = useState<ReportRange>(initialRange);
   const [periodType] = useState<PeriodType>("month");
-  const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
 
   useEffect(() => {
@@ -204,14 +204,7 @@ const ReportViewer: React.FC = () => {
     },
     onError: (error) => {
       if (error instanceof SyncError && (error.code === "no_connection" || error.code === "needs_reauth")) {
-        toastErrorWithProgress("QuickBooks is not connected", {
-          description: "Connect QuickBooks to sync financial data.",
-          duration: 10_000,
-          action: {
-            label: "Connect",
-            onClick: () => router.push("/connect"),
-          },
-        });
+        queryClient.invalidateQueries({ queryKey: ["clients"] });
       } else {
         toastErrorWithProgress(error instanceof Error ? error.message : "Sync failed", {
           duration: 10_000,
@@ -248,38 +241,19 @@ const ReportViewer: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <button
-                onClick={() => setPeriodDropdownOpen(!periodDropdownOpen)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white hover:bg-slate-600 transition-colors"
-              >
-                <Calendar className="w-4 h-4 text-slate-400" />
-                {rangeLabels[range]}
-                <ChevronDown className="w-4 h-4 text-slate-400" />
-              </button>
-              {periodDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setPeriodDropdownOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-48 bg-slate-700 border border-slate-600 rounded-xl shadow-2xl overflow-hidden z-20">
-                    {(Object.keys(rangeLabels) as ReportRange[]).map((r) => (
-                      <button
-                        key={r}
-                        onClick={() => {
-                          setRange(r);
-                          setPeriodDropdownOpen(false);
-                          router.replace(`${pathname}?range=${r}`, { scroll: false });
-                        }}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-600 transition-colors ${
-                          range === r ? "text-teal-400 bg-slate-600/50" : "text-slate-300"
-                        }`}
-                      >
-                        {rangeLabels[r]}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <Select<ReportRange>
+              value={range}
+              onChange={(r) => {
+                setRange(r);
+                router.replace(`${pathname}?range=${r}`, { scroll: false });
+              }}
+              options={(Object.keys(rangeLabels) as ReportRange[]).map((r) => ({
+                value: r,
+                label: rangeLabels[r],
+              }))}
+              aria-label="Report period"
+              className="w-48"
+            />
             <button
               onClick={() => syncMutation.mutate()}
               disabled={syncMutation.isPending}

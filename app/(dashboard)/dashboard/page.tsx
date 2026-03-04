@@ -138,14 +138,7 @@ export default function DashboardPage() {
     onError: (error) => {
       if (error instanceof SyncError && (error.code === "no_connection" || error.code === "needs_reauth")) {
         setSyncWarningDismissed(false);
-        toastErrorWithProgress("QuickBooks is not connected", {
-          description: "Connect QuickBooks to sync financial data.",
-          duration: 10_000,
-          action: {
-            label: "Connect",
-            onClick: () => router.push("/connect"),
-          },
-        });
+        queryClient.invalidateQueries({ queryKey: ["clients"] });
       } else {
         toastErrorWithProgress(error instanceof Error ? error.message : "Sync failed", {
           duration: 10_000,

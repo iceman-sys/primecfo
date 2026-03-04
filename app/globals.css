@@ -55,6 +55,59 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* AI Insights: larger, readable type with Plus Jakarta Sans */
+.font-insights {
+  font-family: var(--font-plus-jakarta), var(--font-sans), system-ui, sans-serif;
+}
+
+/* Styled select trigger (when using native <select>) */
+.select-primary {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-color: hsl(215 28% 17%);
+  border: 1px solid hsl(215 28% 27%);
+  border-radius: 0.75rem;
+  padding: 0.625rem 2.25rem 0.625rem 1rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: hsl(210 40% 98%);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.select-primary:hover {
+  border-color: hsl(215 28% 37%);
+}
+.select-primary:focus {
+  outline: none;
+  border-color: hsl(173 80% 40%);
+  box-shadow: 0 0 0 3px hsl(173 80% 40% / 0.2);
+}
+
+/* Custom scrollbar for Financial Reports and other content panels */
+.scrollbar-reports {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(215 28% 35%) transparent;
+}
+.scrollbar-reports::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-reports::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-reports::-webkit-scrollbar-thumb {
+  background: hsl(215 28% 35%);
+  border-radius: 4px;
+}
+.scrollbar-reports::-webkit-scrollbar-thumb:hover {
+  background: hsl(215 28% 45%);
+}
+.scrollbar-reports::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* Toast progress bar countdown animation */
 @keyframes toast-progress-shrink {
   from {

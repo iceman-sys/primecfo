@@ -1,5 +1,6 @@
 import { getQboApiBaseUrl } from './env';
 import { getValidQuickBooksAccessToken } from './tokens';
+import { syncConnectionStatus } from './syncConnectionStatus';
 
 /** Thrown when the connection must be re-authorized (401 / token invalid). */
 export class QuickBooksNeedsReauthError extends Error {
@@ -132,6 +133,7 @@ export async function quickBooksRequest<T = unknown>(
     const res = await doFetch();
 
     if (res.status === 401) {
+      await syncConnectionStatus(clientId, 'needs_reauth', 'QuickBooks API returned 401');
       throw new QuickBooksNeedsReauthError();
     }
 

@@ -3,8 +3,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 /**
  * Refreshes the Supabase auth session and updates cookies.
- * Call this from the root proxy (or middleware) on every request so tokens stay in sync.
- * Do not add route protection here; that will be done when we replace AdminAuth.
+ * Used by root proxy.ts on every request so tokens stay in sync.
+ * Protects /admin routes by redirecting unauthenticated users to /login.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -40,14 +40,12 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/signup') ||
     pathname.startsWith('/auth');
 
-  let user: unknown = null;
+  let user = null;
   try {
-    // Required: refresh the session so cookies stay valid (can timeout if Supabase unreachable)
-    const { data } = await supabase.auth.getClaims();
-    user = data?.claims;
-  } catch (e) {
-    console.warn('Supabase auth/session refresh failed (request continues):', e instanceof Error ? e.message : e);
-    // Continue without session; /admin will redirect to login when user is null
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Stale or invalid session cookie — treat as logged out.
   }
 
   if (isAdminRoute && !user && !isAuthRoute) {

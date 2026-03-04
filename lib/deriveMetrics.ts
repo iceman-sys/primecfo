@@ -89,7 +89,7 @@ function findBestMatch(
  *
  * Formulas (aligned with QuickBooks Profit and Loss report):
  *   Total Revenue   = "Total Income" (section summary)
- *   Total Expenses  = "Total Expenses" (section summary, excludes Other Expenses)
+ *   Total Expenses  = Operating Expenses + Other Expenses
  *   Net Profit      = "Net Income" (bottom line)
  *   Profit Margin   = Net Income / |Total Income| × 100
  */
@@ -104,11 +104,18 @@ export function deriveMetricsFromPnl(rawJson: unknown): MetricEntry[] {
     ['net', 'other', 'operating', 'gross', 'cost']
   );
 
-  const expenses = findValueByPatternsExcluding(
+  // Operating Expenses: "Total Expenses" / "Total Operating Expenses" (exclude Other section)
+  const operatingExpenses = findValueByPatternsExcluding(
     flatRows,
-    ['total expenses', 'expenses'],
+    ['total expenses', 'total operating expenses', 'operating expenses', 'expenses'],
     ['other', 'net']
   );
+  // Other Expenses: "Total for Other Expenses" / "Total Other Expenses"
+  const otherExpenses = findValueByPatterns(
+    flatRows,
+    ['total for other expenses', 'total other expenses', 'other expenses']
+  );
+  const expenses = operatingExpenses + otherExpenses;
 
   const netIncome = findValueByPatternsExcluding(
     flatRows,

@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 
+/**
+ * POST /api/clients — Create a new client (and optional QBO connection placeholder).
+ * GET /api/clients?list=1 — List clients with optional client_qbo_connections.
+ */
 export async function POST(request: Request) {
   let clientId: string | null = null;
   const supabase = supabaseAdmin();

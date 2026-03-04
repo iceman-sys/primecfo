@@ -26,11 +26,11 @@ const QBO_REPORT_NAMES: Record<ReportType, string> = {
   coa: 'AccountList',
 };
 
-/** Required reports for sync (always allowed in QuickBooks). */
-export const REQUIRED_REPORT_TYPES: ReportType[] = ['pnl', 'balance_sheet'];
+/** Required reports for sync (P&L, Balance Sheet, Cash Flow — always fetched). */
+export const REQUIRED_REPORT_TYPES: ReportType[] = ['pnl', 'balance_sheet', 'cash_flow'];
 
 /** Optional reports (may return Permission Denied on some plans/sandbox). */
-export const OPTIONAL_REPORT_TYPES: ReportType[] = ['cash_flow', 'ar_aging', 'ap_aging', 'coa'];
+export const OPTIONAL_REPORT_TYPES: ReportType[] = ['ar_aging', 'ap_aging', 'coa'];
 
 export type PeriodInfo = {
   start_date: string; // YYYY-MM-DD

@@ -57,7 +57,7 @@ export default function ReportsPage() {
           ))}
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-6 scrollbar-reports">
         {activeTab === "reports" && <ReportViewer />}
         {activeTab === "treasury" && <TreasuryTab />}
         {activeTab === "assets" && <AssetsTab />}

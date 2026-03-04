@@ -23,6 +23,7 @@ export default function ConnectPage() {
   const { selectedClient } = useClientContext();
   const queryClient = useQueryClient();
   const clientId = selectedClient?.id;
+  const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [disconnectError, setDisconnectError] = useState<string | null>(null);
@@ -36,6 +37,7 @@ export default function ConnectPage() {
 
   const handleConnect = () => {
     if (!clientId) return;
+    setConnecting(true);
     window.location.href = `/api/quickbooks/auth?clientId=${encodeURIComponent(clientId)}&returnTo=connect`;
   };
 
@@ -80,7 +82,32 @@ export default function ConnectPage() {
   const isExpired = selectedClient?.qbStatus === "expired";
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto relative">
+      {/* Full-page loading overlay when redirecting to QuickBooks */}
+      {connecting && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 backdrop-blur-sm"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="flex flex-col items-center gap-6 max-w-sm px-8 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-green-500/20 border border-green-500/30 flex items-center justify-center">
+              <Loader2 className="w-8 h-8 text-green-400 animate-spin" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-1">Redirecting to QuickBooks</h3>
+              <p className="text-sm text-slate-400">
+                You’ll be taken to Intuit to sign in and authorize access. This may take a few seconds.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-slate-500 text-xs">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Please wait…
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center justify-center">

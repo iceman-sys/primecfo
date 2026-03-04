@@ -37,6 +37,15 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
     },
   });
 
+  useQuery({
+    queryKey: ["qb-token-refresh", selectedClient?.id],
+    queryFn: () =>
+      fetch(`/api/quickbooks/connection?clientId=${selectedClient!.id}`).then((r) => r.json()),
+    enabled: !!selectedClient?.id && selectedClient?.qbStatus === "connected",
+    refetchInterval: 5 * 60 * 1000,
+    refetchIntervalInBackground: false,
+  });
+
   const clients: Client[] = apiClients;
   useEffect(() => {
     if (clients.length > 0 && !selectedClient) {
@@ -55,7 +64,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    supabase.auth.getSession().then(({ data: { session: s }, error }) => {
+      if (error?.code === "refresh_token_not_found") {
+        supabase.auth.signOut();
+      }
       setSession(s);
       setAuthLoading(false);
     });

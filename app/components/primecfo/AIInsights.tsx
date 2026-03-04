@@ -1,59 +1,151 @@
 "use client";
 
 import React, { useState } from "react";
-import { Brain, AlertTriangle, Eye, TrendingUp, Info, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Brain,
+  AlertTriangle,
+  Eye,
+  TrendingUp,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+} from "lucide-react";
 import { AIInsight } from "@/lib/financialData";
 
 interface AIInsightsProps {
   insights: AIInsight[];
   compact?: boolean;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 const urgencyConfig: Record<
   string,
-  { label: string; icon: React.FC<{ className?: string }>; bg: string; border: string; text: string; dot: string }
+  {
+    label: string;
+    icon: React.FC<{ className?: string }>;
+    bg: string;
+    border: string;
+    text: string;
+    metricText: string;
+    iconBg: string;
+  }
 > = {
-  action_required: { label: "Action Required", icon: AlertTriangle, bg: "bg-red-500/10", border: "border-red-500/20", text: "text-red-400", dot: "bg-red-400" },
-  watch: { label: "Watch Closely", icon: Eye, bg: "bg-amber-500/10", border: "border-amber-500/20", text: "text-amber-400", dot: "bg-amber-400" },
-  positive: { label: "Positive Trend", icon: TrendingUp, bg: "bg-emerald-500/10", border: "border-emerald-500/20", text: "text-emerald-400", dot: "bg-emerald-400" },
-  info: { label: "Information", icon: Info, bg: "bg-blue-500/10", border: "border-blue-500/20", text: "text-blue-400", dot: "bg-blue-400" },
+  action_required: {
+    label: "ACTION REQUIRED",
+    icon: AlertTriangle,
+    bg: "bg-red-500/5",
+    border: "border-red-500/15",
+    text: "text-red-400",
+    metricText: "text-red-400",
+    iconBg: "bg-red-500/10",
+  },
+  watch: {
+    label: "WATCH CLOSELY",
+    icon: Eye,
+    bg: "bg-amber-500/5",
+    border: "border-amber-500/15",
+    text: "text-amber-400",
+    metricText: "text-amber-400",
+    iconBg: "bg-amber-500/10",
+  },
+  positive: {
+    label: "POSITIVE TREND",
+    icon: TrendingUp,
+    bg: "bg-emerald-500/5",
+    border: "border-emerald-500/15",
+    text: "text-emerald-400",
+    metricText: "text-emerald-400",
+    iconBg: "bg-emerald-500/10",
+  },
+  info: {
+    label: "INFORMATION",
+    icon: Info,
+    bg: "bg-blue-500/5",
+    border: "border-blue-500/15",
+    text: "text-blue-400",
+    metricText: "text-blue-400",
+    iconBg: "bg-blue-500/10",
+  },
 };
 
-const AIInsights: React.FC<AIInsightsProps> = ({ insights, compact = false }) => {
+const filterButtons = [
+  { key: "all", label: "All" },
+  { key: "action_required", label: "Action" },
+  { key: "watch", label: "Watch" },
+  { key: "positive", label: "Positive" },
+  { key: "info", label: "Info" },
+];
+
+const AIInsights: React.FC<AIInsightsProps> = ({
+  insights,
+  compact = false,
+  onRefresh,
+  isRefreshing = false,
+}) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filterUrgency, setFilterUrgency] = useState<string>("all");
 
-  const filtered = filterUrgency === "all" ? insights : insights.filter((i) => i.urgency === filterUrgency);
+  const filtered =
+    filterUrgency === "all"
+      ? insights
+      : insights.filter((i) => i.urgency === filterUrgency);
   const displayed = compact ? filtered.slice(0, 4) : filtered;
 
   return (
-    <div className={compact ? "" : "bg-slate-800/50 border border-slate-700/50 rounded-xl p-6"}>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5">
+    <div
+      className={`font-insights ${
+        compact
+          ? ""
+          : "bg-slate-900/60 border border-slate-700/40 rounded-2xl p-6"
+      }`}
+    >
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-violet-500/20 to-purple-500/20 border border-violet-500/20 rounded-xl flex items-center justify-center">
-            <Brain className="w-5 h-5 text-violet-400" />
+          <div className="w-11 h-11 bg-gradient-to-br from-violet-500/20 to-purple-600/20 border border-violet-500/20 rounded-xl flex items-center justify-center">
+            <Brain className="w-6 h-6 text-violet-400" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white">AI Insights</h3>
-            <p className="text-xs text-slate-400">{insights.length} insights</p>
+            <h3 className="text-xl font-semibold text-white tracking-tight">AI Insights</h3>
+            <p className="text-sm text-slate-500">
+              {insights.length} insights generated
+            </p>
           </div>
         </div>
-        {!compact && (
-          <div className="flex items-center gap-2">
-            {["all", "action_required", "watch", "positive", "info"].map((u) => (
+
+        <div className="flex items-center gap-2">
+          {!compact &&
+            filterButtons.map((btn) => (
               <button
-                key={u}
-                onClick={() => setFilterUrgency(u)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg capitalize ${
-                  filterUrgency === u ? "bg-violet-500/20 text-violet-400 border border-violet-500/30" : "bg-slate-700 text-slate-300 border border-slate-600"
+                key={btn.key}
+                onClick={() => setFilterUrgency(btn.key)}
+                className={`px-3.5 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  filterUrgency === btn.key
+                    ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                    : "bg-slate-800/80 text-slate-400 border border-slate-700/50 hover:text-slate-300 hover:border-slate-600"
                 }`}
               >
-                {u === "all" ? "All" : u.replace("_", " ")}
+                {btn.label}
               </button>
             ))}
-          </div>
-        )}
+          {!compact && onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white transition-colors ml-1"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Cards */}
       <div className="space-y-3">
         {displayed.map((insight) => {
           const config = urgencyConfig[insight.urgency] || urgencyConfig.info;
@@ -63,29 +155,78 @@ const AIInsights: React.FC<AIInsightsProps> = ({ insights, compact = false }) =>
           return (
             <div
               key={insight.id}
-              className={`${config.bg} border ${config.border} rounded-xl overflow-hidden`}
+              className={`${config.bg} border ${config.border} rounded-xl overflow-hidden transition-colors hover:border-opacity-40`}
             >
               <button
-                onClick={() => setExpandedId(isExpanded ? null : insight.id)}
-                className="w-full flex items-center gap-4 p-4 text-left"
+                onClick={() =>
+                  setExpandedId(isExpanded ? null : insight.id)
+                }
+                className="w-full flex items-center gap-5 px-5 py-5 text-left"
               >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${config.bg} border ${config.border}`}>
-                  <Icon className={`w-5 h-5 ${config.text}`} />
+                {/* Icon */}
+                <div
+                  className={`w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center ${config.iconBg}`}
+                >
+                  <Icon className={`w-6 h-6 ${config.text}`} />
                 </div>
+
+                {/* Text content */}
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${config.text}`}>{config.label}</p>
-                  <p className="text-sm text-white truncate">{insight.title}</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className={`text-xs font-bold tracking-wider uppercase ${config.text}`}
+                    >
+                      {config.label}
+                    </span>
+                    {insight.category && (
+                      <>
+                        <span className="text-slate-600">|</span>
+                        <span className="text-xs text-slate-500">
+                          {insight.category}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-base font-semibold text-white leading-snug">
+                    {insight.title}
+                  </p>
+                  <p className="text-sm text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                    {insight.description}
+                  </p>
                 </div>
-                {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
-              </button>
-              {isExpanded && (
-                <div className="px-4 pb-4 pt-0">
-                  <p className="text-sm text-slate-300 leading-relaxed">{insight.description}</p>
-                  {(insight.metric ?? insight.metricValue) && (
-                    <p className="text-xs text-slate-500 mt-2">
-                      {insight.metric} {insight.metricValue}
+
+                {/* Metric badge */}
+                {insight.metricValue && (
+                  <div className="flex-shrink-0 text-right mr-1">
+                    <p
+                      className={`text-2xl font-bold leading-tight ${config.metricText}`}
+                    >
+                      {insight.metricValue}
                     </p>
+                    {insight.metric && (
+                      <p className="text-sm text-slate-500 mt-1">
+                        {insight.metric}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Chevron */}
+                <div className="flex-shrink-0">
+                  {isExpanded ? (
+                    <ChevronUp className="w-5 h-5 text-slate-500" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-slate-500" />
                   )}
+                </div>
+              </button>
+
+              {/* Expanded detail */}
+              {isExpanded && (
+                <div className="px-5 pb-5 pt-0 ml-[4.25rem]">
+                  <p className="text-base text-slate-300 leading-relaxed">
+                    {insight.description}
+                  </p>
                 </div>
               )}
             </div>

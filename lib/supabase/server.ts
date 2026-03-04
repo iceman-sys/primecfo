@@ -1,23 +1,14 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { getSupabasePublicConfig } from '@/lib/env';
 
 /**
  * Supabase client for Server Components, Server Actions, and Route Handlers.
- * Uses cookies for session; ensure the proxy runs so tokens are refreshed.
+ * Uses cookies for session; middleware refreshes tokens on each request.
  */
 export async function createClient() {
   const cookieStore = await cookies();
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    throw new Error(
-      'Missing env: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY (or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)'
-    );
-  }
+  const { url, key } = getSupabasePublicConfig();
 
   return createServerClient(url, key, {
     cookies: {
@@ -30,7 +21,7 @@ export async function createClient() {
             cookieStore.set(name, value, options)
           );
         } catch {
-          // setAll from a Server Component: ignore if proxy is refreshing sessions
+          // setAll from a Server Component: ignore when middleware is refreshing sessions
         }
       },
     },

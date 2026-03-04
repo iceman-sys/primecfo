@@ -10,7 +10,7 @@ interface AdminAuthProps {
 
 /**
  * Wraps admin content and ensures the user has a Supabase session.
- * If not signed in, redirects to /login. The proxy also protects /admin server-side.
+ * If not signed in, redirects to /login. The root proxy also protects /admin server-side.
  */
 export default function AdminAuth({ children }: AdminAuthProps) {
   const router = useRouter();
@@ -19,7 +19,10 @@ export default function AdminAuth({ children }: AdminAuthProps) {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error?.code === "refresh_token_not_found") {
+        supabase.auth.signOut();
+      }
       if (session) {
         setHasSession(true);
       } else {

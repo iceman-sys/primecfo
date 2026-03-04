@@ -8,16 +8,13 @@ import {
   type PeriodType,
   syncReportsForClient,
 } from '@/lib/qbo/reports';
-import { getFinancialContext } from '@/lib/ai/getFinancialContext';
-import { generateInsightsFromContext } from '@/lib/ai/generateInsights';
-import { saveInsights } from '@/lib/ai/saveInsights';
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const clientId = (body.clientId ?? request.nextUrl.searchParams.get('clientId')) as string | null;
   const range = (body.range ?? request.nextUrl.searchParams.get('range') ?? '3m') as ReportRange;
   const periodType = (body.periodType ?? request.nextUrl.searchParams.get('periodType') ?? 'month') as PeriodType;
-  // Default: sync only 3 required reports (Profit & Loss, Balance Sheet, Cash Flow). Set includeOptional: true to also sync AR/AP aging and Account List.
+  // Default: sync 3 required reports (P&L, Balance Sheet, Cash Flow). Set includeOptional: true to also sync AR/AP aging and Account List.
   const includeOptional = body.includeOptional === true;
 
   if (!clientId) {
@@ -39,20 +36,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await syncReportsForClient(clientId, range, periodType, includeOptional);
-    // Trigger AI insights generation in background (fire-and-forget)
-    if (result.reportsSaved > 0) {
-      void (async () => {
-        try {
-          const context = await getFinancialContext(clientId, range);
-          if (context) {
-            const insights = await generateInsightsFromContext(context);
-            await saveInsights({ clientId, reportRange: range, insights });
-          }
-        } catch (e) {
-          console.error('[Insights] Post-sync generation failed:', e);
-        }
-      })();
-    }
     return NextResponse.json({
       ok: true,
       ...result,

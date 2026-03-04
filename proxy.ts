@@ -1,8 +1,12 @@
 import { type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/proxy';
 
+/**
+ * Next.js proxy: runs on every request matching the config matcher.
+ * Refreshes Supabase auth session and protects /admin routes.
+ */
 export async function proxy(request: NextRequest) {
-  return await updateSession(request);
+  return updateSession(request);
 }
 
 export const config = {

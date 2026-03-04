@@ -4,7 +4,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
-import { getSingleDateRange, type ReportRange, type PeriodType } from '@/lib/qbo/reports';
+import { getDateRanges, type ReportRange, type PeriodType } from '@/lib/qbo/reports';
 
 type PeriodRow = { id: string; period_type: string; start_date: string; end_date: string; label: string };
 type MetricRow = { period_id: string; metric_key: string; value: number; unit: string };
@@ -65,6 +65,7 @@ export async function getFinancialContext(
     .from('financial_report_periods')
     .select('id, period_type, start_date, end_date, label')
     .eq('client_id', clientId)
+    .eq('period_type', periodType)
     .gte('start_date', cutoff)
     .order('start_date', { ascending: true });
 
@@ -91,34 +92,60 @@ export async function getFinancialContext(
     map[row.metric_key] = Number(row.value);
   }
 
-  const singleRange = getSingleDateRange(range, periodType);
-  const matchingPeriod =
-    periodList.find(
-      (p) => p.start_date === singleRange.start_date && p.end_date === singleRange.end_date
-    ) ?? periodList[periodList.length - 1];
-  const currentIndex = periodList.findIndex((p) => p.id === matchingPeriod.id);
-  const previousPeriod = currentIndex > 0 ? periodList[currentIndex - 1] : null;
+  // Determine which periods fall inside the selected range window
+  const rangeInfos = getDateRanges(range, periodType);
+  const rangeStartDates = new Set(rangeInfos.map((r) => r.start_date));
+  const currentPeriods = periodList.filter((p) => rangeStartDates.has(p.start_date));
 
-  const toSummary = (p: PeriodRow | null): SummaryShape | null => {
-    if (!p) return null;
-    const m = metricsByPeriod.get(p.id);
-    if (!m) return null;
+  // If no periods match the range window exactly, fall back to the latest N periods
+  const periodCount = range === '3m' ? 3 : range === '6m' ? 6 : range === '12m' ? 12 : 4;
+  const windowPeriods =
+    currentPeriods.length > 0 ? currentPeriods : periodList.slice(-periodCount);
+
+  if (windowPeriods.length === 0) return null;
+
+  // Build the "previous" window: same number of periods immediately before
+  const firstWindowIdx = periodList.findIndex((p) => p.id === windowPeriods[0].id);
+  const prevStart = Math.max(0, firstWindowIdx - windowPeriods.length);
+  const previousPeriods = periodList.slice(prevStart, firstWindowIdx);
+
+  // Aggregate metrics across a set of periods
+  const aggregate = (pds: PeriodRow[]): SummaryShape | null => {
+    if (pds.length === 0) return null;
+    let revenue = 0, expenses = 0, net_income = 0;
+    let cash = 0, ar = 0, ap = 0;
+    let hasAny = false;
+    for (const p of pds) {
+      const m = metricsByPeriod.get(p.id);
+      if (!m) continue;
+      hasAny = true;
+      revenue += m.revenue ?? 0;
+      expenses += m.expenses ?? 0;
+      net_income += m.net_income ?? 0;
+      // For balance-sheet items, use the latest period's snapshot
+      cash = m.cash ?? cash;
+      ar = m.accounts_receivable ?? ar;
+      ap = m.accounts_payable ?? ap;
+    }
+    if (!hasAny) return null;
+    const margin = revenue !== 0 ? (net_income / revenue) * 100 : 0;
     return {
-      revenue: m.revenue ?? 0,
-      expenses: m.expenses ?? 0,
-      net_income: m.net_income ?? 0,
-      profit_margin_pct: m.profit_margin_pct ?? 0,
-      cash: m.cash ?? 0,
-      accounts_receivable: m.accounts_receivable ?? 0,
-      accounts_payable: m.accounts_payable ?? 0,
+      revenue,
+      expenses,
+      net_income,
+      profit_margin_pct: Math.round(margin * 10) / 10,
+      cash,
+      accounts_receivable: ar,
+      accounts_payable: ap,
     };
   };
 
-  const summary = toSummary(matchingPeriod);
-  const previousSummary = toSummary(previousPeriod);
+  const summary = aggregate(windowPeriods);
+  const previousSummary = aggregate(previousPeriods);
   if (!summary) return null;
 
-  const trends: TrendPoint[] = periodList.map((p) => {
+  // Per-period trend points for the selected window
+  const trends: TrendPoint[] = windowPeriods.map((p) => {
     const m = metricsByPeriod.get(p.id) ?? {};
     return {
       periodLabel: p.label,
@@ -153,8 +180,15 @@ export async function getFinancialContext(
       ? Math.min(120, summary.cash / monthlyBurn)
       : null;
 
+  const RANGE_LABELS: Record<ReportRange, string> = {
+    '3m': 'Last 3 Months',
+    '6m': 'Last 6 Months',
+    '12m': 'Last 12 Months',
+    '4q': 'Last 4 Quarters',
+  };
+
   return {
-    periodLabel: singleRange.label,
+    periodLabel: RANGE_LABELS[range],
     reportRange: range,
     summary,
     previousSummary,

@@ -2,6 +2,7 @@ import OAuthClient from 'intuit-oauth';
 import { decryptToken, encryptToken, isEncryptedToken } from './crypto';
 import { getQboOAuthConfig } from './env';
 import { supabaseAdmin } from './supabaseAdmin';
+import { syncConnectionStatus } from './syncConnectionStatus';
 
 type QuickbooksConnectionRow = {
   id?: string;
@@ -37,7 +38,7 @@ export type QboAccessTokenResult = {
   accessToken: string;
 };
 
-const EXPIRY_SKEW_SECONDS = 120;
+const EXPIRY_SKEW_SECONDS = 600;
 
 function isExpired(expiresAtIso: string | null, skewSeconds = EXPIRY_SKEW_SECONDS): boolean {
   if (!expiresAtIso) return true;
@@ -121,18 +122,7 @@ export async function getValidQuickBooksAccessToken(
       return { accessToken: newAccess, realmId: row.realm_id };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Token refresh failed';
-      await sb
-        .from('quickbooks_connections')
-        .update({
-          status: 'needs_reauth',
-          last_refresh_error: errorMessage,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('client_id', clientId);
-      await sb
-        .from('client_qbo_connections')
-        .update({ status: 'expired' })
-        .eq('client_id', clientId);
+      await syncConnectionStatus(clientId, 'needs_reauth', errorMessage);
       throw err;
     }
   }
@@ -161,39 +151,46 @@ export async function getValidQuickBooksAccessToken(
 
   const oc = oauthClient();
   oc.setToken({ access_token: access, refresh_token: refresh, token_type: 'bearer' });
-  const newToken = await oc.refresh();
-  const newAccess = newToken.token.access_token as string;
-  const rawNewRefresh = newToken.token.refresh_token;
-  const newRefresh =
-    rawNewRefresh != null && String(rawNewRefresh).trim() !== ''
-      ? (rawNewRefresh as string)
-      : null;
-  if (!newRefresh) {
-    console.warn(
-      `[QBO] Intuit did not return a new refresh_token for client ${clientId} (qbo_tokens); connection may fail on next refresh.`
-    );
+
+  try {
+    const newToken = await oc.refresh();
+    const newAccess = newToken.token.access_token as string;
+    const rawNewRefresh = newToken.token.refresh_token;
+    const newRefresh =
+      rawNewRefresh != null && String(rawNewRefresh).trim() !== ''
+        ? (rawNewRefresh as string)
+        : null;
+    if (!newRefresh) {
+      console.warn(
+        `[QBO] Intuit did not return a new refresh_token for client ${clientId} (qbo_tokens); connection may fail on next refresh.`
+      );
+    }
+    const expiresAt = new Date(Date.now() + (newToken.token.expires_in as number) * 1000).toISOString();
+
+    const tokenUpdatePayload: Record<string, unknown> = {
+      access_token: encryptToken(newAccess),
+      expires_at: expiresAt,
+    };
+    if (newRefresh) {
+      tokenUpdatePayload.refresh_token = encryptToken(newRefresh);
+    }
+
+    const { error: tokenUpdateError } = await sb
+      .from('qbo_tokens')
+      .update(tokenUpdatePayload)
+      .eq('client_id', clientId);
+
+    if (tokenUpdateError) {
+      console.error('[QBO] Failed to persist qbo_tokens after refresh:', tokenUpdateError);
+      throw tokenUpdateError;
+    }
+
+    return { accessToken: newAccess, realmId: row.company_id };
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Token refresh failed (legacy)';
+    await syncConnectionStatus(clientId, 'needs_reauth', errorMessage);
+    throw err;
   }
-  const expiresAt = new Date(Date.now() + (newToken.token.expires_in as number) * 1000).toISOString();
-
-  const tokenUpdatePayload: Record<string, unknown> = {
-    access_token: encryptToken(newAccess),
-    expires_at: expiresAt,
-  };
-  if (newRefresh) {
-    tokenUpdatePayload.refresh_token = encryptToken(newRefresh);
-  }
-
-  const { error: tokenUpdateError } = await sb
-    .from('qbo_tokens')
-    .update(tokenUpdatePayload)
-    .eq('client_id', clientId);
-
-  if (tokenUpdateError) {
-    console.error('[QBO] Failed to persist qbo_tokens after refresh:', tokenUpdateError);
-    throw tokenUpdateError;
-  }
-
-  return { accessToken: newAccess, realmId: row.company_id };
 }
 
 /** @deprecated Use getValidQuickBooksAccessToken for new code. */
@@ -202,6 +199,30 @@ export async function getValidAccessTokenForClient(
 ): Promise<QboAccessTokenResult> {
   const { accessToken, realmId } = await getValidQuickBooksAccessToken(clientId);
   return { companyId: realmId, accessToken };
+}
+
+const PROACTIVE_REFRESH_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * Proactively refresh the token if it expires within 15 minutes.
+ * Called on status checks so the token stays fresh between actual API calls.
+ * Silently catches errors (getValidQuickBooksAccessToken handles status updates on failure).
+ */
+export async function proactivelyRefreshIfNeeded(clientId: string): Promise<void> {
+  const sb = supabaseAdmin();
+  const { data } = await sb
+    .from('quickbooks_connections')
+    .select('access_expires_at, status')
+    .eq('client_id', clientId)
+    .eq('status', 'connected')
+    .maybeSingle();
+
+  if (!data?.access_expires_at) return;
+
+  const expiresAt = new Date(data.access_expires_at).getTime();
+  if (expiresAt - Date.now() < PROACTIVE_REFRESH_WINDOW_MS) {
+    await getValidQuickBooksAccessToken(clientId);
+  }
 }
 
 export async function ensureEncryptedTokensForClient(clientId: string): Promise<void> {

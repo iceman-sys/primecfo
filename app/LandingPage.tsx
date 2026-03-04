@@ -15,7 +15,10 @@ export default function LandingPage() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
+    supabase.auth.getSession().then(({ data: { session: s }, error }) => {
+      if (error?.code === "refresh_token_not_found") {
+        supabase.auth.signOut();
+      }
       setSession(s);
       setLoading(false);
     });
