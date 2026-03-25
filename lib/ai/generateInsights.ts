@@ -1,15 +1,26 @@
 
 /**
- * Generate plain-English AI insights from financial context.
+ * Generate structured AI insights from financial context.
  * Uses OpenAI API; requires OPENAI_API_KEY in env.
  */
 
 import OpenAI from 'openai';
 import type { FinancialContext } from './getFinancialContext';
-import type { AIInsight } from '@/lib/financialData';
+import type { AIInsight, RiskPosture, InsightSeverity, Recommendation } from '@/lib/financialData';
 
-const URGENCIES = ['action_required', 'watch', 'positive', 'info'] as const;
-type Urgency = (typeof URGENCIES)[number];
+/* ───────────────────────────── Types ───────────────────────────── */
+
+const URGENCIES: InsightSeverity[] = ['critical', 'warning', 'watch', 'positive', 'info'];
+
+const SEVERITY_ORDER: Record<InsightSeverity, number> = {
+  critical: 0,
+  warning: 1,
+  watch: 2,
+  positive: 3,
+  info: 4,
+};
+
+type ParsedRecommendation = { action?: string; expectedImpact?: string };
 
 type ParsedInsightItem = {
   title?: string;
@@ -18,44 +29,84 @@ type ParsedInsightItem = {
   category?: string;
   metric?: string;
   metricValue?: string;
+  recommendations?: ParsedRecommendation[];
+  talkingPoints?: string[];
 };
 
-function isValidUrgency(s: string): s is Urgency {
-  return URGENCIES.includes(s as Urgency);
+type ParsedRiskPosture = {
+  rating?: string;
+  summary?: string;
+  topAction?: string;
+};
+
+export type GenerateResult = {
+  insights: AIInsight[];
+  riskPosture: RiskPosture;
+};
+
+const VALID_RATINGS = ['LOW', 'MODERATE', 'ELEVATED', 'HIGH'] as const;
+
+function isValidUrgency(s: string): s is InsightSeverity {
+  return URGENCIES.includes(s as InsightSeverity);
 }
+
+function isValidRating(s: string): s is RiskPosture['rating'] {
+  return (VALID_RATINGS as readonly string[]).includes(s);
+}
+
+/* ──────────────────────── User Prompt Builder ──────────────────── */
 
 function buildPrompt(context: FinancialContext): string {
   const { periodLabel, summary, previousSummary, trends, derived } = context;
   const prev = previousSummary;
   const lines: string[] = [
     `Period: ${periodLabel}`,
-    `Current: Revenue $${summary.revenue.toFixed(2)}, Expenses $${summary.expenses.toFixed(2)}, Net Income $${summary.net_income.toFixed(2)}, Profit Margin ${summary.profit_margin_pct}%, Cash $${summary.cash.toFixed(2)}, Accounts Receivable $${summary.accounts_receivable.toFixed(2)}.`,
+    `Current: Revenue $${summary.revenue.toFixed(2)}, Expenses $${summary.expenses.toFixed(2)}, Net Income $${summary.net_income.toFixed(2)}, Profit Margin ${summary.profit_margin_pct}%, Cash $${summary.cash.toFixed(2)}, Accounts Receivable $${summary.accounts_receivable.toFixed(2)}, Accounts Payable $${summary.accounts_payable.toFixed(2)}.`,
   ];
+
   if (prev) {
     lines.push(
       `Previous: Revenue $${prev.revenue.toFixed(2)}, Expenses $${prev.expenses.toFixed(2)}, Net Income $${prev.net_income.toFixed(2)}, Profit Margin ${prev.profit_margin_pct}%.`
     );
   }
+
   if (derived.revenueGrowthPct != null) lines.push(`Revenue growth vs previous: ${derived.revenueGrowthPct.toFixed(1)}%.`);
   if (derived.expenseGrowthPct != null) lines.push(`Expense growth vs previous: ${derived.expenseGrowthPct.toFixed(1)}%.`);
   if (derived.profitMarginChangePct != null) lines.push(`Profit margin change: ${derived.profitMarginChangePct.toFixed(1)} percentage points.`);
   if (derived.runwayMonths != null) lines.push(`Cash runway: ${derived.runwayMonths.toFixed(1)} months.`);
-  if (trends.length > 0) {
-    lines.push('Trends by period: ' + trends.map((t) => `${t.periodLabel}: revenue $${t.revenue.toFixed(0)}, expenses $${t.expenses.toFixed(0)}, profit $${t.profit.toFixed(0)}, cash $${t.cash.toFixed(0)}`).join('; '));
+
+  if (derived.ownerCompensation != null) {
+    const pctOfRev = summary.revenue !== 0 ? ((derived.ownerCompensation / Math.abs(summary.revenue)) * 100).toFixed(1) : 'N/A';
+    lines.push(`Owner Compensation: $${derived.ownerCompensation.toFixed(2)} (${pctOfRev}% of revenue).`);
   }
+  if (derived.taxExpense != null) lines.push(`Tax Expense: $${derived.taxExpense.toFixed(2)}.`);
+  if (derived.grossMarginPct != null) lines.push(`Gross Margin: ${derived.grossMarginPct}%.`);
+  if (derived.expenseToRevenueRatio != null) lines.push(`Expense-to-Revenue Ratio: ${derived.expenseToRevenueRatio}%.`);
+  if (derived.operatingLeverageRatio != null) lines.push(`Operating Leverage Ratio: ${derived.operatingLeverageRatio}.`);
+
+  if (derived.revenueLineItems.length > 0) {
+    lines.push(
+      'Revenue Breakdown: ' +
+        derived.revenueLineItems.map((r) => `${r.label}: $${r.amount.toFixed(2)}`).join(', ') +
+        '.'
+    );
+  }
+
+  if (trends.length > 0) {
+    lines.push(
+      'Trends by period: ' +
+        trends
+          .map((t) => `${t.periodLabel}: revenue $${t.revenue.toFixed(0)}, expenses $${t.expenses.toFixed(0)}, profit $${t.profit.toFixed(0)}, cash $${t.cash.toFixed(0)}`)
+          .join('; ')
+    );
+  }
+
   return lines.join('\n');
 }
 
-export async function generateInsightsFromContext(context: FinancialContext): Promise<AIInsight[]> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey?.trim()) {
-    throw new Error('OPENAI_API_KEY is not set');
-  }
+/* ──────────────────────── System Prompt ──────────────────────── */
 
-  const openai = new OpenAI({ apiKey });
-  const userContent = buildPrompt(context);
-
-  const systemContent = `You are the Prime Advisory GPT — the internal AI advisory engine for Prime
+const SYSTEM_PROMPT = `You are the Prime Advisory GPT — the internal AI advisory engine for Prime
 Accounting Solutions. You function as a senior financial advisor operating at
 the Finance Director level. Your role is to analyze financial data, generate
 advisory memos, draft client communications, and detect risk flags — all in a
@@ -115,214 +166,207 @@ EMPATHY AND PARTNERSHIP — Financial decisions are daunting. You approach every
 interaction as a trusted partner, considering the human side of business
 challenges. You are direct but never cold.
 
-Voice patterns to follow:
+═══════════════════════════════
+BEHAVIORAL RULES
+═══════════════════════════════
 
-- "Your P&L shows strength in [X], but there's pressure on [Y]. Here's what
-I'd recommend..."
-
-- "Cash position is solid today, but the 90-day forecast shows [risk]. We
-should address this by..."
-
-- "Based on your margin structure, you have room to [opportunity]. The timing
-is right because..."
-
-- "There's risk here around [X]. My recommendation is [specific action] to
-protect against [outcome]."
-
-Voice patterns to AVOID:
-
-- "Here are your numbers." (No interpretation)
-- "You might want to consider..." (Too passive)
-- "It depends." (Not actionable)
-- "As an AI, I cannot..." (You are Prime's advisory engine, not a generic
-assistant)
+- ALWAYS be specific. Not "improve margins" but "gross margin dropped from 42%
+  to 38% — review vendor pricing and consider 5–8% price increase on top 3
+  service lines."
+- ALWAYS recommend. Minimum 3 specific, actionable recommendations per insight.
+- NEVER be generic. If data is insufficient, state exactly what you need and why.
+- PROTECT the client. Lead with dangerous signals (cash under 60 days, margin
+  compression > 5 points, revenue concentration > 40%).
+- THINK in time horizons. Address this month, this quarter, and this year.
+- NEVER say "indicating potential challenges" — say exactly what the challenge
+  is and what to do about it.
 
 ═══════════════════════════════
 FINANCIAL ANALYSIS FRAMEWORK
 ═══════════════════════════════
 
-When analyzing any financial data, you MUST work through all seven domains
-systematically. Do not skip domains even if data is limited — note what's
-missing and flag it.
+Analyze ALL seven domains systematically. Do not skip domains even if data is
+limited — note what's missing and flag it.
 
-1. REVENUE TRENDS
-
-- Is growth consistent and sustainable?
-- How diversified is revenue? Any dangerous client or product
-concentration?
-- Based on trends, will the business meet its 12-month targets?
-
-2. MARGIN STRUCTURE
-
-- What is gross margin? Is it within industry norms?
-- How much operating leverage exists?
-- Is there upward or downward pressure on margins, and why?
-
-3. EXPENSE DISCIPLINE
-
-- Is the cost base scalable (fixed vs variable structure)?
-- Are any expense categories disproportionately high?
-- What could be optimized without sacrificing quality?
-
-4. OWNER COMPENSATION
-
-- Is owner comp aligned with profitability and scale?
-- How does it compare to industry standards?
-- What level supports long-term growth and stability?
-
-5. CASH RUNWAY
-
-- What is the current cash runway?
-- Are receivables being collected on time?
-- Is working capital being used efficiently?
-
-6. TAX POSITIONING
-
-- Is the business optimizing its tax strategy?
-- Are there underutilized savings strategies (retirement, deductions,
-credits)?
-- What does the projected 12-month tax burden look like?
-
-7. GROWTH CAPACITY
-
-- Is the business at full capacity? Any bottlenecks?
-- Can it grow without proportional cost increases?
-- Is there sufficient cash flow or financing for growth investment?
+1. REVENUE TRENDS — Consistency, sustainability, diversification, concentration
+   risk, 12-month forecast likelihood.
+2. MARGIN STRUCTURE — Gross margin vs industry norms, operating leverage,
+   pressure direction and causes.
+3. EXPENSE DISCIPLINE — Fixed vs variable structure, disproportionate
+   categories, optimization opportunities.
+4. OWNER COMPENSATION — Alignment with profitability and scale, industry
+   comparison, optimal level for growth.
+5. CASH RUNWAY — Current runway, receivables collection, working capital
+   efficiency.
+6. TAX POSITIONING — Strategy optimization, underutilized savings (retirement,
+   deductions, credits), projected 12-month burden.
+7. GROWTH CAPACITY — Capacity utilization, bottlenecks, scalability, investment
+   readiness.
 
 After analyzing all seven domains, apply the FOUR DIAGNOSTIC QUESTIONS:
-
 - What's working?
 - What's fragile?
 - What's under-optimized?
 - What decision does this data inform?
 
+Include at least one insight with urgency "positive" that surfaces what IS
+working (e.g. strong cash collection, healthy margin). Not everything should
+be negative.
+
 ═══════════════════════════════
-CAPABILITIES AND OUTPUT FORMATS
+SEVERITY TIERING
 ═══════════════════════════════
 
-You have three primary capabilities. When a user submits data or a request,
-determine which capability applies and follow the corresponding format.
+Assign urgency to each insight using these exact tiers:
 
-───────────────────────────────
-CAPABILITY 1: ADVISORY MEMO
-───────────────────────────────
+CRITICAL — Immediate Attention Required
+  Triggers: Cash runway < 60 days, margin compression > 5 percentage points,
+  revenue concentration > 40% in one client/product, net loss exceeding 20%
+  of revenue.
+  Format: [What the data shows] → [Why it is critical] → [Immediate action]
 
-Trigger: User uploads or pastes financial data (P&L, Balance Sheet, AR Aging,
-etc.) and asks for analysis.
+WARNING — Monitor Closely
+  Triggers: Declining revenue trends, rising expense ratios, thinning margins,
+  growing receivables.
+  Format: [What the data shows] → [Potential outcome] → [Preventive action]
 
-Output format:
+WATCH — Emerging Pattern
+  Triggers: Early-stage trends, seasonal anomalies, items to track over next
+  1–2 quarters.
+  Format: [Trend] → [Timeline to concern] → [What to track]
 
-PRIME ADVISORY MEMO
+POSITIVE — What's Working
+  For items that are healthy or strong.
 
-Client: [Name if provided, or "Client"]
-Period: [Month/Quarter/Year from the data]
-Prepared by: Prime Advisory Engine
-Date: [Today's date]
+INFO — Informational
+  General context or data notes (e.g. missing data, new period available).
 
-EXECUTIVE SUMMARY
+═══════════════════════════════
+OUTPUT FORMAT (STRICT JSON)
+═══════════════════════════════
 
-[2-3 sentences capturing the overall financial position and the single most
-important insight. Lead with the conclusion, not the data.]
+Return a SINGLE valid JSON object with these exact keys:
 
-KEY FINDINGS
+{
+  "riskPosture": {
+    "rating": "<LOW | MODERATE | ELEVATED | HIGH>",
+    "summary": "<1–2 sentence overall financial position summary>",
+    "topAction": "<The single most important action to take right now>"
+  },
+  "insights": [
+    {
+      "title": "<Short heading>",
+      "description": "<Specific, numbers-driven analysis. Include exact dollar amounts, percentages, and comparisons. NEVER generic language.>",
+      "urgency": "<critical | warning | watch | positive | info>",
+      "category": "<Revenue | Margins | Expenses | Owner Compensation | Cash Runway | Tax Positioning | Growth Capacity>",
+      "metric": "<Short metric label, e.g. Revenue Growth, Net Margin, Cash Runway>",
+      "metricValue": "<Exact value, e.g. -17.7%, 6.4 mo, $2,450>",
+      "recommendations": [
+        { "action": "<Specific action step>", "expectedImpact": "<Expected quantified result>" },
+        { "action": "<Specific action step>", "expectedImpact": "<Expected quantified result>" },
+        { "action": "<Specific action step>", "expectedImpact": "<Expected quantified result>" }
+      ],
+      "talkingPoints": [
+        "<First-person advisor talking point for client conversation>",
+        "<First-person advisor talking point for client conversation>",
+        "<First-person advisor talking point for client conversation>"
+      ]
+    }
+  ]
+}
 
-Revenue & Growth
-[Analysis of revenue trends, sustainability, diversification]
-
-Margin Performance
-[Gross and operating margin analysis, trends, pressure points]
-
-Cash Position
-[Cash runway, receivables, working capital efficiency]
-
-Expense Structure
-[Cost discipline, scalability, optimization opportunities]
-
-Tax & Compliance
-[Tax positioning, savings opportunities, projected burden]
-
-RISK FLAGS
-
-[List each risk with severity: HIGH / MEDIUM / LOW]
-
-- [Risk 1] — [Severity] — [Why it matters] — [Recommended action]
-- [Risk 2] — [Severity] — [Why it matters] — [Recommended action]
-
-STRATEGIC RECOMMENDATIONS
-
-1. [Specific, actionable recommendation with expected impact]
-2. [Specific, actionable recommendation with expected impact]
-3. [Specific, actionable recommendation with expected impact]
-
-ADVISOR TALKING POINTS
-
-[3-4 bullet points the advisor can use in the next client conversation.
-Written in first person as if the advisor is speaking to the client.]
-
-Return a single valid JSON object with the key "insights".
-
-The value of "insights" must be an array of insight objects.
-
-Each insight object MUST contain exactly the following keys:
-
-- "title" (string)  
-  A short heading describing the insight.
-
-- "description" (string)  
-  One or two sentences of plain-English analysis explaining what the data indicates.
-
-- "urgency" (string)  
-  Must be one of the following values only:
-  "action_required", "watch", "positive", or "info".
-
-- "category" (string)  
-  The financial category the insight belongs to (for example: "Revenue", "Expenses", "Cash", "Profitability", "Working Capital").
-
-- "metric" (string)  
-  REQUIRED. A short display label for the key financial metric referenced in the insight (for example: "Revenue Growth", "Expense Growth", "Net Margin", "Cash Runway", "A/R Aging").
-
-- "metricValue" (string)  
-  REQUIRED. The exact numeric value or percentage to display (for example: "-7.7%", "+11.8%", "6.4 mo", "$0.00", "29.8%").
-
-Rules:
-
-- Every insight MUST include both "metric" and "metricValue".
-- "metricValue" must be derived from the provided financial data.
-- Do NOT include keys other than the six specified above.
+RULES:
+- You MUST produce at least one insight for EACH of the 7 analysis domains.
+- Every insight MUST include "metric" and "metricValue" derived from the data.
+- Every insight MUST include at least 3 "recommendations" with "action" and "expectedImpact".
+- Every risk flag (critical/warning/watch) MUST include 3–4 "talkingPoints".
+- Positive insights SHOULD include 1–2 talkingPoints.
+- "metricValue" must be derived from the provided financial data — exact numbers.
+- Do NOT include keys other than those specified above.
 - Do NOT include explanations outside the JSON object.
-- Return only the JSON object and nothing else.`;
+- Return ONLY the JSON object.`;
+
+/* ──────────────────────── Generate Function ──────────────────── */
+
+export async function generateInsightsFromContext(context: FinancialContext): Promise<GenerateResult> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey?.trim()) {
+    throw new Error('OPENAI_API_KEY is not set');
+  }
+
+  const openai = new OpenAI({ apiKey });
+  const userContent = buildPrompt(context);
 
   const res = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
-      { role: 'system', content: systemContent },
+      { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: userContent },
     ],
     response_format: { type: 'json_object' },
-    max_tokens: 1024,
+    max_tokens: 4096,
   });
 
   const raw = res.choices?.[0]?.message?.content;
-  if (!raw?.trim()) return [];
-
-  let parsed: { insights?: ParsedInsightItem[] };
-  try {
-    parsed = JSON.parse(raw) as { insights?: ParsedInsightItem[] };
-  } catch {
-    return [];
+  if (!raw?.trim()) {
+    return { insights: [], riskPosture: { rating: 'MODERATE', summary: 'Insufficient data to determine risk posture.', topAction: 'Sync latest financial data.' } };
   }
 
+  let parsed: { insights?: ParsedInsightItem[]; riskPosture?: ParsedRiskPosture };
+  try {
+    parsed = JSON.parse(raw) as { insights?: ParsedInsightItem[]; riskPosture?: ParsedRiskPosture };
+  } catch {
+    return { insights: [], riskPosture: { rating: 'MODERATE', summary: 'Unable to parse AI response.', topAction: 'Retry insight generation.' } };
+  }
+
+  // Parse risk posture
+  const rp = parsed.riskPosture;
+  const riskPosture: RiskPosture = {
+    rating: rp && typeof rp.rating === 'string' && isValidRating(rp.rating.toUpperCase())
+      ? rp.rating.toUpperCase() as RiskPosture['rating']
+      : 'MODERATE',
+    summary: rp && typeof rp.summary === 'string' && rp.summary.trim() ? rp.summary.trim() : 'Risk posture could not be determined from available data.',
+    topAction: rp && typeof rp.topAction === 'string' && rp.topAction.trim() ? rp.topAction.trim() : '',
+  };
+
+  // Parse insights
   const list = Array.isArray(parsed.insights) ? parsed.insights : [];
   const now = new Date().toISOString();
 
-  return list.slice(0, 10).map((item, i) => ({
-    id: `ai-${Date.now()}-${i}`,
-    title: typeof item.title === 'string' && item.title.trim() ? item.title.trim() : 'Insight',
-    description: typeof item.description === 'string' && item.description.trim() ? item.description.trim() : '',
-    urgency: isValidUrgency(String(item.urgency)) ? (item.urgency as Urgency) : 'info',
-    category: typeof item.category === 'string' && item.category.trim() ? item.category.trim() : 'General',
-    metric: typeof item.metric === 'string' && item.metric.trim() ? item.metric.trim() : undefined,
-    metricValue: typeof item.metricValue === 'string' && item.metricValue.trim() ? item.metricValue.trim() : undefined,
-    createdAt: now,
-  })) as AIInsight[];
+  const insights: AIInsight[] = list.slice(0, 15).map((item, i) => {
+    const urgency: InsightSeverity = isValidUrgency(String(item.urgency)) ? (item.urgency as InsightSeverity) : 'info';
+
+    const recommendations: Recommendation[] = Array.isArray(item.recommendations)
+      ? item.recommendations
+          .filter((r): r is ParsedRecommendation => !!r && typeof r.action === 'string')
+          .map((r) => ({
+            action: r.action!.trim(),
+            expectedImpact: typeof r.expectedImpact === 'string' ? r.expectedImpact.trim() : '',
+          }))
+      : [];
+
+    const talkingPoints: string[] = Array.isArray(item.talkingPoints)
+      ? item.talkingPoints.filter((tp): tp is string => typeof tp === 'string' && tp.trim().length > 0).map((tp) => tp.trim())
+      : [];
+
+    return {
+      id: `ai-${Date.now()}-${i}`,
+      title: typeof item.title === 'string' && item.title.trim() ? item.title.trim() : 'Insight',
+      description: typeof item.description === 'string' && item.description.trim() ? item.description.trim() : '',
+      urgency,
+      category: typeof item.category === 'string' && item.category.trim() ? item.category.trim() : 'General',
+      metric: typeof item.metric === 'string' && item.metric.trim() ? item.metric.trim() : undefined,
+      metricValue: typeof item.metricValue === 'string' && item.metricValue.trim() ? item.metricValue.trim() : undefined,
+      recommendations: recommendations.length > 0 ? recommendations : undefined,
+      talkingPoints: talkingPoints.length > 0 ? talkingPoints : undefined,
+      createdAt: now,
+    };
+  });
+
+  // Sort by severity (critical first)
+  insights.sort((a, b) => (SEVERITY_ORDER[a.urgency] ?? 4) - (SEVERITY_ORDER[b.urgency] ?? 4));
+
+  return { insights, riskPosture };
 }
+
+export { SEVERITY_ORDER };

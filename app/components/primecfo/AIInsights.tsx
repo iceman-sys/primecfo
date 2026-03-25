@@ -4,14 +4,17 @@ import React, { useState } from "react";
 import {
   Brain,
   AlertTriangle,
+  AlertCircle,
   Eye,
   TrendingUp,
   Info,
   ChevronDown,
   ChevronUp,
   RefreshCw,
+  Lightbulb,
+  MessageSquareQuote,
 } from "lucide-react";
-import { AIInsight } from "@/lib/financialData";
+import type { AIInsight, InsightSeverity } from "@/lib/financialData";
 
 interface AIInsightsProps {
   insights: AIInsight[];
@@ -21,7 +24,7 @@ interface AIInsightsProps {
 }
 
 const urgencyConfig: Record<
-  string,
+  InsightSeverity,
   {
     label: string;
     icon: React.FC<{ className?: string }>;
@@ -32,8 +35,8 @@ const urgencyConfig: Record<
     iconBg: string;
   }
 > = {
-  action_required: {
-    label: "ACTION REQUIRED",
+  critical: {
+    label: "IMMEDIATE ATTENTION REQUIRED",
     icon: AlertTriangle,
     bg: "bg-red-500/5",
     border: "border-red-500/15",
@@ -41,8 +44,17 @@ const urgencyConfig: Record<
     metricText: "text-red-400",
     iconBg: "bg-red-500/10",
   },
+  warning: {
+    label: "MONITOR CLOSELY",
+    icon: AlertCircle,
+    bg: "bg-orange-500/5",
+    border: "border-orange-500/15",
+    text: "text-orange-400",
+    metricText: "text-orange-400",
+    iconBg: "bg-orange-500/10",
+  },
   watch: {
-    label: "WATCH CLOSELY",
+    label: "EMERGING PATTERN",
     icon: Eye,
     bg: "bg-amber-500/5",
     border: "border-amber-500/15",
@@ -51,7 +63,7 @@ const urgencyConfig: Record<
     iconBg: "bg-amber-500/10",
   },
   positive: {
-    label: "POSITIVE TREND",
+    label: "WHAT'S WORKING",
     icon: TrendingUp,
     bg: "bg-emerald-500/5",
     border: "border-emerald-500/15",
@@ -72,7 +84,8 @@ const urgencyConfig: Record<
 
 const filterButtons = [
   { key: "all", label: "All" },
-  { key: "action_required", label: "Action" },
+  { key: "critical", label: "Critical" },
+  { key: "warning", label: "Warning" },
   { key: "watch", label: "Watch" },
   { key: "positive", label: "Positive" },
   { key: "info", label: "Info" },
@@ -108,14 +121,16 @@ const AIInsights: React.FC<AIInsightsProps> = ({
             <Brain className="w-6 h-6 text-violet-400" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-white tracking-tight">AI Insights</h3>
+            <h3 className="text-xl font-semibold text-white tracking-tight">
+              AI Insights
+            </h3>
             <p className="text-sm text-slate-500">
               {insights.length} insights generated
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {!compact &&
             filterButtons.map((btn) => (
               <button
@@ -148,9 +163,14 @@ const AIInsights: React.FC<AIInsightsProps> = ({
       {/* Cards */}
       <div className="space-y-3">
         {displayed.map((insight) => {
-          const config = urgencyConfig[insight.urgency] || urgencyConfig.info;
+          const config =
+            urgencyConfig[insight.urgency] || urgencyConfig.info;
           const Icon = config.icon;
           const isExpanded = expandedId === insight.id;
+          const hasRecommendations =
+            insight.recommendations && insight.recommendations.length > 0;
+          const hasTalkingPoints =
+            insight.talkingPoints && insight.talkingPoints.length > 0;
 
           return (
             <div
@@ -223,10 +243,70 @@ const AIInsights: React.FC<AIInsightsProps> = ({
 
               {/* Expanded detail */}
               {isExpanded && (
-                <div className="px-5 pb-5 pt-0 ml-[4.25rem]">
+                <div className="px-5 pb-5 pt-0 ml-[4.25rem] space-y-4">
+                  {/* Full description */}
                   <p className="text-base text-slate-300 leading-relaxed">
                     {insight.description}
                   </p>
+
+                  {/* Recommendations */}
+                  {hasRecommendations && (
+                    <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Lightbulb className="w-4 h-4 text-violet-400" />
+                        <h4 className="text-sm font-semibold text-white tracking-tight">
+                          Strategic Recommendations
+                        </h4>
+                      </div>
+                      <div className="space-y-3">
+                        {insight.recommendations!.map((rec, idx) => (
+                          <div
+                            key={idx}
+                            className="flex gap-3"
+                          >
+                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-500/15 text-violet-400 text-xs font-bold flex items-center justify-center mt-0.5">
+                              {idx + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-slate-200 leading-relaxed">
+                                {rec.action}
+                              </p>
+                              {rec.expectedImpact && (
+                                <p className="text-xs text-slate-500 mt-1">
+                                  Expected impact: {rec.expectedImpact}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Advisor Talking Points */}
+                  {hasTalkingPoints && (
+                    <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <MessageSquareQuote className="w-4 h-4 text-teal-400" />
+                        <h4 className="text-sm font-semibold text-white tracking-tight">
+                          Advisor Talking Points
+                        </h4>
+                      </div>
+                      <div className="space-y-2">
+                        {insight.talkingPoints!.map((point, idx) => (
+                          <div
+                            key={idx}
+                            className="flex gap-3 items-start"
+                          >
+                            <span className="flex-shrink-0 w-1 h-1 rounded-full bg-teal-400 mt-2" />
+                            <p className="text-sm text-slate-300 leading-relaxed italic">
+                              &ldquo;{point}&rdquo;
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -7,7 +7,7 @@ import type { ReportRange } from '@/lib/qbo/reports';
 /**
  * POST /api/insights/generate
  * Body: { clientId: string, range?: '3m'|'6m'|'12m'|'4q' }
- * Pulls financial data, generates AI insights, stores them, returns the list.
+ * Pulls financial data, generates AI insights + risk posture, stores them, returns the result.
  */
 export async function POST(request: NextRequest) {
   let clientId: string | null = null;
@@ -29,20 +29,21 @@ export async function POST(request: NextRequest) {
   if (!context) {
     return NextResponse.json({
       insights: [],
+      riskPosture: null,
       message: 'No financial data for this client and range. Sync QuickBooks first.',
     });
   }
 
   try {
-    const insights = await generateInsightsFromContext(context);
-    const periodId = null; // optional: pass from context if we add period_id to getFinancialContext later
+    const { insights, riskPosture } = await generateInsightsFromContext(context);
     await saveInsights({
       clientId,
       reportRange: range,
-      periodId,
+      periodId: null,
       insights,
+      riskPosture,
     });
-    return NextResponse.json({ insights });
+    return NextResponse.json({ insights, riskPosture });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Failed to generate insights';
     return NextResponse.json({ error: message }, { status: 500 });

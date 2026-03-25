@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClientContext } from "@/contexts/ClientContext";
 import AIInsights from "@/app/components/primecfo/AIInsights";
+import RiskPosture from "@/app/components/primecfo/RiskPosture";
 import { Select } from "@/app/components/ui/select";
-import { getInsights, generateInsights, type ReportRange } from "@/lib/api/client";
-import type { AIInsight } from "@/lib/financialData";
+import { getInsights, generateInsights, type ReportRange, type InsightsResponse } from "@/lib/api/client";
+import type { AIInsight, RiskPosture as RiskPostureType } from "@/lib/financialData";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
@@ -30,10 +31,8 @@ export default function InsightsPage() {
 
   const generateMutation = useMutation({
     mutationFn: () => generateInsights(selectedClient!.id, range),
-    onSuccess: (result) => {
-      queryClient.setQueryData(["insights", selectedClient?.id, range], {
-        insights: result.insights,
-      });
+    onSuccess: (result: InsightsResponse) => {
+      queryClient.setQueryData(["insights", selectedClient?.id, range], result);
       toast.success("AI insights generated");
     },
     onError: (e) => {
@@ -42,6 +41,7 @@ export default function InsightsPage() {
   });
 
   const insights: AIInsight[] = data?.insights ?? [];
+  const riskPosture: RiskPostureType | null = data?.riskPosture ?? null;
 
   if (!selectedClient) {
     return (
@@ -96,11 +96,14 @@ export default function InsightsPage() {
           </button>
         </div>
       ) : (
-        <AIInsights
-          insights={insights}
-          onRefresh={() => generateMutation.mutate()}
-          isRefreshing={generateMutation.isPending}
-        />
+        <>
+          <RiskPosture riskPosture={riskPosture} />
+          <AIInsights
+            insights={insights}
+            onRefresh={() => generateMutation.mutate()}
+            isRefreshing={generateMutation.isPending}
+          />
+        </>
       )}
     </div>
   );

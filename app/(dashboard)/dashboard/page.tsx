@@ -7,7 +7,7 @@ import { useClientContext } from "@/contexts/ClientContext";
 import DashboardView from "@/app/components/primecfo/DashboardView";
 import { getDashboardData, getInsights, syncReports, SyncError, type ReportRange } from "@/lib/api/client";
 import { toastErrorWithProgress } from "@/app/components/ui/sonner";
-import type { MetricCard, ChartDataPoint, AIInsight } from "@/lib/financialData";
+import type { MetricCard, ChartDataPoint, AIInsight, RiskPosture } from "@/lib/financialData";
 import { getTrend } from "@/lib/financialData";
 
 const RANGE_TO_LABEL: Record<ReportRange, string> = {
@@ -164,12 +164,14 @@ export default function DashboardPage() {
   const selectedPeriodLabel = RANGE_TO_LABEL[range];
   const hasSyncedData = dashboardData?.period != null;
   const insights: AIInsight[] = insightsData?.insights ?? [];
+  const riskPosture: RiskPosture | null = insightsData?.riskPosture ?? null;
 
   return (
     <DashboardView
       metrics={metrics}
       chartData={chartData}
       insights={insights}
+      riskPosture={riskPosture}
       client={selectedClient}
       onNavigate={(view) =>
         router.push(view === "reports" ? `/reports?range=${range}` : `/${view}`)

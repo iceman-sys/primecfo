@@ -190,22 +190,17 @@ export async function getDashboardData(
   return res.json();
 }
 
-/** AI insight shape (matches API and lib/financialData AIInsight) */
-export interface AIInsightResponse {
-  id: string;
-  title: string;
-  description: string;
-  urgency: 'action_required' | 'watch' | 'positive' | 'info';
-  category: string;
-  metric?: string;
-  metricValue?: string;
-  createdAt: string;
-}
+import type { AIInsight, RiskPosture } from '@/lib/financialData';
+
+export type InsightsResponse = {
+  insights: AIInsight[];
+  riskPosture: RiskPosture | null;
+};
 
 export async function getInsights(
   clientId: string,
   range: ReportRange = '12m'
-): Promise<{ insights: AIInsightResponse[] }> {
+): Promise<InsightsResponse> {
   const params = new URLSearchParams({ clientId, range });
   const res = await fetch(`/api/insights?${params}`);
   if (!res.ok) {
@@ -218,13 +213,13 @@ export async function getInsights(
 export async function generateInsights(
   clientId: string,
   range: ReportRange = '12m'
-): Promise<{ insights: AIInsightResponse[] }> {
+): Promise<InsightsResponse> {
   const res = await fetch('/api/insights/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ clientId, range }),
   });
-  const data = await res.json().catch(() => ({})) as { error?: string; insights?: AIInsightResponse[] };
+  const data = await res.json().catch(() => ({})) as { error?: string; insights?: AIInsight[]; riskPosture?: RiskPosture | null };
   if (!res.ok) throw new Error(data.error ?? `Generate insights failed: ${res.status}`);
-  return { insights: data.insights ?? [] };
+  return { insights: data.insights ?? [], riskPosture: data.riskPosture ?? null };
 }

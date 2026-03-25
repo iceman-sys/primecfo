@@ -6,7 +6,9 @@ import MetricCards from "./MetricCards";
 import RevenueChart from "./RevenueChart";
 import CashFlowChart from "./CashFlowChart";
 import AIInsights from "./AIInsights";
+import RiskPosture from "./RiskPosture";
 import { MetricCard, ChartDataPoint, AIInsight, Client, timeAgo } from "@/lib/financialData";
+import type { RiskPosture as RiskPostureType } from "@/lib/financialData";
 
 export type DashboardRange = "3m" | "6m" | "12m" | "4q";
 
@@ -21,6 +23,7 @@ interface DashboardViewProps {
   metrics: MetricCard[];
   chartData: ChartDataPoint[];
   insights: AIInsight[];
+  riskPosture?: RiskPostureType | null;
   client: Client | null;
   onNavigate: (view: string) => void;
   selectedPeriodLabel?: string;
@@ -41,6 +44,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   metrics,
   chartData,
   insights,
+  riskPosture,
   client,
   onNavigate,
   selectedPeriodLabel = "Trailing 12 Months",
@@ -179,6 +183,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         <RevenueChart data={chartData} />
         <CashFlowChart data={chartData} />
       </div>
+
+      {riskPosture && (
+        <div className="mb-4">
+          <RiskPosture riskPosture={riskPosture} compact />
+        </div>
+      )}
 
       <div className="mb-6">
         <AIInsights insights={insights} compact />

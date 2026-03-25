@@ -5,15 +5,52 @@
 
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import { getDateRanges, type ReportRange, type PeriodType } from '@/lib/qbo/reports';
+import { flattenReportRows } from '@/lib/reportUtils';
 
 type PeriodRow = { id: string; period_type: string; start_date: string; end_date: string; label: string };
 type MetricRow = { period_id: string; metric_key: string; value: number; unit: string };
+type FlatRow = { account: string; value: string };
 
 function getStartDateCutoff(monthsBack: number): string {
   const d = new Date();
   d.setMonth(d.getMonth() - monthsBack);
   return d.toISOString().slice(0, 10);
 }
+
+function normalizeLabel(label: string): string {
+  return label
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseVal(v: string | undefined): number {
+  if (!v) return 0;
+  let cleaned = String(v).replace(/[$,]/g, '').trim();
+  const wrapped = cleaned.startsWith('(') && cleaned.endsWith(')');
+  if (wrapped) cleaned = cleaned.slice(1, -1).trim();
+  const num = parseFloat(cleaned);
+  if (Number.isNaN(num)) return 0;
+  return wrapped ? -Math.abs(num) : num;
+}
+
+function findByPatterns(rows: FlatRow[], patterns: string[], exclude: string[] = []): number {
+  const normP = patterns.map(normalizeLabel);
+  const normE = exclude.map(normalizeLabel);
+  let last = 0;
+  for (const r of rows) {
+    const norm = normalizeLabel(r.account);
+    if (normE.some((e) => norm.includes(e))) continue;
+    for (const p of normP) {
+      if (norm.includes(p) || p.includes(norm)) { last = parseVal(r.value); break; }
+    }
+  }
+  return last;
+}
+
+export type RevenueLineItem = { label: string; amount: number };
 
 export type SummaryShape = {
   revenue: number;
@@ -35,6 +72,14 @@ export type TrendPoint = {
   cash: number;
 };
 
+export type PnlExtras = {
+  ownerCompensation: number | null;
+  taxExpense: number | null;
+  grossProfit: number | null;
+  costOfGoodsSold: number | null;
+  revenueLineItems: RevenueLineItem[];
+};
+
 export type FinancialContext = {
   periodLabel: string;
   reportRange: ReportRange;
@@ -46,8 +91,57 @@ export type FinancialContext = {
     expenseGrowthPct: number | null;
     profitMarginChangePct: number | null;
     runwayMonths: number | null;
+    ownerCompensation: number | null;
+    taxExpense: number | null;
+    grossMarginPct: number | null;
+    operatingLeverageRatio: number | null;
+    expenseToRevenueRatio: number | null;
+    revenueLineItems: RevenueLineItem[];
   };
 };
+
+/**
+ * Extract owner comp, tax, gross profit, COGS, and income line items from raw P&L JSON.
+ */
+function extractPnlExtras(rawJson: unknown): PnlExtras {
+  const rowsObj = rawJson as { Rows?: unknown } | undefined;
+  const flatRows = flattenReportRows(rowsObj?.Rows).map((r) => ({ account: r.account, value: r.value }));
+
+  const ownerComp = findByPatterns(flatRows,
+    ['officer compensation', 'officers compensation', 'owner pay', 'owner\'s pay', 'owner salary', 'owner compensation', 'owner draw', 'owner\'s draw'],
+  );
+  const taxExpense = findByPatterns(flatRows,
+    ['income tax expense', 'tax expense', 'income taxes', 'provision for income taxes', 'taxes'],
+    ['sales tax', 'payroll tax'],
+  );
+  const grossProfit = findByPatterns(flatRows,
+    ['gross profit', 'gross income'],
+  );
+  const cogs = findByPatterns(flatRows,
+    ['total cost of goods sold', 'cost of goods sold', 'total cogs', 'cogs', 'cost of sales', 'total cost of sales'],
+  );
+
+  const revenueLineItems: RevenueLineItem[] = [];
+  const normIncome = normalizeLabel('income');
+  let inIncomeSection = false;
+  for (const r of flatRows) {
+    const norm = normalizeLabel(r.account);
+    if (norm === normIncome || norm === 'income' || norm === 'revenue') { inIncomeSection = true; continue; }
+    if (norm.startsWith('total ') || norm.includes('cost of') || norm.includes('expense')) { inIncomeSection = false; continue; }
+    if (inIncomeSection) {
+      const amt = parseVal(r.value);
+      if (amt !== 0) revenueLineItems.push({ label: r.account, amount: amt });
+    }
+  }
+
+  return {
+    ownerCompensation: ownerComp !== 0 ? ownerComp : null,
+    taxExpense: taxExpense !== 0 ? taxExpense : null,
+    grossProfit: grossProfit !== 0 ? grossProfit : null,
+    costOfGoodsSold: cogs !== 0 ? cogs : null,
+    revenueLineItems,
+  };
+}
 
 /**
  * Get financial context for a client and range (same data as dashboard).
@@ -180,6 +274,33 @@ export async function getFinancialContext(
       ? Math.min(120, summary.cash / monthlyBurn)
       : null;
 
+  // Fetch raw P&L for the latest period to extract line-item detail
+  const latestPeriodId = windowPeriods[windowPeriods.length - 1].id;
+  const { data: pnlReport } = await sb
+    .from('financial_reports')
+    .select('raw_json')
+    .eq('client_id', clientId)
+    .eq('period_id', latestPeriodId)
+    .eq('report_type', 'pnl')
+    .maybeSingle();
+
+  const extras = pnlReport?.raw_json ? extractPnlExtras(pnlReport.raw_json) : null;
+
+  const grossMarginPct =
+    extras?.grossProfit != null && summary.revenue !== 0
+      ? (extras.grossProfit / Math.abs(summary.revenue)) * 100
+      : null;
+
+  const expenseToRevenueRatio =
+    summary.revenue !== 0
+      ? (summary.expenses / Math.abs(summary.revenue)) * 100
+      : null;
+
+  const operatingLeverageRatio =
+    extras?.grossProfit != null && summary.net_income !== 0
+      ? extras.grossProfit / summary.net_income
+      : null;
+
   const RANGE_LABELS: Record<ReportRange, string> = {
     '3m': 'Last 3 Months',
     '6m': 'Last 6 Months',
@@ -198,6 +319,12 @@ export async function getFinancialContext(
       expenseGrowthPct,
       profitMarginChangePct,
       runwayMonths,
+      ownerCompensation: extras?.ownerCompensation ?? null,
+      taxExpense: extras?.taxExpense ?? null,
+      grossMarginPct: grossMarginPct != null ? Math.round(grossMarginPct * 10) / 10 : null,
+      operatingLeverageRatio: operatingLeverageRatio != null ? Math.round(operatingLeverageRatio * 100) / 100 : null,
+      expenseToRevenueRatio: expenseToRevenueRatio != null ? Math.round(expenseToRevenueRatio * 10) / 10 : null,
+      revenueLineItems: extras?.revenueLineItems ?? [],
     },
   };
 }

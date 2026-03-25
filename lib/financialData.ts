@@ -29,15 +29,30 @@ export interface MetricCard {
   color: string;
 }
 
+export type InsightSeverity = 'critical' | 'warning' | 'watch' | 'positive' | 'info';
+
+export interface Recommendation {
+  action: string;
+  expectedImpact: string;
+}
+
 export interface AIInsight {
   id: string;
   title: string;
   description: string;
-  urgency: 'action_required' | 'watch' | 'positive' | 'info';
+  urgency: InsightSeverity;
   category: string;
   metric?: string;
   metricValue?: string;
+  recommendations?: Recommendation[];
+  talkingPoints?: string[];
   createdAt: string;
+}
+
+export interface RiskPosture {
+  rating: 'LOW' | 'MODERATE' | 'ELEVATED' | 'HIGH';
+  summary: string;
+  topAction: string;
 }
 
 export interface ReportLineItem {
