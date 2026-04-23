@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
-import { Link2, BarChart3, Brain, Shield, RefreshCw, Users, ArrowRight, Check, Zap, FileText, TrendingUp } from "lucide-react";
+import React from "react";
+import Link from "next/link";
+import { Link2, BarChart3, Brain, Shield, RefreshCw, Users, ArrowRight, Zap, FileText, TrendingUp } from "lucide-react";
 
 interface FeaturesProps {
   onGetStarted: () => void;
 }
 
 const Features: React.FC<FeaturesProps> = ({ onGetStarted }) => {
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
-
   const features = [
     { icon: Link2, title: "QuickBooks Integration", description: "One-click secure connection to your QuickBooks Online account.", color: "from-teal-500 to-emerald-500" },
     { icon: BarChart3, title: "Financial Dashboard", description: "Real-time metrics, trend charts, and period comparisons.", color: "from-blue-500 to-cyan-500" },
@@ -76,27 +75,41 @@ const Features: React.FC<FeaturesProps> = ({ onGetStarted }) => {
       </section>
 
       <section id="pricing" className="bg-slate-950 py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <p className="text-teal-400 text-sm font-semibold uppercase tracking-wider mb-3">Pricing</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
-            <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-8">Start with a 14-day free trial. No credit card required.</p>
-            <div className="inline-flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl p-1">
-              <button
-                onClick={() => setBillingCycle("monthly")}
-                className={`px-5 py-2 text-sm font-medium rounded-lg transition-all ${billingCycle === "monthly" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white"}`}
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-teal-400 text-sm font-semibold uppercase tracking-wider mb-3">Pricing</p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
+          <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-8">
+            Five plans from self-service AI to full-service CFO advisory. Start at $99/mo with a 14-day free trial.
+          </p>
+          <div className="flex flex-wrap justify-center gap-4 mb-8">
+            {[
+              { label: "Self-Service", price: "$99" },
+              { label: "Starter", price: "$249" },
+              { label: "Growth", price: "$499", badge: "Most Popular" },
+              { label: "Premier", price: "$799" },
+              { label: "Enterprise", price: "$1,499" },
+            ].map((tier) => (
+              <div
+                key={tier.label}
+                className="relative px-5 py-4 bg-slate-900/60 border border-slate-800 rounded-xl min-w-[140px]"
               >
-                Monthly
-              </button>
-              <button
-                onClick={() => setBillingCycle("annual")}
-                className={`px-5 py-2 text-sm font-medium rounded-lg transition-all flex items-center gap-2 ${billingCycle === "annual" ? "bg-slate-800 text-white" : "text-slate-400 hover:text-white"}`}
-              >
-                Annual
-                <span className="text-xs text-teal-400 font-semibold">Save 20%</span>
-              </button>
-            </div>
+                {tier.badge && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 rounded-full whitespace-nowrap">
+                    {tier.badge}
+                  </span>
+                )}
+                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{tier.label}</p>
+                <p className="text-xl font-bold text-white">{tier.price}<span className="text-sm font-normal text-slate-500">/mo</span></p>
+              </div>
+            ))}
           </div>
+          <Link
+            href="/pricing"
+            className="group inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold rounded-xl hover:from-teal-400 hover:to-emerald-400 transition-all shadow-xl shadow-teal-500/25 hover:shadow-teal-500/40"
+          >
+            See all plans and features
+            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+          </Link>
         </div>
       </section>
 

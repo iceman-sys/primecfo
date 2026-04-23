@@ -37,16 +37,31 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
 
           {!isLoggedIn ? (
             <div className="hidden md:flex items-center gap-1">
-              {['Features', 'How It Works', 'Pricing'].map((item) => (
+              {[
+                { label: 'Features', view: 'features', anchor: true },
+                { label: 'How It Works', view: 'how-it-works', anchor: true },
+                { label: 'Pricing', view: 'pricing', anchor: false },
+              ].map((item) => (
                 <button
-                  key={item}
+                  key={item.view}
                   onClick={() => {
-                    const el = document.getElementById(item.toLowerCase().replace(/\s/g, '-'));
-                    el?.scrollIntoView({ behavior: 'smooth' });
+                    if (item.anchor) {
+                      if (currentView === 'landing') {
+                        document.getElementById(item.view)?.scrollIntoView({ behavior: 'smooth' });
+                      } else {
+                        onNavigate(`#${item.view}`);
+                      }
+                    } else {
+                      onNavigate(item.view);
+                    }
                   }}
-                  className="px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors rounded-lg hover:bg-slate-800"
+                  className={`px-4 py-2 text-sm transition-colors rounded-lg ${
+                    currentView === item.view
+                      ? 'text-teal-400 bg-slate-800'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                  }`}
                 >
-                  {item}
+                  {item.label}
                 </button>
               ))}
             </div>
@@ -205,6 +220,17 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
               ))
             ) : (
               <>
+                <button
+                  onClick={() => {
+                    onNavigate('pricing');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`block w-full text-left px-4 py-2.5 text-sm rounded-lg ${
+                    currentView === 'pricing' ? 'text-teal-400 bg-slate-800' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  Pricing
+                </button>
                 <button
                   onClick={() => {
                     onLogin();

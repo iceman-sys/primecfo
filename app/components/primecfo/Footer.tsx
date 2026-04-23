@@ -37,10 +37,10 @@ const Footer: React.FC = () => {
             <h4 className="text-sm font-semibold text-white mb-4">Product</h4>
             <ul className="space-y-2.5">
               <li>
-                <a href="#features" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Features</a>
+                <Link href="/#features" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Features</Link>
               </li>
               <li>
-                <a href="#pricing" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Pricing</a>
+                <Link href="/pricing" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Pricing</Link>
               </li>
             </ul>
           </div>
