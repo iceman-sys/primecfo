@@ -56,3 +56,20 @@ export function getRefreshCronSecret(): string {
   if (!v) throw new Error('Missing required environment variable: QBO_REFRESH_CRON_SECRET or CRON_SECRET');
   return v;
 }
+
+/** Stripe server-side secret key. */
+export function getStripeSecretKey(): string {
+  return requireEnv('STRIPE_SECRET_KEY');
+}
+
+/** Stripe webhook signing secret (from Stripe Dashboard or `stripe listen`). */
+export function getStripeWebhookSecret(): string {
+  return requireEnv('STRIPE_WEBHOOK_SECRET');
+}
+
+/** Publishable base URL used for Stripe success/cancel/return redirects. */
+export function getPublicAppBaseUrl(): string {
+  const v = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_URL;
+  if (!v) throw new Error('Missing required environment variable: NEXT_PUBLIC_APP_URL or NEXT_PUBLIC_URL');
+  return v.replace(/\/$/, '');
+}

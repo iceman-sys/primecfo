@@ -13,7 +13,7 @@ import {
 } from "@/app/lib/pricing-plans";
 
 interface PricingPageProps {
-  onPlanCta: (plan: Plan) => void;
+  onPlanCta: (plan: Plan, interval: "month" | "year") => void;
   onContact: () => void;
   onStartTrial: () => void;
 }
@@ -279,7 +279,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
               {/* CTA */}
               <button
                 type="button"
-                onClick={() => onPlanCta(plan)}
+                onClick={() => onPlanCta(plan, annual ? "year" : "month")}
                 className="w-full cursor-pointer rounded-[10px] border-0 py-3.5 text-sm font-semibold text-white transition-all duration-200"
                 style={{
                   background: plan.popular
