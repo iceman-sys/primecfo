@@ -2,23 +2,22 @@ import type { Metadata } from "next";
 import PublicShell from "@/app/components/primecfo/PublicShell";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | PrimeCFO.ai",
+  title: "Terms of Service | PrimeCFO.ai",
   description:
-    "How PrimeCFO.ai collects, uses, and protects your information.",
-  alternates: { canonical: "/privacy" },
+    "The terms and conditions that govern your use of PrimeCFO.ai and related services.",
+  alternates: { canonical: "/terms" },
 };
 
-// TODO: Paste the full Privacy Policy content from
-// `PrimeCFO_Privacy_Policy.md` into the <article> block below, replacing the
-// placeholder sections. Do not invent or paraphrase legal text — use the
-// canonical source document only.
+// TODO: Paste the full Terms of Service content from `PrimeCFO_Terms_of_Service.md`
+// into the <article> block below, replacing the placeholder sections. Do not
+// invent or paraphrase legal text — use the canonical source document only.
 //
 // Markdown rendering tip: if you want to render the file directly, add a
 // markdown renderer (e.g. `react-markdown`) and import the .md as a string.
 
-export default function PrivacyPolicyPage() {
+export default function TermsOfServicePage() {
   return (
-    <PublicShell currentView="privacy">
+    <PublicShell currentView="terms">
       <section className="relative">
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950" />
         <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-20">
@@ -27,30 +26,30 @@ export default function PrivacyPolicyPage() {
               Legal
             </p>
             <h1 className="text-4xl sm:text-5xl font-bold text-white tracking-tight mb-3">
-              Privacy Policy
+              Terms of Service
             </h1>
             <p className="text-sm text-slate-500">Last updated: April 24, 2026</p>
           </header>
 
           <article className="max-w-none text-slate-300 leading-relaxed space-y-8">
             {/* TODO: Replace the placeholder sections below with the exact
-                contents of PrimeCFO_Privacy_Policy.md once that file is added
-                to the repository. */}
+                contents of PrimeCFO_Terms_of_Service.md once that file is
+                added to the repository. */}
             <section>
               <h2 className="text-2xl font-semibold text-white mb-3">
                 1. Introduction
               </h2>
               <p>
-                This Privacy Policy describes how PrimeCFO AI Inc.
-                (&ldquo;PrimeCFO.ai&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;)
-                collects, uses, and shares information when you use our
-                services.
+                These Terms of Service (&ldquo;Terms&rdquo;) govern your access
+                to and use of PrimeCFO.ai (the &ldquo;Service&rdquo;). By
+                creating an account or using the Service, you agree to be bound
+                by these Terms.
               </p>
               <p className="text-amber-300/80 text-sm italic">
-                Placeholder &mdash; paste the canonical Privacy Policy content
+                Placeholder &mdash; paste the canonical Terms of Service content
                 from{" "}
                 <code className="px-1 py-0.5 rounded bg-slate-800 text-amber-200">
-                  PrimeCFO_Privacy_Policy.md
+                  PrimeCFO_Terms_of_Service.md
                 </code>{" "}
                 here.
               </p>
@@ -58,73 +57,84 @@ export default function PrivacyPolicyPage() {
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-3">
-                2. Information We Collect
+                2. Accounts and Eligibility
               </h2>
               <p>
-                Account information you provide (such as email and password)
-                and financial data retrieved from integrations you connect
-                (such as QuickBooks Online).
+                You must provide accurate information when creating an account
+                and are responsible for safeguarding your credentials.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-3">
-                3. How We Use Information
+                3. Acceptable Use
               </h2>
               <p>
-                We use your information to operate and improve the Service,
-                generate financial insights, and communicate with you about
-                your account.
+                You agree not to misuse the Service, attempt to reverse engineer
+                it, or use it in a way that violates applicable law.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-3">
-                4. Data Storage and Security
+                4. Subscriptions and Billing
               </h2>
               <p>
-                Data is stored securely using industry-standard encryption in
-                transit and at rest. Access is limited to authorized personnel.
+                Paid plans are billed according to the terms displayed at
+                checkout. You may cancel at any time; cancellations take effect
+                at the end of the current billing period.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-3">
-                5. Sharing of Information
+                5. Third-Party Services
               </h2>
               <p>
-                We do not sell your information. We share information only with
-                service providers that help us operate the Service, or when
-                required by law.
+                The Service integrates with third-party services such as
+                QuickBooks Online. Your use of those services is governed by
+                their own terms.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-3">
-                6. Your Rights
+                6. Disclaimer of Warranties
               </h2>
               <p>
-                You may access, correct, or delete your account information at
-                any time by contacting us.
+                The Service is provided &ldquo;as is&rdquo; without warranties
+                of any kind, express or implied, to the fullest extent permitted
+                by law.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-3">
-                7. Changes to This Policy
+                7. Limitation of Liability
               </h2>
               <p>
-                We may update this Privacy Policy from time to time. Material
-                changes will be communicated via the Service or email.
+                To the maximum extent permitted by law, PrimeCFO AI Inc. shall
+                not be liable for any indirect, incidental, or consequential
+                damages arising from your use of the Service.
               </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-white mb-3">
-                8. Contact
+                8. Changes to These Terms
               </h2>
               <p>
-                Privacy questions? Contact us at{" "}
+                We may update these Terms from time to time. Material changes
+                will be communicated via the Service or email.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-white mb-3">
+                9. Contact
+              </h2>
+              <p>
+                Questions about these Terms? Contact us at{" "}
                 <a
                   href="mailto:support@primecfo.ai"
                   className="text-teal-400 hover:text-teal-300 underline"

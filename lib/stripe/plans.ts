@@ -6,8 +6,7 @@ export type BillingInterval = 'month' | 'year';
 /**
  * Map of plan id -> { month, year } -> env var name holding an explicit Stripe Price ID.
  * These are optional; when unset, we auto-provision Products and Prices via lookup_keys.
- * Only self-serve tiers (Self-Service, Starter, Growth) have Checkout prices.
- * Premier and Enterprise are sales-led (contact / invoice).
+ * All public tiers (Self-Service, Starter, Growth) are self-serve Checkout prices.
  */
 const PRICE_ENV_MAP: Record<string, Partial<Record<BillingInterval, string>>> = {
   'self-service': {
@@ -18,10 +17,7 @@ const PRICE_ENV_MAP: Record<string, Partial<Record<BillingInterval, string>>> = 
     month: 'STRIPE_PRICE_STARTER_MONTHLY',
     year: 'STRIPE_PRICE_STARTER_ANNUAL',
   },
-  growth: {
-    month: 'STRIPE_PRICE_GROWTH_MONTHLY',
-    year: 'STRIPE_PRICE_GROWTH_ANNUAL',
-  },
+  // Act (growth) tier is conversation-led in the product UI; no self-serve Checkout.
 };
 
 export function isCheckoutPlan(planId: string): boolean {
@@ -39,8 +35,14 @@ function envPriceId(planId: string, interval: BillingInterval): string | null {
   return value && value.length > 0 ? value : null;
 }
 
-function lookupKey(planId: string, interval: BillingInterval): string {
-  return `primecfo_${planId.replace(/-/g, '_')}_${interval}`;
+/**
+ * Build a Stripe `lookup_key` that includes the current unit_amount.
+ * This way, any price change in `pricing-plans.ts` auto-provisions a fresh
+ * Stripe Price instead of returning the old cached one for the same plan id.
+ */
+function lookupKey(plan: Plan, interval: BillingInterval): string {
+  const amount = computeUnitAmount(plan, interval);
+  return `primecfo_${plan.id.replace(/-/g, '_')}_${interval}_${amount}`;
 }
 
 /**
@@ -108,7 +110,7 @@ export async function getOrCreateStripePriceId(
   const fromEnv = envPriceId(planId, interval);
   if (fromEnv) return fromEnv;
 
-  const key = lookupKey(planId, interval);
+  const key = lookupKey(plan, interval);
 
   const existing = await stripe().prices.list({
     lookup_keys: [key],

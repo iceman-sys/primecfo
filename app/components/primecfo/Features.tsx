@@ -79,15 +79,13 @@ const Features: React.FC<FeaturesProps> = ({ onGetStarted }) => {
           <p className="text-teal-400 text-sm font-semibold uppercase tracking-wider mb-3">Pricing</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-8">
-            Five plans from self-service AI to full-service CFO advisory. Start at $99/mo with a 14-day free trial.
+            Three plans built around how much help you want. Start at $99/mo with a 14-day free trial.
           </p>
           <div className="flex flex-wrap justify-center gap-4 mb-8">
             {[
-              { label: "Self-Service", price: "$99" },
-              { label: "Starter", price: "$249" },
-              { label: "Growth", price: "$499", badge: "Most Popular" },
-              { label: "Premier", price: "$799" },
-              { label: "Enterprise", price: "$1,499" },
+              { label: "See", price: "$99" },
+              { label: "Understand", price: "$249", badge: "Most Popular" },
+              { label: "Act", price: "$449" },
             ].map((tier) => (
               <div
                 key={tier.label}

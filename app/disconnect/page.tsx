@@ -179,7 +179,7 @@ function DisconnectQuickBooksContent() {
         <div className="mt-8 flex items-center justify-center gap-6 text-sm text-white/40">
           <Link href="/privacy" className="hover:text-white/60 transition-colors">Privacy Policy</Link>
           <span>•</span>
-          <Link href="/eula" className="hover:text-white/60 transition-colors">Terms of Service</Link>
+          <Link href="/terms" className="hover:text-white/60 transition-colors">Terms of Service</Link>
           <span>•</span>
           <span>Need Help? primecfoaidev@gmail.com</span>
         </div>
@@ -188,7 +188,7 @@ function DisconnectQuickBooksContent() {
       {/* Footer */}
       <footer className="border-t border-white/10 px-6 py-6 mt-20">
         <div className="max-w-6xl mx-auto text-center text-xs text-white/40">
-          © 2025 Prime Accounting Solutions, LLC. All rights reserved.
+          © 2026 PrimeCFO AI Inc. All rights reserved.
         </div>
       </footer>
     </div>

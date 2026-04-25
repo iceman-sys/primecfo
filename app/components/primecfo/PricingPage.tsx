@@ -1,16 +1,29 @@
 "use client";
 
 import React, { useState } from "react";
-import { Check, Minus, Zap, Users, Building2, ArrowRight } from "lucide-react";
+import { Check, Zap, Users, Building2, ArrowRight } from "lucide-react";
 import {
   PLANS,
-  LANES,
   FAQS,
   DECISION_HELPERS,
   CONTACT_EMAIL,
   type Plan,
   type DecisionHelper,
 } from "@/app/lib/pricing-plans";
+
+/** Deep navy palette (user reference ~#050714 / #080b1e) */
+const BG_DEEP = "#050714";
+const BG_LIFT = "#080b1e";
+const BORDER_SOFT = "rgba(255, 255, 255, 0.06)";
+const BORDER_SOFTER = "rgba(255, 255, 255, 0.04)";
+const TEXT = "#f1f5f9";
+const TEXT_MUTED = "#94a3b8";
+const TEXT_DIM = "#64748b";
+
+/** Brand accent — teal from `globals.css` */
+const ACCENT = "hsl(var(--primary))";
+const ACCENT_GLOW_SOFT = "hsl(var(--primary) / 0.14)";
+const ACCENT_GLOW = "hsl(var(--primary) / 0.22)";
 
 interface PricingPageProps {
   onPlanCta: (plan: Plan, interval: "month" | "year") => void;
@@ -29,68 +42,67 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
   const [hoveredPlan, setHoveredPlan] = useState<number | null>(null);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
+  const serif = "var(--font-fraunces), Georgia, 'Times New Roman', serif";
+  const sans = "var(--font-dm-sans), system-ui, sans-serif";
+
+  const pageShell = {
+    background: BG_DEEP,
+    fontFamily: sans,
+    color: TEXT,
+  };
+
+  const heroBg = {
+    background: `
+      radial-gradient(ellipse 120% 80% at 50% -40%, hsl(var(--primary) / 0.09), transparent 55%),
+      linear-gradient(180deg, ${BG_LIFT} 0%, ${BG_DEEP} 45%, ${BG_DEEP} 100%)
+    `,
+  };
+
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        background: "#FAFBFC",
-        fontFamily: "var(--font-dm-sans), 'Helvetica Neue', sans-serif",
-      }}
-    >
+    <div className="min-h-screen antialiased" style={pageShell}>
       {/* HERO */}
-      <div
-        className="relative overflow-hidden px-6 pt-14 pb-20 md:pt-20 md:pb-28"
-        style={{ background: "linear-gradient(160deg, #0F2238 0%, #1B3A5C 40%, #1E4D6B 100%)" }}
-      >
+      <div className="relative overflow-hidden px-6 pt-14 pb-10 md:pt-20 md:pb-14" style={heroBg}>
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          className="pointer-events-none absolute inset-0 opacity-[0.35]"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(255,255,255,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.5) 1px, transparent 1px)",
-            backgroundSize: "60px 60px",
+              "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
+            backgroundSize: "64px 64px",
+            maskImage: "linear-gradient(180deg, black 0%, transparent 85%)",
           }}
         />
-
-        <div className="relative z-[1] mx-auto max-w-3xl text-center">
-          <div
-            className="mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-1.5"
-            style={{ background: "rgba(42, 157, 143, 0.2)", borderColor: "rgba(42, 157, 143, 0.3)" }}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-teal-400" />
-            <span className="text-xs font-medium uppercase tracking-[0.08em] text-teal-300">Powered by AI</span>
-          </div>
-
+        <div className="relative z-[1] mx-auto max-w-2xl text-center">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: ACCENT }}>
+            Pricing
+          </p>
           <h1
-            className="mb-4 text-white"
+            className="mb-4"
             style={{
-              fontFamily: "var(--font-fraunces), Georgia, serif",
-              fontSize: "clamp(36px, 5vw, 56px)",
+              fontFamily: serif,
+              fontSize: "clamp(32px, 4.5vw, 48px)",
               fontWeight: 700,
-              lineHeight: 1.1,
-              letterSpacing: "-1px",
+              lineHeight: 1.15,
+              letterSpacing: "-0.02em",
+              color: TEXT,
             }}
           >
-            PrimeCFO<span style={{ color: "#2A9D8F" }}>.ai</span>
+            PrimeCFO<span style={{ color: ACCENT }}>.ai</span>
           </h1>
-
-          <p
-            className="mx-auto mb-8 max-w-xl font-light leading-relaxed text-white/70"
-            style={{ fontSize: "clamp(16px, 2.2vw, 20px)" }}
-          >
-            Financial intelligence for every stage of growth. From AI-powered self-service to full-service CFO advisory
-            — one platform, your way.
+          <p className="mx-auto mb-8 max-w-lg text-base leading-relaxed" style={{ color: TEXT_MUTED }}>
+            Three simple paths — see your numbers clearly, understand them with help, or act with a team in your
+            corner.
           </p>
 
-          {/* Toggle */}
           <div
             role="radiogroup"
             aria-label="Billing period"
-            className="inline-flex items-center gap-2 rounded-full border p-1.5"
+            className="inline-flex items-center gap-1 rounded-full p-1"
             style={{
-              background: "rgba(255,255,255,0.08)",
-              borderColor: "rgba(255,255,255,0.1)",
               minHeight: 44,
+              background: BG_DEEP,
+              border: `1px solid ${BORDER_SOFT}`,
+              boxShadow: `inset 0 1px 0 ${BORDER_SOFTER}`,
             }}
           >
             <button
@@ -101,13 +113,12 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
               className="rounded-full px-5 py-2 text-sm transition-all duration-300"
               style={{
                 fontWeight: annual ? 400 : 600,
-                color: annual ? "rgba(255,255,255,0.55)" : "#fff",
-                background: annual ? "transparent" : "rgba(255,255,255,0.12)",
+                color: annual ? TEXT_DIM : ACCENT,
+                background: annual ? "transparent" : ACCENT_GLOW_SOFT,
               }}
             >
               Monthly
             </button>
-
             <button
               type="button"
               role="radio"
@@ -116,201 +127,164 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
               className="flex items-center gap-2 rounded-full px-5 py-2 text-sm transition-all duration-300"
               style={{
                 fontWeight: annual ? 600 : 400,
-                color: annual ? "#fff" : "rgba(255,255,255,0.55)",
-                background: annual ? "rgba(42,157,143,0.25)" : "transparent",
+                color: annual ? ACCENT : TEXT_DIM,
+                background: annual ? ACCENT_GLOW_SOFT : "transparent",
               }}
             >
               Annual
               <span
                 className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                style={{ color: "#2A9D8F", background: "rgba(42,157,143,0.15)" }}
+                style={{ color: ACCENT, background: ACCENT_GLOW }}
               >
-                Save 15-20%
+                Save 15–20%
               </span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* LANE LABELS */}
-      <div className="relative z-[2] mx-auto max-w-[1280px] -mt-10 px-6">
-        <div className="mb-5 flex flex-wrap justify-center gap-3">
-          {LANES.map((lane) => (
-            <div
-              key={lane.label}
-              className="flex items-center gap-2 rounded-full bg-white px-5 py-2"
-              style={{
-                boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
-                border: `1px solid ${lane.color}22`,
-              }}
-            >
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: lane.color }} />
-              <span className="text-[13px] font-semibold" style={{ color: "#1B3A5C" }}>
-                {lane.label}
-              </span>
-              <span className="text-xs text-slate-500">{lane.desc}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Subtle section divider */}
+      <div className="h-px w-full" style={{ background: `linear-gradient(90deg, transparent, ${BORDER_SOFT}, transparent)` }} />
 
       {/* PRICING CARDS */}
       <div
-        className="mx-auto grid max-w-[1320px] grid-cols-1 gap-4 px-4 pb-14 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 xl:gap-3"
+        className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-14 md:grid-cols-3 md:gap-5"
+        style={{ background: BG_DEEP }}
       >
         {PLANS.map((plan, i) => {
           const isHovered = hoveredPlan === i;
           const price = annual ? plan.annual : plan.monthly;
           const annualSavings = (plan.monthly - plan.annual) * 12;
+          const isOutline = plan.ctaVariant === "outline";
 
           return (
             <div
               key={plan.id}
               onMouseEnter={() => setHoveredPlan(i)}
               onMouseLeave={() => setHoveredPlan(null)}
-              className="relative flex flex-col rounded-2xl p-7 transition-all duration-300 motion-reduce:transition-none xl:p-5"
+              className="relative flex flex-col rounded-2xl p-8 transition-all duration-300 motion-reduce:transition-none"
               style={{
-                background: plan.popular
-                  ? "linear-gradient(180deg, #FFFDF5 0%, #FFFFFF 100%)"
-                  : "#FFFFFF",
-                border: plan.popular ? "2px solid #D4A843" : "1px solid #E5E7EB",
-                transform: isHovered ? "translateY(-4px)" : "none",
+                background: `linear-gradient(165deg, ${BG_LIFT} 0%, rgba(8, 11, 30, 0.92) 100%)`,
+                border: plan.popular ? `2px solid ${ACCENT}` : `1px solid ${BORDER_SOFT}`,
                 boxShadow: isHovered
-                  ? "0 20px 40px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.06)"
+                  ? `0 20px 48px rgba(0,0,0,0.45), 0 0 0 1px ${BORDER_SOFTER}, 0 0 40px hsl(var(--primary) / 0.08)`
                   : plan.popular
-                  ? "0 8px 30px rgba(212,168,67,0.15)"
-                  : "0 2px 8px rgba(0,0,0,0.04)",
+                    ? `0 12px 40px rgba(0,0,0,0.35), 0 0 0 1px ${BORDER_SOFT}, 0 0 32px hsl(var(--primary) / 0.06)`
+                    : `0 8px 32px rgba(0,0,0,0.25), 0 0 0 1px ${BORDER_SOFTER}`,
+                transform: isHovered ? "translateY(-4px)" : "none",
               }}
             >
               {plan.popular && (
                 <div
-                  className="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full px-4 py-1 text-[11px] font-bold uppercase tracking-wider text-white"
+                  className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white"
                   style={{
-                    background: "linear-gradient(135deg, #D4A843, #C49A38)",
-                    boxShadow: "0 2px 8px rgba(212,168,67,0.3)",
+                    background: ACCENT,
+                    boxShadow: `0 2px 16px hsl(var(--primary) / 0.4)`,
                   }}
                 >
                   Most Popular
                 </div>
               )}
 
-              <div
-                className="mb-5 h-[3px] w-full rounded-sm opacity-60"
-                style={{ background: plan.accent }}
-              />
+              <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
+                {plan.tierWordmark}
+              </p>
 
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">
-                {plan.subtitle}
+              <div className="mb-4 flex items-baseline gap-0.5">
+                <span className="text-base font-medium" style={{ color: TEXT_DIM }}>
+                  $
+                </span>
+                <span
+                  className="leading-none"
+                  style={{
+                    fontFamily: serif,
+                    fontSize: "clamp(40px, 5vw, 48px)",
+                    fontWeight: 700,
+                    letterSpacing: "-0.03em",
+                    color: TEXT,
+                  }}
+                >
+                  {price}
+                </span>
+                <span className="ml-0.5 text-sm" style={{ color: TEXT_DIM }}>
+                  /mo
+                </span>
               </div>
-              <h3
-                className="mb-1 text-[22px] font-bold"
-                style={{ color: "#1B3A5C", fontFamily: "var(--font-fraunces), Georgia, serif" }}
+              {annual && annualSavings > 0 && (
+                <p className="-mt-2 mb-3 text-xs font-medium" style={{ color: ACCENT }}>
+                  Save ${annualSavings.toLocaleString()}/year
+                </p>
+              )}
+
+              <h2
+                className="mb-6 text-xl font-bold leading-snug md:text-[22px]"
+                style={{ fontFamily: serif, color: TEXT }}
               >
-                {plan.name}
-              </h3>
-              <p className="mb-5 text-xs leading-snug text-slate-500">{plan.target}</p>
+                {plan.headline}
+              </h2>
 
-              {/* Price */}
-              <div className="mb-5">
-                <div className="flex items-baseline gap-0.5">
-                  <span className="text-sm font-medium text-slate-500">$</span>
-                  <span
-                    className="leading-none"
-                    style={{
-                      fontSize: 42,
-                      fontWeight: 700,
-                      color: "#1B3A5C",
-                      fontFamily: "var(--font-fraunces), Georgia, serif",
-                      letterSpacing: "-2px",
-                    }}
-                  >
-                    {price}
-                  </span>
-                  <span className="ml-0.5 text-sm text-slate-400">/mo</span>
-                </div>
-                {annual && annualSavings > 0 && (
-                  <div className="mt-1 text-xs font-medium" style={{ color: "#2A9D8F" }}>
-                    Save ${annualSavings.toLocaleString()}/year
-                  </div>
-                )}
-                <div className="mt-1 text-[11px] text-slate-400">{plan.ctaNote}</div>
-              </div>
-
-              {/* Features */}
-              <div className="mb-6 flex-1">
-                {plan.features.map((f) => {
-                  const isExcluded = f.included === false;
-                  return (
-                    <div
-                      key={f.label}
-                      className="flex items-center gap-2.5 border-b border-slate-100 py-[7px]"
+              <ul className="mb-8 flex flex-1 flex-col gap-3">
+                {plan.cardBullets.map((line) => (
+                  <li key={line} className="flex gap-3 text-[14px] leading-snug" style={{ color: TEXT_MUTED }}>
+                    <span
+                      className="mt-0.5 flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full"
+                      style={{ background: ACCENT_GLOW }}
                     >
-                      {isExcluded ? (
-                        <span className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full bg-slate-200">
-                          <Minus className="h-3 w-3 text-slate-400" strokeWidth={2.5} />
-                        </span>
-                      ) : (
-                        <span
-                          className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full"
-                          style={{ background: "rgba(42,157,143,0.15)" }}
-                        >
-                          <Check className="h-3 w-3" style={{ color: "#2A9D8F" }} strokeWidth={3} />
-                        </span>
-                      )}
-                      <span
-                        className="flex-1 text-[13px]"
-                        style={{ color: isExcluded ? "#C0C4CC" : "#4B5563" }}
-                      >
-                        {f.label}
-                      </span>
-                      {f.value && (
-                        <span
-                          className="whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-semibold"
-                          style={{ color: "#1B3A5C", background: "#F0F4F8" }}
-                        >
-                          {f.value}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                      <Check className="h-3 w-3" style={{ color: ACCENT }} strokeWidth={2.75} />
+                    </span>
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
 
-              {/* CTA */}
               <button
                 type="button"
                 onClick={() => onPlanCta(plan, annual ? "year" : "month")}
-                className="w-full cursor-pointer rounded-[10px] border-0 py-3.5 text-sm font-semibold text-white transition-all duration-200"
-                style={{
-                  background: plan.popular
-                    ? "linear-gradient(135deg, #D4A843, #C49A38)"
-                    : plan.ctaKind === "contact"
-                    ? "#1B3A5C"
-                    : "#2A9D8F",
-                  boxShadow: isHovered ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
-                }}
+                className="w-full cursor-pointer rounded-xl py-3.5 text-sm font-semibold transition-all duration-200"
+                style={
+                  isOutline
+                    ? {
+                        border: `2px solid ${ACCENT}`,
+                        color: ACCENT,
+                        background: "transparent",
+                        boxShadow: isHovered ? `0 0 24px hsl(var(--primary) / 0.15)` : "none",
+                      }
+                    : {
+                        border: "none",
+                        color: "#fff",
+                        background: ACCENT,
+                        boxShadow: isHovered
+                          ? `0 8px 24px hsl(var(--primary) / 0.35)`
+                          : `0 4px 16px hsl(var(--primary) / 0.25)`,
+                      }
+                }
               >
                 {plan.cta}
               </button>
+              <p className="mt-3 text-center text-xs" style={{ color: TEXT_DIM }}>
+                {plan.ctaFooter}
+              </p>
             </div>
           );
         })}
       </div>
 
+      <div className="h-px w-full" style={{ background: `linear-gradient(90deg, transparent, ${BORDER_SOFT}, transparent)` }} />
+
       {/* DECISION HELPER */}
-      <div className="border-t border-slate-200 bg-white px-6 py-16">
+      <div className="px-6 py-16" style={{ background: BG_LIFT }}>
         <div className="mx-auto max-w-3xl text-center">
           <h2
             className="mb-3 text-3xl font-bold md:text-[32px]"
             style={{
-              color: "#1B3A5C",
-              fontFamily: "var(--font-fraunces), Georgia, serif",
-              letterSpacing: "-0.5px",
+              color: TEXT,
+              fontFamily: serif,
+              letterSpacing: "-0.02em",
             }}
           >
             Not sure which tier is right?
           </h2>
-          <p className="mb-12 text-base leading-relaxed text-slate-500">
+          <p className="mb-12 text-base leading-relaxed" style={{ color: TEXT_MUTED }}>
             Here&apos;s the simple version: choose based on how much you want us involved.
           </p>
 
@@ -318,22 +292,28 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
             {DECISION_HELPERS.map((item) => (
               <div
                 key={item.title}
-                className="rounded-2xl border border-slate-200 p-7"
-                style={{ background: "#FAFBFC" }}
+                className="rounded-2xl p-7 transition-shadow duration-300"
+                style={{
+                  background: `linear-gradient(165deg, rgba(5, 7, 20, 0.6) 0%, ${BG_DEEP} 100%)`,
+                  border: `1px solid ${BORDER_SOFT}`,
+                  boxShadow: `0 8px 32px rgba(0,0,0,0.2)`,
+                }}
               >
                 <div
                   className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl"
-                  style={{ background: `${item.color}18`, color: item.color }}
+                  style={{ background: ACCENT_GLOW, color: ACCENT }}
                 >
                   <DecisionIcon kind={item.icon} className="h-6 w-6" />
                 </div>
-                <h3 className="mb-2 text-lg font-bold" style={{ color: "#1B3A5C" }}>
+                <h3 className="mb-2 text-lg font-bold" style={{ color: TEXT }}>
                   {item.title}
                 </h3>
-                <p className="mb-4 text-sm leading-relaxed text-slate-500">{item.desc}</p>
+                <p className="mb-4 text-sm leading-relaxed" style={{ color: TEXT_MUTED }}>
+                  {item.desc}
+                </p>
                 <div
                   className="inline-block rounded-lg px-3 py-1.5 text-[13px] font-semibold"
-                  style={{ color: item.color, background: `${item.color}11` }}
+                  style={{ color: ACCENT, background: ACCENT_GLOW_SOFT }}
                 >
                   {item.tier}
                 </div>
@@ -343,13 +323,12 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
         </div>
       </div>
 
+      <div className="h-px w-full" style={{ background: `linear-gradient(90deg, transparent, ${BORDER_SOFT}, transparent)` }} />
+
       {/* FAQ */}
-      <div className="border-t border-slate-200 px-6 py-16" style={{ background: "#FAFBFC" }}>
+      <div className="px-6 py-16" style={{ background: BG_DEEP }}>
         <div className="mx-auto max-w-2xl">
-          <h2
-            className="mb-8 text-center text-[28px] font-bold"
-            style={{ color: "#1B3A5C", fontFamily: "var(--font-fraunces), Georgia, serif" }}
-          >
+          <h2 className="mb-8 text-center text-[28px] font-bold" style={{ color: TEXT, fontFamily: serif }}>
             Frequently Asked Questions
           </h2>
 
@@ -358,7 +337,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
             const panelId = `faq-panel-${idx}`;
             const buttonId = `faq-button-${idx}`;
             return (
-              <div key={faq.q} className="overflow-hidden border-b border-slate-200">
+              <div key={faq.q} className="overflow-hidden border-b" style={{ borderColor: BORDER_SOFT }}>
                 <button
                   id={buttonId}
                   type="button"
@@ -367,12 +346,15 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
                   aria-controls={panelId}
                   className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent py-5 text-left"
                 >
-                  <span className="pr-4 text-[15px] font-semibold" style={{ color: "#1B3A5C" }}>
+                  <span className="pr-4 text-[15px] font-semibold" style={{ color: TEXT }}>
                     {faq.q}
                   </span>
                   <span
-                    className="flex-shrink-0 text-xl text-slate-400 transition-transform duration-300 motion-reduce:transition-none"
-                    style={{ transform: isOpen ? "rotate(45deg)" : "none" }}
+                    className="flex-shrink-0 text-xl transition-transform duration-300 motion-reduce:transition-none"
+                    style={{
+                      color: TEXT_DIM,
+                      transform: isOpen ? "rotate(45deg)" : "none",
+                    }}
                     aria-hidden
                   >
                     +
@@ -385,11 +367,13 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
                   hidden={!isOpen}
                   className="overflow-hidden transition-all duration-300 motion-reduce:transition-none"
                   style={{
-                    maxHeight: isOpen ? 240 : 0,
+                    maxHeight: isOpen ? 280 : 0,
                     opacity: isOpen ? 1 : 0,
                   }}
                 >
-                  <p className="m-0 mb-5 pr-10 text-sm leading-[1.7] text-slate-500">{faq.a}</p>
+                  <p className="m-0 mb-5 pr-10 text-sm leading-[1.7]" style={{ color: TEXT_MUTED }}>
+                    {faq.a}
+                  </p>
                 </div>
               </div>
             );
@@ -397,26 +381,29 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
         </div>
       </div>
 
-      {/* CTA FOOTER STRIP */}
+      {/* CTA FOOTER — smooth blend back into lift tone + teal accent */}
       <div
         className="px-6 py-16 text-center"
-        style={{ background: "linear-gradient(160deg, #0F2238 0%, #1B3A5C 100%)" }}
+        style={{
+          background: `linear-gradient(180deg, ${BG_LIFT} 0%, ${BG_DEEP} 100%)`,
+          borderTop: `1px solid ${BORDER_SOFT}`,
+        }}
       >
-        <h2
-          className="mb-3 text-[32px] font-bold text-white"
-          style={{ fontFamily: "var(--font-fraunces), Georgia, serif" }}
-        >
+        <h2 className="mb-3 text-[32px] font-bold" style={{ fontFamily: serif, color: TEXT }}>
           Ready to see your numbers clearly?
         </h2>
-        <p className="mb-8 text-base text-white/60">
+        <p className="mb-8 text-base" style={{ color: TEXT_MUTED }}>
           Start with a free 14-day trial. No credit card required.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <button
             type="button"
             onClick={onStartTrial}
-            className="group flex cursor-pointer items-center gap-2 rounded-[10px] border-0 px-8 py-3.5 text-[15px] font-semibold text-white transition-transform"
-            style={{ background: "#2A9D8F" }}
+            className="group flex cursor-pointer items-center gap-2 rounded-xl border-0 px-8 py-3.5 text-[15px] font-semibold text-white transition-transform duration-200 hover:brightness-110"
+            style={{
+              background: ACCENT,
+              boxShadow: `0 4px 20px hsl(var(--primary) / 0.35)`,
+            }}
           >
             Start Free Trial
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
@@ -424,15 +411,19 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
           <button
             type="button"
             onClick={onContact}
-            className="cursor-pointer rounded-[10px] border bg-transparent px-8 py-3.5 text-[15px] font-semibold text-white"
-            style={{ borderColor: "rgba(255,255,255,0.2)" }}
+            className="cursor-pointer rounded-xl px-8 py-3.5 text-[15px] font-semibold transition-colors duration-200"
+            style={{
+              border: `2px solid ${BORDER_SOFT}`,
+              color: TEXT,
+              background: ACCENT_GLOW_SOFT,
+            }}
           >
             Book a Consultation
           </button>
         </div>
-        <p className="mt-6 text-xs text-white/40">
+        <p className="mt-6 text-xs" style={{ color: TEXT_DIM }}>
           Questions?{" "}
-          <a className="underline decoration-white/30 hover:text-white" href={`mailto:${CONTACT_EMAIL}`}>
+          <a className="underline decoration-white/20 transition-colors hover:text-white" href={`mailto:${CONTACT_EMAIL}`}>
             {CONTACT_EMAIL}
           </a>
         </p>

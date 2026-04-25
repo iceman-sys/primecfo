@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { BarChart3, Menu, X, ChevronDown, Bell, Settings, LogOut, User } from 'lucide-react';
+import { BarChart3, Menu, X, ChevronDown, Bell, Settings, LogOut, User, CreditCard } from 'lucide-react';
 
 interface NavbarProps {
   currentView: string;
@@ -41,6 +41,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
                 { label: 'Features', view: 'features', anchor: true },
                 { label: 'How It Works', view: 'how-it-works', anchor: true },
                 { label: 'Pricing', view: 'pricing', anchor: false },
+                { label: 'About Us', view: 'about', anchor: false },
               ].map((item) => (
                 <button
                   key={item.view}
@@ -162,6 +163,15 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
                         </button>
                         <button
                           onClick={() => {
+                            onNavigate('pricing');
+                            setProfileOpen(false);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700"
+                        >
+                          <CreditCard className="w-4 h-4" /> Billing & Plans
+                        </button>
+                        <button
+                          onClick={() => {
                             onLogin();
                             setProfileOpen(false);
                           }}
@@ -204,20 +214,33 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
         <div className="md:hidden border-t border-slate-800 bg-slate-900">
           <div className="px-4 py-3 space-y-1">
             {isLoggedIn ? (
-              ['dashboard', 'reports', 'insights', 'clients'].map((view) => (
+              <>
+                {['dashboard', 'reports', 'insights', 'clients'].map((view) => (
+                  <button
+                    key={view}
+                    onClick={() => {
+                      onNavigate(view);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`block w-full text-left px-4 py-2.5 text-sm rounded-lg ${
+                      currentView === view ? 'text-teal-400 bg-slate-800' : 'text-slate-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    {view.charAt(0).toUpperCase() + view.slice(1)}
+                  </button>
+                ))}
                 <button
-                  key={view}
                   onClick={() => {
-                    onNavigate(view);
+                    onNavigate('pricing');
                     setMobileMenuOpen(false);
                   }}
                   className={`block w-full text-left px-4 py-2.5 text-sm rounded-lg ${
-                    currentView === view ? 'text-teal-400 bg-slate-800' : 'text-slate-300 hover:bg-slate-800'
+                    currentView === 'pricing' ? 'text-teal-400 bg-slate-800' : 'text-slate-300 hover:bg-slate-800'
                   }`}
                 >
-                  {view.charAt(0).toUpperCase() + view.slice(1)}
+                  Billing & Plans
                 </button>
-              ))
+              </>
             ) : (
               <>
                 <button
@@ -230,6 +253,17 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
                   }`}
                 >
                   Pricing
+                </button>
+                <button
+                  onClick={() => {
+                    onNavigate('about');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`block w-full text-left px-4 py-2.5 text-sm rounded-lg ${
+                    currentView === 'about' ? 'text-teal-400 bg-slate-800' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  About Us
                 </button>
                 <button
                   onClick={() => {

@@ -13,15 +13,27 @@ export type Plan = {
   accent: string;
   popular: boolean;
   target: string;
+  /** Legacy row-style features (e.g. admin); cards use `cardBullets`. */
   features: Feature[];
+  /** Short bullets on the pricing cards (screenshot style). */
+  cardBullets: string[];
+  /** SEE / UNDERSTAND / ACT */
+  tierWordmark: string;
+  /** Serif headline under the price */
+  headline: string;
   cta: string;
   ctaNote: string;
   ctaKind: "signup" | "contact";
+  /** Outlined vs filled primary button */
+  ctaVariant: "outline" | "solid";
+  /** Muted line below the CTA */
+  ctaFooter: string;
 };
 
+/** Teal aligned with `globals.css` `--primary` (173 80% 40%) / Navbar accents */
 export const LANE_COLORS = {
-  selfService: "#2A9D8F",
-  hybrid: "#D4A843",
+  selfService: "#14b8a6",
+  hybrid: "#0d9488",
   fullService: "#1B3A5C",
 } as const;
 
@@ -35,21 +47,24 @@ export const PLANS: Plan[] = [
     accent: LANE_COLORS.selfService,
     popular: false,
     target: "Solopreneurs & DIY bookkeepers",
+    tierWordmark: "SEE",
+    headline: "Your numbers, finally clear.",
+    cardBullets: [
+      "5 key metrics dashboard",
+      "Monthly AI summary in plain English",
+      "30-day cash flow forecast",
+    ],
     features: [
       { label: "QuickBooks Dashboard", included: true },
       { label: "AI Financial Summaries", value: "Monthly" },
       { label: "Cash Flow Forecast", value: "30-day" },
-      { label: "KPI Tracking", value: "3 KPIs" },
-      { label: "Custom Alerts", included: false },
-      { label: "In-App Chat", value: "AI only" },
-      { label: "Advisory Hours", included: false },
-      { label: "Monthly Review Call", included: false },
-      { label: "Bookkeeping", included: false },
-      { label: "Tax Preparation", included: false },
+      { label: "KPI Tracking", value: "5 KPIs" },
     ],
-    cta: "Get Started Free",
+    cta: "Start Free for 14 Days",
     ctaNote: "14-day free trial",
     ctaKind: "signup",
+    ctaVariant: "outline",
+    ctaFooter: "No credit card required",
   },
   {
     id: "starter",
@@ -58,111 +73,57 @@ export const PLANS: Plan[] = [
     monthly: 249,
     annual: 209,
     accent: LANE_COLORS.selfService,
-    popular: false,
+    popular: true,
     target: "Early-stage small businesses",
+    tierWordmark: "UNDERSTAND",
+    headline: "AI insights. Human guidance.",
+    cardBullets: [
+      "Everything in See",
+      "Weekly AI financial summaries",
+      "60-day cash flow forecast",
+      "1 hour/month with a real accountant",
+    ],
     features: [
       { label: "QuickBooks Dashboard", included: true },
-      { label: "AI Financial Summaries", value: "Monthly" },
-      { label: "Cash Flow Forecast", value: "30-day" },
-      { label: "KPI Tracking", value: "5 KPIs" },
-      { label: "Custom Alerts", included: false },
-      { label: "In-App Chat", value: "AI + team escalation" },
+      { label: "AI Financial Summaries", value: "Weekly" },
+      { label: "Cash Flow Forecast", value: "60-day" },
       { label: "Advisory Hours", value: "1 hr/month" },
-      { label: "Monthly Review Call", included: false },
-      { label: "Bookkeeping", included: false },
-      { label: "Tax Preparation", included: false },
     ],
-    cta: "Start Free Trial",
+    cta: "Start Free for 14 Days",
     ctaNote: "14-day free trial",
     ctaKind: "signup",
+    ctaVariant: "solid",
+    ctaFooter: "Most popular for growing businesses",
   },
   {
     id: "growth",
     name: "Growth",
     subtitle: "AI + Advisory",
-    monthly: 499,
-    annual: 419,
+    monthly: 449,
+    annual: 379,
     accent: LANE_COLORS.hybrid,
-    popular: true,
+    popular: false,
     target: "Growing companies ($750K–$2M)",
-    features: [
-      { label: "QuickBooks Dashboard", included: true },
-      { label: "AI Financial Summaries", value: "Weekly" },
-      { label: "Cash Flow Forecast", value: "60-day" },
-      { label: "KPI Tracking", value: "10 KPIs" },
-      { label: "Custom Alerts", included: true },
-      { label: "In-App Chat", value: "AI + team escalation" },
-      { label: "Advisory Hours", value: "2 hrs/month" },
-      { label: "Monthly Review Call", value: "15-min check-in" },
-      { label: "Bookkeeping", included: false },
-      { label: "Tax Preparation", included: false },
+    tierWordmark: "ACT",
+    headline: "A finance team in your corner.",
+    cardBullets: [
+      "Everything in Understand",
+      "90-day forecast with scenarios",
+      "Custom alerts when numbers shift",
+      "2 hrs/month advisory + strategy call",
     ],
-    cta: "Start Free Trial",
-    ctaNote: "$500 one-time setup",
-    ctaKind: "signup",
-  },
-  {
-    id: "premier",
-    name: "Premier",
-    subtitle: "Full-Service + AI",
-    monthly: 799,
-    annual: 679,
-    accent: LANE_COLORS.fullService,
-    popular: false,
-    target: "Established businesses ($2M–$10M)",
     features: [
       { label: "QuickBooks Dashboard", included: true },
-      { label: "AI Financial Summaries", value: "Weekly" },
-      { label: "Cash Flow Forecast", value: "90-day" },
-      { label: "KPI Tracking", value: "Unlimited" },
-      { label: "Custom Alerts", included: true },
-      { label: "In-App Chat", value: "Direct team access" },
-      { label: "Advisory Hours", value: "Included" },
-      { label: "Monthly Review Call", value: "30-min strategy" },
-      { label: "Bookkeeping", value: "Full-service" },
-      { label: "Tax Preparation", value: "Add-on available" },
-    ],
-    cta: "Book a Consultation",
-    ctaNote: "Setup waived with retainer",
-    ctaKind: "contact",
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    subtitle: "Full-Service + AI",
-    monthly: 1499,
-    annual: 1274,
-    accent: LANE_COLORS.fullService,
-    popular: false,
-    target: "Complex / multi-entity ($10M+)",
-    features: [
-      { label: "QuickBooks Dashboard", included: true },
-      { label: "AI Financial Summaries", value: "Daily" },
       { label: "Cash Flow Forecast", value: "90-day + scenarios" },
-      { label: "KPI Tracking", value: "Unlimited + custom" },
       { label: "Custom Alerts", included: true },
-      { label: "In-App Chat", value: "Dedicated team" },
-      { label: "Advisory Hours", value: "Included" },
-      { label: "Monthly Review Call", value: "60-min CFO call" },
-      { label: "Bookkeeping", value: "Full-service" },
-      { label: "Tax Preparation", value: "Included" },
+      { label: "Advisory Hours", value: "2 hrs/month" },
     ],
-    cta: "Book a Consultation",
-    ctaNote: "Setup waived with retainer",
+    cta: "Book a Conversation",
+    ctaNote: "",
     ctaKind: "contact",
+    ctaVariant: "outline",
+    ctaFooter: "For businesses ready to scale",
   },
-];
-
-export type Lane = {
-  label: string;
-  desc: string;
-  color: string;
-};
-
-export const LANES: Lane[] = [
-  { label: "Self-Service", desc: "AI Only", color: LANE_COLORS.selfService },
-  { label: "Hybrid", desc: "AI + Your Team", color: LANE_COLORS.hybrid },
-  { label: "Full-Service", desc: "Everything Included", color: LANE_COLORS.fullService },
 ];
 
 export type DecisionHelper = {
@@ -170,30 +131,26 @@ export type DecisionHelper = {
   title: string;
   desc: string;
   tier: string;
-  color: string;
 };
 
 export const DECISION_HELPERS: DecisionHelper[] = [
   {
     icon: "zap",
     title: "I want to do it myself",
-    desc: "Self-Service gives you the AI dashboard and insights. You run the show, the AI keeps you informed.",
-    tier: "Self-Service — $99/mo",
-    color: LANE_COLORS.selfService,
+    desc: "See gives you a clear dashboard, monthly AI summary, and a 30-day cash outlook — you stay in control.",
+    tier: "See — $99/mo",
   },
   {
     icon: "users",
     title: "I want a guide",
-    desc: "Starter or Growth gives you AI plus real accountants who check in, answer questions, and keep you on track.",
-    tier: "Starter $249 / Growth $499",
-    color: LANE_COLORS.hybrid,
+    desc: "Understand adds weekly summaries, a longer forecast, and an hour each month with a real accountant.",
+    tier: "Understand — $249/mo",
   },
   {
     icon: "building",
-    title: "Handle it all for me",
-    desc: "Premier or Enterprise means we manage your books, taxes, and strategy — now supercharged with AI intelligence.",
-    tier: "Premier $799 / Enterprise $1,499",
-    color: LANE_COLORS.fullService,
+    title: "I want a partner",
+    desc: "Act layers in scenario planning, alerts, and more advisory time — a finance team in your corner.",
+    tier: "Act — $449/mo",
   },
 ];
 
@@ -205,8 +162,8 @@ export const FAQS: Faq[] = [
     a: "Absolutely. Upgrading is seamless — your dashboard, data, and history carry over automatically. You only gain features, never lose them.",
   },
   {
-    q: "What if I already use Prime for accounting?",
-    a: "Premier and Enterprise tiers are built for you. Your existing accounting services are included, now enhanced with AI-powered dashboards, forecasting, and KPI tracking.",
+    q: "Do you offer full-service bookkeeping or tax prep?",
+    a: "Bookkeeping and tax services are available as a separate engagement with Prime Accounting Solutions. Email us and we'll put together a quote that fits your business.",
   },
   {
     q: "How does the AI generate financial summaries?",

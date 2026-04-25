@@ -196,8 +196,8 @@ export default function SignUpPage() {
           </form>
 
           <p className="mt-6 text-xs text-white/40 text-center">
-            By signing up, you agree to our{' '}
-            <Link href="/eula" className="underline hover:text-white/60">Terms</Link>
+            By creating an account, you agree to our{' '}
+            <Link href="/terms" className="underline hover:text-white/60">Terms of Service</Link>
             {' '}and{' '}
             <Link href="/privacy" className="underline hover:text-white/60">Privacy Policy</Link>.
           </p>

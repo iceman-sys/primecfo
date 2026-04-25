@@ -45,21 +45,48 @@ const Footer: React.FC = () => {
             </ul>
           </div>
           <div>
+            <h4 className="text-sm font-semibold text-white mb-4">Company</h4>
+            <ul className="space-y-2.5">
+              <li>
+                <Link href="/about" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">About Us</Link>
+              </li>
+            </ul>
+          </div>
+          <div>
             <h4 className="text-sm font-semibold text-white mb-4">Legal</h4>
             <ul className="space-y-2.5">
               <li>
-                <Link href="/privacy" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Privacy Policy</Link>
+                <Link href="/terms" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Terms of Service</Link>
               </li>
               <li>
-                <Link href="/eula" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Terms of Service</Link>
+                <Link href="/privacy" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Privacy Policy</Link>
               </li>
             </ul>
           </div>
         </div>
       </div>
       <div className="border-t border-slate-800/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-500">&copy; 2026 PrimeCFO.ai. All rights reserved.</p>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <nav aria-label="Legal" className="flex items-center gap-5">
+            <Link
+              href="/terms"
+              className="text-xs text-slate-400 hover:text-teal-400 transition-colors"
+            >
+              Terms of Service
+            </Link>
+            <span className="text-slate-700" aria-hidden="true">
+              |
+            </span>
+            <Link
+              href="/privacy"
+              className="text-xs text-slate-400 hover:text-teal-400 transition-colors"
+            >
+              Privacy Policy
+            </Link>
+          </nav>
+          <p className="text-xs text-slate-500">
+            &copy; 2026 PrimeCFO AI Inc. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>
