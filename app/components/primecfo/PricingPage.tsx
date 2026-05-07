@@ -29,6 +29,15 @@ interface PricingPageProps {
   onPlanCta: (plan: Plan, interval: "month" | "year") => void;
   onContact: () => void;
   onStartTrial: () => void;
+  /** When set, derived from Stripe subscription — tier + wordmark for the user's active plan. */
+  activeSubscription?: {
+    planId: string;
+    tierWordmark: string;
+    planName: string;
+    interval: "month" | "year" | null;
+  } | null;
+  /** True while fetching billing for a logged-in user */
+  isSubscriptionLoading?: boolean;
 }
 
 const DecisionIcon: React.FC<{ kind: DecisionHelper["icon"]; className?: string }> = ({ kind, className }) => {
@@ -37,7 +46,13 @@ const DecisionIcon: React.FC<{ kind: DecisionHelper["icon"]; className?: string 
   return <Building2 className={className} />;
 };
 
-const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStartTrial }) => {
+const PricingPage: React.FC<PricingPageProps> = ({
+  onPlanCta,
+  onContact,
+  onStartTrial,
+  activeSubscription = null,
+  isSubscriptionLoading = false,
+}) => {
   const [annual, setAnnual] = useState<boolean>(false);
   const [hoveredPlan, setHoveredPlan] = useState<number | null>(null);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
@@ -93,6 +108,37 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
             Three simple paths — see your numbers clearly, understand them with help, or act with a team in your
             corner.
           </p>
+
+          {isSubscriptionLoading && (
+            <p className="mx-auto mb-6 max-w-lg text-sm" style={{ color: TEXT_DIM }}>
+              Loading your subscription…
+            </p>
+          )}
+
+          {!isSubscriptionLoading && activeSubscription && (
+            <div
+              className="mx-auto mb-8 max-w-lg rounded-xl px-4 py-3.5 text-left sm:text-center"
+              style={{
+                background: ACCENT_GLOW_SOFT,
+                border: `1px solid hsl(var(--primary) / 0.35)`,
+                boxShadow: `0 0 32px hsl(var(--primary) / 0.08)`,
+              }}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: ACCENT }}>
+                Your current subscription
+              </p>
+              <p className="mt-2 text-base font-semibold" style={{ color: TEXT }}>
+                <span style={{ color: ACCENT }}>{activeSubscription.tierWordmark}</span>
+                <span style={{ color: TEXT_DIM }}> · </span>
+                {activeSubscription.planName}
+              </p>
+              {(activeSubscription.interval === "year" || activeSubscription.interval === "month") && (
+                <p className="mt-1 text-sm" style={{ color: TEXT_MUTED }}>
+                  {activeSubscription.interval === "year" ? "Billed annually" : "Billed monthly"}
+                </p>
+              )}
+            </div>
+          )}
 
           <div
             role="radiogroup"
@@ -156,6 +202,7 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
           const price = annual ? plan.annual : plan.monthly;
           const annualSavings = (plan.monthly - plan.annual) * 12;
           const isOutline = plan.ctaVariant === "outline";
+          const isCurrentPlan = activeSubscription?.planId === plan.id;
 
           return (
             <div
@@ -165,7 +212,11 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
               className="relative flex flex-col rounded-2xl p-8 transition-all duration-300 motion-reduce:transition-none"
               style={{
                 background: `linear-gradient(165deg, ${BG_LIFT} 0%, rgba(8, 11, 30, 0.92) 100%)`,
-                border: plan.popular ? `2px solid ${ACCENT}` : `1px solid ${BORDER_SOFT}`,
+                border: isCurrentPlan
+                  ? `2px solid hsl(var(--primary) / 0.75)`
+                  : plan.popular
+                    ? `2px solid ${ACCENT}`
+                    : `1px solid ${BORDER_SOFT}`,
                 boxShadow: isHovered
                   ? `0 20px 48px rgba(0,0,0,0.45), 0 0 0 1px ${BORDER_SOFTER}, 0 0 40px hsl(var(--primary) / 0.08)`
                   : plan.popular
@@ -174,7 +225,19 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
                 transform: isHovered ? "translateY(-4px)" : "none",
               }}
             >
-              {plan.popular && (
+              {isCurrentPlan && (
+                <div
+                  className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white"
+                  style={{
+                    background: `linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(173 72% 32%) 100%)`,
+                    boxShadow: `0 2px 16px hsl(var(--primary) / 0.45)`,
+                  }}
+                >
+                  Your plan
+                </div>
+              )}
+
+              {plan.popular && !isCurrentPlan && (
                 <div
                   className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white"
                   style={{
@@ -237,33 +300,55 @@ const PricingPage: React.FC<PricingPageProps> = ({ onPlanCta, onContact, onStart
                 ))}
               </ul>
 
-              <button
-                type="button"
-                onClick={() => onPlanCta(plan, annual ? "year" : "month")}
-                className="w-full cursor-pointer rounded-xl py-3.5 text-sm font-semibold transition-all duration-200"
-                style={
-                  isOutline
-                    ? {
-                        border: `2px solid ${ACCENT}`,
-                        color: ACCENT,
-                        background: "transparent",
-                        boxShadow: isHovered ? `0 0 24px hsl(var(--primary) / 0.15)` : "none",
-                      }
-                    : {
-                        border: "none",
-                        color: "#fff",
-                        background: ACCENT,
-                        boxShadow: isHovered
-                          ? `0 8px 24px hsl(var(--primary) / 0.35)`
-                          : `0 4px 16px hsl(var(--primary) / 0.25)`,
-                      }
-                }
-              >
-                {plan.cta}
-              </button>
-              <p className="mt-3 text-center text-xs" style={{ color: TEXT_DIM }}>
-                {plan.ctaFooter}
-              </p>
+              {isCurrentPlan ? (
+                <>
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full cursor-not-allowed rounded-xl py-3.5 text-sm font-semibold"
+                    style={{
+                      border: `1px solid ${BORDER_SOFT}`,
+                      color: TEXT_MUTED,
+                      background: `rgba(5, 7, 20, 0.85)`,
+                    }}
+                  >
+                    Current plan
+                  </button>
+                  <p className="mt-3 text-center text-xs" style={{ color: TEXT_DIM }}>
+                    You&apos;re subscribed to this tier.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onPlanCta(plan, annual ? "year" : "month")}
+                    className="w-full cursor-pointer rounded-xl py-3.5 text-sm font-semibold transition-all duration-200"
+                    style={
+                      isOutline
+                        ? {
+                            border: `2px solid ${ACCENT}`,
+                            color: ACCENT,
+                            background: "transparent",
+                            boxShadow: isHovered ? `0 0 24px hsl(var(--primary) / 0.15)` : "none",
+                          }
+                        : {
+                            border: "none",
+                            color: "#fff",
+                            background: ACCENT,
+                            boxShadow: isHovered
+                              ? `0 8px 24px hsl(var(--primary) / 0.35)`
+                              : `0 4px 16px hsl(var(--primary) / 0.25)`,
+                          }
+                    }
+                  >
+                    {plan.cta}
+                  </button>
+                  <p className="mt-3 text-center text-xs" style={{ color: TEXT_DIM }}>
+                    {plan.ctaFooter}
+                  </p>
+                </>
+              )}
             </div>
           );
         })}

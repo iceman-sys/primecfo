@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
   const clientId = (body.clientId ?? request.nextUrl.searchParams.get('clientId')) as string | null;
   const range = (body.range ?? request.nextUrl.searchParams.get('range') ?? '3m') as ReportRange;
   const periodType = (body.periodType ?? request.nextUrl.searchParams.get('periodType') ?? 'month') as PeriodType;
-  // Default: sync 3 required reports (P&L, Balance Sheet, Cash Flow). Set includeOptional: true to also sync AR/AP aging and Account List.
-  const includeOptional = body.includeOptional === true;
+  // Defaults to pulling supplemental reports; set includeOptional: false for Profit & Loss + Balance Sheet only (faster).
+  const includeOptional = body.includeOptional !== false;
 
   if (!clientId) {
     return NextResponse.json({ error: 'clientId is required' }, { status: 400 });

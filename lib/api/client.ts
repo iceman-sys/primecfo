@@ -175,6 +175,27 @@ export interface DashboardDataResponse {
     cash: number;
   }>;
   range: string;
+  coreMetrics: {
+    cashPosition: number;
+    revenueChangePct: number;
+    profitMarginPct: number;
+    arAging: {
+      total: number;
+      current: number;
+      days1_30: number;
+      days31_60: number;
+      days61_90: number;
+      days91_plus: number;
+    };
+    cashRunwayMonths: number;
+    health: {
+      runway: 'good' | 'warn' | 'bad';
+      ar: 'good' | 'warn' | 'bad';
+      revenue: 'good' | 'warn' | 'bad';
+      margin: 'good' | 'warn' | 'bad';
+      cash: 'good' | 'warn' | 'bad';
+    };
+  } | null;
 }
 
 export async function getDashboardData(
@@ -222,4 +243,98 @@ export async function generateInsights(
   const data = await res.json().catch(() => ({})) as { error?: string; insights?: AIInsight[]; riskPosture?: RiskPosture | null };
   if (!res.ok) throw new Error(data.error ?? `Generate insights failed: ${res.status}`);
   return { insights: data.insights ?? [], riskPosture: data.riskPosture ?? null };
+}
+
+export type ForecastApiResponse = {
+  forecast: {
+    asOf: string;
+    tier: string;
+    bankBalance: number;
+    components: {
+      expectedInflowsWeighted: number;
+      expectedOutflowsBills: number;
+      estimatedRecurringMonthly: number;
+      collectionRate: number;
+    };
+    horizonDays: number;
+    endingCashExpected: number;
+    series: Array<{
+      dayOffset: number;
+      expected: number;
+      optimistic?: number;
+      conservative?: number;
+    }>;
+  };
+  capabilities: { tier: string; forecastDays: number; scenarios: boolean };
+  summary: {
+    asOf: string;
+    bankBalance: number;
+    avgMonthlyRevenue: number;
+    avgMonthlyExpense: number;
+    arTotal: number;
+  };
+};
+
+export async function getForecast(clientId: string, persist = false): Promise<ForecastApiResponse> {
+  const params = new URLSearchParams({ clientId });
+  if (persist) params.set('persist', '1');
+  const res = await fetch(`/api/forecast?${params}`);
+  const data = await res.json().catch(() => ({})) as { error?: string } & Partial<ForecastApiResponse>;
+  if (!res.ok) throw new Error(data.error ?? `Forecast failed: ${res.status}`);
+  return data as ForecastApiResponse;
+}
+
+export type BillingStatusResponse = {
+  hasSubscription: boolean;
+  isActive: boolean;
+  subscription: {
+    stripe_subscription_id: string;
+    status: string;
+    plan_id: string | null;
+    price_id: string | null;
+    interval: string | null;
+    current_period_end: string | null;
+    trial_end: string | null;
+    cancel_at_period_end: boolean;
+  } | null;
+  currentPlan: { id: string; tierWordmark: string; name: string } | null;
+};
+
+export async function getBillingStatus(): Promise<BillingStatusResponse | null> {
+  const res = await fetch('/api/billing/status');
+  const data = await res.json().catch(() => ({})) as { error?: string } & Partial<BillingStatusResponse>;
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error(data.error ?? `Billing status failed: ${res.status}`);
+  return data as BillingStatusResponse;
+}
+
+/** Persist subscription after Stripe Checkout (backup when webhooks are slow or not forwarded). */
+export async function syncCheckoutSession(sessionId: string): Promise<void> {
+  const res = await fetch('/api/stripe/checkout/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  });
+  const data = await res.json().catch(() => ({})) as { error?: string };
+  if (!res.ok) throw new Error(data.error ?? `Checkout sync failed: ${res.status}`);
+}
+
+/** Browser event: refetch billing UI (e.g. /pricing) after subscription changes. */
+export const BILLING_UPDATED_EVENT = 'primecfo:billing-updated';
+
+export type AlertRow = {
+  alert_kind: string;
+  title: string;
+  body: string;
+  severity_key?: string;
+  state?: string;
+};
+
+export async function getAlerts(clientId: string, evaluate = false): Promise<{ alerts: AlertRow[]; tier?: string }> {
+  const params = new URLSearchParams({ clientId });
+  if (evaluate) params.set('evaluate', '1');
+  const res = await fetch(`/api/alerts?${params}`);
+  const data = await res.json().catch(() => ({})) as { error?: string; alerts?: AlertRow[] };
+  if (!res.ok) throw new Error(data.error ?? `Alerts failed: ${res.status}`);
+  return { alerts: data.alerts ?? [], tier: (data as { tier?: string }).tier };
 }

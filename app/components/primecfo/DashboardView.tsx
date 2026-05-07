@@ -21,6 +21,8 @@ const PERIOD_OPTIONS: { range: DashboardRange; label: string }[] = [
 
 interface DashboardViewProps {
   metrics: MetricCard[];
+  /** Cash outlook / tier-gated forecast (optional). */
+  forecastPanel?: React.ReactNode;
   chartData: ChartDataPoint[];
   insights: AIInsight[];
   riskPosture?: RiskPostureType | null;
@@ -42,6 +44,7 @@ interface DashboardViewProps {
 
 const DashboardView: React.FC<DashboardViewProps> = ({
   metrics,
+  forecastPanel,
   chartData,
   insights,
   riskPosture,
@@ -178,6 +181,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="mb-6">
         <MetricCards metrics={metrics} />
       </div>
+
+      {forecastPanel ? <div className="mb-6">{forecastPanel}</div> : null}
 
       <div className="grid lg:grid-cols-2 gap-6 mb-6">
         <RevenueChart data={chartData} />

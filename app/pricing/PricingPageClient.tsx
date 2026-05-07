@@ -1,19 +1,46 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import Navbar from "@/app/components/primecfo/Navbar";
 import Footer from "@/app/components/primecfo/Footer";
 import PricingPage from "@/app/components/primecfo/PricingPage";
 import { CONTACT_EMAIL, type Plan } from "@/app/lib/pricing-plans";
+import { getBillingStatus, type BillingStatusResponse, BILLING_UPDATED_EVENT } from "@/lib/api/client";
 
 export default function PricingPageClient() {
   const router = useRouter();
-  const [session, setSession] = useState<{ user: { email?: string } } | null>(null);
+  const [session, setSession] = useState<{ user: { email?: string; id?: string } } | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutPending, setCheckoutPending] = useState(false);
+  const [billing, setBilling] = useState<BillingStatusResponse | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+
+  const refreshBilling = useCallback(async () => {
+    setBillingLoading(true);
+    try {
+      const b = await getBillingStatus();
+      setBilling(
+        b ?? {
+          hasSubscription: false,
+          isActive: false,
+          subscription: null,
+          currentPlan: null,
+        }
+      );
+    } catch {
+      setBilling({
+        hasSubscription: false,
+        isActive: false,
+        subscription: null,
+        currentPlan: null,
+      });
+    } finally {
+      setBillingLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -26,6 +53,23 @@ export default function PricingPageClient() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!session) {
+      setBilling(null);
+      setBillingLoading(false);
+      return;
+    }
+    setBilling(null);
+    void refreshBilling();
+  }, [session, refreshBilling]);
+
+  useEffect(() => {
+    const handler = () => {
+      void refreshBilling();
+    };
+    window.addEventListener(BILLING_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(BILLING_UPDATED_EVENT, handler);
+  }, [refreshBilling]);
   const handleNavigate = (view: string) => {
     if (view === "landing") {
       router.push("/");
@@ -126,6 +170,19 @@ export default function PricingPageClient() {
     );
   }
 
+  const activeSubscription =
+    billing && billing.isActive && billing.currentPlan
+      ? {
+          planId: billing.currentPlan.id,
+          tierWordmark: billing.currentPlan.tierWordmark,
+          planName: billing.currentPlan.name,
+          interval:
+            billing.subscription?.interval === "month" || billing.subscription?.interval === "year"
+              ? (billing.subscription.interval as "month" | "year")
+              : null,
+        }
+      : null;
+
   return (
     <div className="min-h-screen bg-slate-950">
       <Navbar
@@ -138,6 +195,8 @@ export default function PricingPageClient() {
         onPlanCta={handlePlanCta}
         onContact={handleContact}
         onStartTrial={handleStartTrial}
+        activeSubscription={activeSubscription}
+        isSubscriptionLoading={!!session && (billingLoading || billing === null)}
       />
       <Footer />
       {checkoutPending && (

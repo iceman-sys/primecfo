@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClientContext } from "@/contexts/ClientContext";
 import DashboardView from "@/app/components/primecfo/DashboardView";
-import { getDashboardData, getInsights, syncReports, SyncError, type ReportRange } from "@/lib/api/client";
+import ForecastPanel from "@/app/components/primecfo/ForecastPanel";
+import { getDashboardData, getInsights, syncReports, getForecast, syncCheckoutSession, BILLING_UPDATED_EVENT, SyncError, type DashboardDataResponse, type ReportRange } from "@/lib/api/client";
 import { toastErrorWithProgress } from "@/app/components/ui/sonner";
+import { toast } from "sonner";
 import type { MetricCard, ChartDataPoint, AIInsight, RiskPosture } from "@/lib/financialData";
-import { getTrend } from "@/lib/financialData";
+import { formatCurrency, formatExactCurrency, getTrend } from "@/lib/financialData";
 
 const RANGE_TO_LABEL: Record<ReportRange, string> = {
   "3m": "Last 3 Months",
@@ -86,6 +88,80 @@ function mapDashboardDataToMetrics(
   return cards;
 }
 
+function mapCoreToFiveMetrics(
+  core: NonNullable<DashboardDataResponse["coreMetrics"]>,
+  summary: DashboardDataResponse["summary"],
+  previousSummary: DashboardDataResponse["previousSummary"]
+): MetricCard[] {
+  const ar = core.arAging;
+  const arDisplay = Math.max(ar.total, summary.accounts_receivable);
+  return [
+    {
+      id: "spec-1",
+      title: "Cash Position",
+      value: core.cashPosition,
+      previousValue: previousSummary.cash,
+      format: "currencyExact",
+      ...getTrend(core.cashPosition, previousSummary.cash, true),
+      icon: "Wallet",
+      color: "teal",
+      metricHealth: core.health.cash,
+      contextLine: "From latest balance-sheet sync",
+    },
+    {
+      id: "spec-2",
+      title: "Revenue Trend",
+      value: core.revenueChangePct,
+      previousValue: 0,
+      format: "percentage",
+      trend: core.revenueChangePct >= 0 ? "up" : "down",
+      trendIsGood: core.revenueChangePct >= 0,
+      icon: "DollarSign",
+      color: "emerald",
+      metricHealth: core.health.revenue,
+      contextLine: `${formatCurrency(summary.revenue)} this period · ${formatCurrency(previousSummary.revenue)} prior`,
+      hideTrendBadge: true,
+    },
+    {
+      id: "spec-3",
+      title: "Profit Margin",
+      value: core.profitMarginPct,
+      previousValue: previousSummary.profit_margin_pct,
+      format: "percentage",
+      ...getTrend(core.profitMarginPct, previousSummary.profit_margin_pct, true),
+      icon: "PieChart",
+      color: "violet",
+      metricHealth: core.health.margin,
+      contextLine: "Net income ÷ revenue · current period",
+    },
+    {
+      id: "spec-4",
+      title: "AR Aging",
+      value: arDisplay,
+      previousValue: previousSummary.accounts_receivable,
+      format: "currencyExact",
+      ...getTrend(arDisplay, previousSummary.accounts_receivable, false),
+      icon: "FileText",
+      color: "amber",
+      metricHealth: core.health.ar,
+      contextLine: `Current ${formatExactCurrency(ar.current)} · 31–60 ${formatExactCurrency(ar.days31_60)} · 90+ ${formatExactCurrency(ar.days91_plus)}`,
+    },
+    {
+      id: "spec-5",
+      title: "Cash Runway",
+      value: core.cashRunwayMonths,
+      previousValue: 0,
+      format: "number",
+      trend: "flat",
+      trendIsGood: core.health.runway !== "bad",
+      icon: "TrendingUp",
+      color: "blue",
+      metricHealth: core.health.runway,
+      contextLine: `~${core.cashRunwayMonths.toFixed(1)} months at trailing cash burn`,
+    },
+  ];
+}
+
 function mapTrendsToChartData(
   trends: Array<{ periodLabel: string; revenue: number; expenses: number; profit: number; cash: number }>
 ): ChartDataPoint[] {
@@ -112,6 +188,38 @@ export default function DashboardPage() {
     }
   }, [searchParams, queryClient]);
 
+  const checkoutSuccess = searchParams.get("checkout");
+  const stripeSessionId = searchParams.get("session_id");
+
+  useEffect(() => {
+    if (checkoutSuccess !== "success" || !stripeSessionId) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        await syncCheckoutSession(stripeSessionId);
+        if (!cancelled) {
+          queryClient.invalidateQueries({ queryKey: ["forecast"] });
+          toast.success("Your plan is active — cash outlook will use your new tier.");
+          window.dispatchEvent(new Event(BILLING_UPDATED_EVENT));
+        }
+      } catch (e) {
+        if (!cancelled) {
+          toast.error(e instanceof Error ? e.message : "Could not confirm subscription. Try refreshing in a moment.");
+        }
+      } finally {
+        if (!cancelled) {
+          router.replace("/dashboard");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [checkoutSuccess, stripeSessionId, queryClient, router]);
+
   useEffect(() => {
     setSyncWarningDismissed(false);
   }, [selectedClient?.id]);
@@ -128,11 +236,21 @@ export default function DashboardPage() {
     enabled: !!selectedClient?.id,
   });
 
+  const { data: forecastData, isLoading: forecastLoading, error: forecastError } = useQuery({
+    queryKey: ["forecast", selectedClient?.id],
+    queryFn: () => getForecast(selectedClient!.id),
+    enabled: !!(selectedClient?.id && selectedClient.qbStatus === "connected"),
+    staleTime: 120_000,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
+
   const syncMutation = useMutation({
     mutationFn: () => syncReports(selectedClient!.id, range, range === "4q" ? "quarter" : "month"),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard", selectedClient?.id, range] });
       queryClient.invalidateQueries({ queryKey: ["insights", selectedClient?.id, range] });
+      queryClient.invalidateQueries({ queryKey: ["forecast"] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
     },
     onError: (error) => {
@@ -157,14 +275,19 @@ export default function DashboardPage() {
     !syncWarningDismissed && (isSyncConnectionError || !!clientNotConnected);
 
   const metrics: MetricCard[] =
-    dashboardData?.summary != null && dashboardData?.previousSummary != null
-      ? mapDashboardDataToMetrics(dashboardData.summary, dashboardData.previousSummary)
-      : [];
+    dashboardData?.coreMetrics && dashboardData.summary && dashboardData.previousSummary
+      ? mapCoreToFiveMetrics(dashboardData.coreMetrics, dashboardData.summary, dashboardData.previousSummary)
+      : dashboardData?.summary != null && dashboardData?.previousSummary != null
+        ? mapDashboardDataToMetrics(dashboardData.summary, dashboardData.previousSummary)
+        : [];
   const chartData: ChartDataPoint[] = dashboardData ? mapTrendsToChartData(dashboardData.trends) : [];
   const selectedPeriodLabel = RANGE_TO_LABEL[range];
   const hasSyncedData = dashboardData?.period != null;
   const insights: AIInsight[] = insightsData?.insights ?? [];
   const riskPosture: RiskPosture | null = insightsData?.riskPosture ?? null;
+
+  const forecastErrorObj =
+    forecastError instanceof Error ? forecastError : forecastError ? new Error(String(forecastError)) : null;
 
   return (
     <DashboardView
@@ -173,6 +296,15 @@ export default function DashboardPage() {
       insights={insights}
       riskPosture={riskPosture}
       client={selectedClient}
+      forecastPanel={
+        selectedClient?.qbStatus === "connected" ? (
+          <ForecastPanel
+            data={forecastData ?? null}
+            loading={forecastLoading}
+            error={forecastErrorObj}
+          />
+        ) : null
+      }
       onNavigate={(view) =>
         router.push(view === "reports" ? `/reports?range=${range}` : `/${view}`)
       }

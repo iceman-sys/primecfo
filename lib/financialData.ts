@@ -27,6 +27,12 @@ export interface MetricCard {
   trendIsGood: boolean;
   icon: string;
   color: string;
+  /** One-line context under the title (spec §6 dashboard). */
+  contextLine?: string;
+  /** Traffic-light semantic styling. */
+  metricHealth?: 'good' | 'warn' | 'bad';
+  /** When true, hides the trending % badge (e.g. primary value is already a % delta). */
+  hideTrendBadge?: boolean;
 }
 
 export type InsightSeverity = 'critical' | 'warning' | 'watch' | 'positive' | 'info';

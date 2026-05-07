@@ -56,6 +56,22 @@ function toIso(epochSeconds: number | null | undefined): string | null {
   return new Date(epochSeconds * 1000).toISOString();
 }
 
+/** Resolve PrimeCFO plan id (e.g. self-service | starter | growth) from Stripe subscription + expanded price. */
+function pickPlanIdFromSubscription(sub: Stripe.Subscription): string | null {
+  const fromSub = sub.metadata?.plan_id?.trim();
+  if (fromSub) return fromSub;
+
+  const price = sub.items?.data?.[0]?.price;
+  if (!price || typeof price === 'string') return null;
+
+  const pm = price.metadata ?? {};
+  const fromPrice =
+    (typeof pm.plan_id === 'string' && pm.plan_id.trim()) ||
+    (typeof pm.primecfo_plan_id === 'string' && pm.primecfo_plan_id.trim()) ||
+    '';
+  return fromPrice.length > 0 ? fromPrice : null;
+}
+
 /**
  * Upsert subscription state from a Stripe.Subscription object.
  * Called from webhook handlers; safe to call multiple times with the same event.
@@ -79,8 +95,7 @@ export async function upsertSubscription(sub: Stripe.Subscription): Promise<void
     return;
   }
 
-  const planId = (sub.metadata?.plan_id as string | undefined) ?? null;
-  const price = sub.items?.data?.[0]?.price;
+  const planId = pickPlanIdFromSubscription(sub);
   const priceId = pickPriceId(sub);
   const interval = pickInterval(sub);
   const item = sub.items?.data?.[0];
@@ -95,7 +110,7 @@ export async function upsertSubscription(sub: Stripe.Subscription): Promise<void
         user_id: userId,
         stripe_customer_id: customerId,
         status: sub.status,
-        plan_id: planId ?? (price?.metadata?.plan_id as string | undefined) ?? null,
+        plan_id: planId,
         price_id: priceId,
         interval,
         current_period_start: currentPeriodStart,

@@ -1,4 +1,4 @@
-import { quickBooksRequest } from './api';
+import { quickBooksRequest, QuickBooksApiError } from './api';
 import { getValidQuickBooksAccessToken } from './tokens';
 import { supabaseAdmin } from './supabaseAdmin';
 import { deriveMetricsFromReports } from '@/lib/deriveMetrics';
@@ -20,17 +20,29 @@ export type ReportType =
 const QBO_REPORT_NAMES: Record<ReportType, string> = {
   pnl: 'ProfitAndLoss',
   balance_sheet: 'BalanceSheet',
-  cash_flow: 'CashFlowStatement',
+  /** Canonical Intuit Reports API name (CashFlowStatement is not always accepted). */
+  cash_flow: 'CashFlow',
   ar_aging: 'ARAgingSummary',
   ap_aging: 'APAgingSummary',
   coa: 'AccountList',
 };
 
-/** Required reports for sync (P&L, Balance Sheet, Cash Flow — always fetched). */
-export const REQUIRED_REPORT_TYPES: ReportType[] = ['pnl', 'balance_sheet', 'cash_flow'];
+/** Must succeed for core dashboard metrics / sync health. */
+export const REQUIRED_REPORT_TYPES: ReportType[] = ['pnl', 'balance_sheet'];
 
-/** Optional reports (may return Permission Denied on some plans/sandbox). */
-export const OPTIONAL_REPORT_TYPES: ReportType[] = ['ar_aging', 'ap_aging', 'coa'];
+/** May fail with Permission Denied (company role, simplified QBO, or oauth scope); sync still succeeds without them. */
+export const OPTIONAL_REPORT_TYPES: ReportType[] = ['cash_flow', 'ar_aging', 'ap_aging', 'coa'];
+
+/** Optional + permission/style failures logged at warn instead of error. */
+function reportFailureIsLikelyEnvironmental(msg: string, status?: number): boolean {
+  const m = msg.toLowerCase();
+  return (
+    m.includes('permission denied') ||
+    m.includes('not authorized') ||
+    m.includes('access denied') ||
+    status === 403
+  );
+}
 
 export type PeriodInfo = {
   start_date: string; // YYYY-MM-DD
@@ -138,6 +150,25 @@ export function getSingleDateRange(
 /**
  * Fetch a single report from QuickBooks.
  */
+async function fetchReportByQboName(
+  clientId: string,
+  reportName: string,
+  startDate: string,
+  endDate: string,
+  accountingMethod: 'Accrual' | 'Cash'
+): Promise<unknown> {
+  const path = `/v3/company/{realmId}/reports/${reportName}`;
+  return quickBooksRequest<unknown>(clientId, {
+    path,
+    method: 'GET',
+    searchParams: {
+      start_date: startDate,
+      end_date: endDate,
+      accounting_method: accountingMethod,
+    },
+  });
+}
+
 export async function fetchReportFromQuickBooks(
   clientId: string,
   reportType: ReportType,
@@ -145,18 +176,19 @@ export async function fetchReportFromQuickBooks(
   endDate: string,
   accountingMethod: 'Accrual' | 'Cash' = 'Cash'
 ): Promise<unknown> {
+  if (reportType === 'cash_flow') {
+    try {
+      return await fetchReportByQboName(clientId, 'CashFlow', startDate, endDate, accountingMethod);
+    } catch (e) {
+      if (e instanceof QuickBooksApiError && e.status === 404) {
+        return fetchReportByQboName(clientId, 'CashFlowStatement', startDate, endDate, accountingMethod);
+      }
+      throw e;
+    }
+  }
+
   const reportName = QBO_REPORT_NAMES[reportType];
-  const path = `/v3/company/{realmId}/reports/${reportName}`;
-  const searchParams: Record<string, string> = {
-    start_date: startDate,
-    end_date: endDate,
-    accounting_method: accountingMethod,
-  };
-  return quickBooksRequest<unknown>(clientId, {
-    path,
-    method: 'GET',
-    searchParams,
-  });
+  return fetchReportByQboName(clientId, reportName, startDate, endDate, accountingMethod);
 }
 
 /**
@@ -361,8 +393,10 @@ export async function syncReportsForClient(
       reportsSaved++;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e ?? 'Unknown');
+      const status = e instanceof QuickBooksApiError ? e.status : undefined;
       errors.push(`${period.label} ${reportType}: ${msg}`);
-      console.error('[QuickBooks] Report fetch/save failed', {
+      const isOptional = OPTIONAL_REPORT_TYPES.includes(reportType);
+      const logPayload = {
         reportType,
         period: period.label,
         start_date: period.start_date,
@@ -370,8 +404,13 @@ export async function syncReportsForClient(
         errorMessage: msg,
         errorName: e instanceof Error ? e.name : undefined,
         errorStack: e instanceof Error ? e.stack : undefined,
-        rawError: e instanceof Error ? undefined : (typeof e === 'object' && e !== null ? JSON.stringify(e) : String(e)),
-      });
+        optional: isOptional,
+      };
+      if (isOptional && reportFailureIsLikelyEnvironmental(msg, status)) {
+        console.warn('[QuickBooks] Optional report unavailable (skipped)', logPayload);
+      } else {
+        console.error('[QuickBooks] Report fetch/save failed', logPayload);
+      }
     }
   }
 

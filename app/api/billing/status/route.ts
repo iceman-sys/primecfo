@@ -1,6 +1,32 @@
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseServerClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
+import { PLANS } from '@/app/lib/pricing-plans';
+import { planIdToTier, type ProductTier } from '@/lib/tiers';
+
+const TIER_WORDMARK: Record<ProductTier, string> = {
+  see: 'SEE',
+  understand: 'UNDERSTAND',
+  act: 'ACT',
+};
+
+function currentPlanFromRow(planId: string | null | undefined): {
+  id: string;
+  tierWordmark: string;
+  name: string;
+} | null {
+  if (!planId) return null;
+  const listed = PLANS.find((p) => p.id === planId);
+  if (listed) {
+    return { id: listed.id, tierWordmark: listed.tierWordmark, name: listed.name };
+  }
+  const tier = planIdToTier(planId);
+  return {
+    id: planId,
+    tierWordmark: tier ? TIER_WORDMARK[tier] : planId.toUpperCase(),
+    name: planId,
+  };
+}
 
 /**
  * GET /api/billing/status
@@ -35,9 +61,12 @@ export async function GET() {
     !!data &&
     ['active', 'trialing', 'past_due'].includes(String(data.status ?? ''));
 
+  const currentPlan = isActive ? currentPlanFromRow(data.plan_id as string | null) : null;
+
   return NextResponse.json({
     hasSubscription: !!data,
     isActive,
     subscription: data ?? null,
+    currentPlan,
   });
 }

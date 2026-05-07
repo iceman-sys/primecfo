@@ -5,7 +5,6 @@ import {
   DollarSign,
   CreditCard,
   TrendingUp,
-  TrendingDown,
   PieChart,
   Wallet,
   FileText,
@@ -44,8 +43,13 @@ const colorMap: Record<string, { bg: string; icon: string; border: string }> = {
 };
 
 const MetricCards: React.FC<MetricCardsProps> = ({ metrics }) => {
+  const gridCls =
+    metrics.length === 5
+      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
+      : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className={gridCls}>
       {metrics.map((metric) => {
         const IconComponent = iconMap[metric.icon] || DollarSign;
         const colors = colorMap[metric.color] || colorMap.teal;
@@ -53,16 +57,29 @@ const MetricCards: React.FC<MetricCardsProps> = ({ metrics }) => {
         const changeStr = formatPercentChange(metric.value, metric.previousValue);
 
         let displayValue = "";
-        if (metric.format === "currency") displayValue = formatCurrency(metric.value);
+        if (metric.title === "Cash Runway") {
+          displayValue = `${metric.value.toFixed(1)} mo`;
+        } else if (metric.format === "currency") displayValue = formatCurrency(metric.value);
         else if (metric.format === "currencyExact") displayValue = formatExactCurrency(metric.value);
         else if (metric.format === "percentage") displayValue = `${metric.value}%`;
         else if (metric.format === "days") displayValue = `${metric.value} days`;
         else displayValue = metric.value.toLocaleString();
 
+        const healthRing =
+          metric.metricHealth === "bad"
+            ? "border-red-500/35 ring-1 ring-red-500/20"
+            : metric.metricHealth === "warn"
+              ? "border-amber-500/35 ring-1 ring-amber-500/15"
+              : metric.metricHealth === "good"
+                ? "border-emerald-500/25"
+                : "";
+
         return (
           <div
             key={metric.id}
-            className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-5 hover:border-slate-600 transition-all group"
+            className={`bg-slate-800/50 border rounded-xl p-5 hover:border-slate-600 transition-all group ${
+              healthRing || "border-slate-700/50"
+            }`}
           >
             <div className="flex items-start justify-between mb-4">
               <div
@@ -70,31 +87,38 @@ const MetricCards: React.FC<MetricCardsProps> = ({ metrics }) => {
               >
                 <IconComponent className={`w-5 h-5 ${colors.icon}`} />
               </div>
-              <div
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
-                  metric.trendIsGood
-                    ? "bg-emerald-500/10 text-emerald-400"
-                    : percentChange === 0
-                      ? "bg-slate-500/10 text-slate-400"
-                      : "bg-red-500/10 text-red-400"
-                }`}
-              >
-                {metric.trend === "up" ? (
-                  <ArrowUpRight className="w-3 h-3" />
-                ) : metric.trend === "down" ? (
-                  <ArrowDownRight className="w-3 h-3" />
-                ) : (
-                  <Minus className="w-3 h-3" />
-                )}
-                {changeStr}
-              </div>
+              {!metric.hideTrendBadge ? (
+                <div
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                    metric.trendIsGood
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : percentChange === 0
+                        ? "bg-slate-500/10 text-slate-400"
+                        : "bg-red-500/10 text-red-400"
+                  }`}
+                >
+                  {metric.trend === "up" ? (
+                    <ArrowUpRight className="w-3 h-3" />
+                  ) : metric.trend === "down" ? (
+                    <ArrowDownRight className="w-3 h-3" />
+                  ) : (
+                    <Minus className="w-3 h-3" />
+                  )}
+                  {changeStr}
+                </div>
+              ) : null}
             </div>
             <p className="text-2xl font-bold text-white mb-1">{displayValue}</p>
             <p className="text-sm text-slate-400">{metric.title}</p>
+            {metric.contextLine ? (
+              <p className="text-xs text-slate-500 mt-1.5 leading-snug">{metric.contextLine}</p>
+            ) : null}
             <div className="mt-3 pt-3 border-t border-slate-700/30">
               <p className="text-xs text-slate-500">
                 Previous:{" "}
-                {metric.format === "currency"
+                {metric.title === "Cash Runway"
+                  ? "—"
+                  : metric.format === "currency"
                   ? formatCurrency(metric.previousValue)
                   : metric.format === "currencyExact"
                     ? formatExactCurrency(metric.previousValue)
