@@ -60,19 +60,21 @@ export function evaluateFinancialAlerts(
     });
   }
 
-  // 6 — Upcoming cash crunch (30d forecast path)
-  const min30 = forecast.series.filter((p) => p.dayOffset <= 30).map((p) => p.expected);
-  const trough = min30.length ? Math.min(...min30) : bank;
+  // 6 — Upcoming cash crunch (use full tier horizon on forecast series)
+  const windowDays = forecast.horizonDays;
+  const inHorizon = forecast.series.filter((p) => p.dayOffset <= windowDays).map((p) => p.expected);
+  const trough = inHorizon.length ? Math.min(...inHorizon) : bank;
   if (trough < crunchThreshold) {
-    const worstDay = forecast.series.find((p) => p.dayOffset <= 30 && p.expected === trough);
+    const worstDay = forecast.series.find((p) => p.dayOffset <= windowDays && p.expected === trough);
+    const arApDays = forecast.components.arApWindowDays;
     out.push({
       alert_kind: 'cash_crunch',
       severity_key: `crunch:${Math.floor(trough)}`,
       title: 'Projected cash crunch',
       body: `Based on upcoming bills and expected collections, cash is projected to dip to ${fmt(
         trough
-      )}${worstDay ? ` around day ${worstDay.dayOffset}` : ''}. Open invoices due within 30 days total ${fmt(
-        inputs.invoices30.reduce((s, i) => s + parseEntityBalance(i), 0)
+      )}${worstDay ? ` around day ${worstDay.dayOffset}` : ''}. Open invoices in your ${arApDays}-day window total ${fmt(
+        inputs.openInvoices.reduce((s, i) => s + parseEntityBalance(i), 0)
       )} — prioritizing collections may help.`,
     });
   }

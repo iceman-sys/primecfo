@@ -73,6 +73,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
                 { label: 'Reports', view: 'reports' },
                 { label: 'Insights', view: 'insights' },
                 { label: 'Clients', view: 'clients' },
+                { label: 'About Us', view: 'about' },
               ].map((item) => (
                 <button
                   key={item.view}

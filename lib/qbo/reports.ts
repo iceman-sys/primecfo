@@ -155,18 +155,34 @@ async function fetchReportByQboName(
   reportName: string,
   startDate: string,
   endDate: string,
-  accountingMethod: 'Accrual' | 'Cash'
+  accountingMethod: 'Accrual' | 'Cash',
+  extraParams?: Record<string, string | undefined>
 ): Promise<unknown> {
   const path = `/v3/company/{realmId}/reports/${reportName}`;
+  const searchParams: Record<string, string> = {
+    start_date: startDate,
+    end_date: endDate,
+    accounting_method: accountingMethod,
+  };
+  if (extraParams) {
+    for (const [k, v] of Object.entries(extraParams)) {
+      if (v !== undefined && v !== '') searchParams[k] = v;
+    }
+  }
   return quickBooksRequest<unknown>(clientId, {
     path,
     method: 'GET',
-    searchParams: {
-      start_date: startDate,
-      end_date: endDate,
-      accounting_method: accountingMethod,
-    },
+    searchParams,
   });
+}
+
+/** QB multi-period column grouping per Financial Reports developer spec */
+function summarizeColumnByFor(reportType: ReportType, range: ReportRange): string | undefined {
+  if (reportType !== 'pnl' && reportType !== 'balance_sheet' && reportType !== 'cash_flow') {
+    return undefined;
+  }
+  if (reportType === 'balance_sheet') return 'Quarter';
+  return range === '4q' ? 'Quarter' : 'Month';
 }
 
 export async function fetchReportFromQuickBooks(
@@ -174,21 +190,33 @@ export async function fetchReportFromQuickBooks(
   reportType: ReportType,
   startDate: string,
   endDate: string,
-  accountingMethod: 'Accrual' | 'Cash' = 'Cash'
+  accountingMethod: 'Accrual' | 'Cash' = 'Cash',
+  range?: ReportRange
 ): Promise<unknown> {
+  const summarize = range !== undefined ? summarizeColumnByFor(reportType, range) : undefined;
+
+  const reportParams = summarize !== undefined ? { summarize_column_by: summarize } : undefined;
+
   if (reportType === 'cash_flow') {
     try {
-      return await fetchReportByQboName(clientId, 'CashFlow', startDate, endDate, accountingMethod);
+      return await fetchReportByQboName(clientId, 'CashFlow', startDate, endDate, accountingMethod, reportParams);
     } catch (e) {
       if (e instanceof QuickBooksApiError && e.status === 404) {
-        return fetchReportByQboName(clientId, 'CashFlowStatement', startDate, endDate, accountingMethod);
+        return fetchReportByQboName(
+          clientId,
+          'CashFlowStatement',
+          startDate,
+          endDate,
+          accountingMethod,
+          reportParams
+        );
       }
       throw e;
     }
   }
 
   const reportName = QBO_REPORT_NAMES[reportType];
-  return fetchReportByQboName(clientId, reportName, startDate, endDate, accountingMethod);
+  return fetchReportByQboName(clientId, reportName, startDate, endDate, accountingMethod, reportParams);
 }
 
 /**
@@ -381,7 +409,9 @@ export async function syncReportsForClient(
         clientId,
         reportType,
         period.start_date,
-        period.end_date
+        period.end_date,
+        'Cash',
+        range
       );
       console.log('[QuickBooks] Fetched report', {
         reportType,

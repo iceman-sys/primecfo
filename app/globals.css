@@ -135,10 +135,23 @@ body {
   overflow: hidden;
   margin: 0 -1rem -1rem -1rem;
 }
-.toast-progress-bar-fill {
-  height: 100%;
-  width: 100%;
-  background: hsl(var(--destructive) / 0.8);
-  border-radius: 0 0 0 var(--radius);
-  animation: toast-progress-shrink linear forwards;
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .financial-report-print,
+  .financial-report-print * {
+    visibility: visible !important;
+    color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .financial-report-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: #fff !important;
+  }
 }

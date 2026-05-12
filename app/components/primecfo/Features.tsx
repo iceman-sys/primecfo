@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { PLANS } from "@/app/lib/pricing-plans";
 import { Link2, BarChart3, Brain, Shield, RefreshCw, Users, ArrowRight, Zap, FileText, TrendingUp } from "lucide-react";
 
 interface FeaturesProps {
@@ -79,27 +80,31 @@ const Features: React.FC<FeaturesProps> = ({ onGetStarted }) => {
           <p className="text-teal-400 text-sm font-semibold uppercase tracking-wider mb-3">Pricing</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-8">
-            Three plans built around how much help you want. Start at $99/mo with a 14-day free trial.
+            Three plans built around how much help you want. Monthly plans from{" "}
+            ${PLANS[0].monthly}/mo (${PLANS[0].annual}/mo when billed annually and you save 15%).
           </p>
           <div className="flex flex-wrap justify-center gap-4 mb-8">
-            {[
-              { label: "See", price: "$99" },
-              { label: "Understand", price: "$249", badge: "Most Popular" },
-              { label: "Act", price: "$449" },
-            ].map((tier) => (
+            {PLANS.map((plan) => {
+              const teaserLabel =
+                plan.tierWordmark === "SEE" ? "See" : plan.tierWordmark === "UNDERSTAND" ? "Understand" : "Act";
+              return (
               <div
-                key={tier.label}
+                key={plan.id}
                 className="relative px-5 py-4 bg-slate-900/60 border border-slate-800 rounded-xl min-w-[140px]"
               >
-                {tier.badge && (
+                {plan.popular && (
                   <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 rounded-full whitespace-nowrap">
-                    {tier.badge}
+                    Most Popular
                   </span>
                 )}
-                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{tier.label}</p>
-                <p className="text-xl font-bold text-white">{tier.price}<span className="text-sm font-normal text-slate-500">/mo</span></p>
+                <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{teaserLabel}</p>
+                <p className="text-xl font-bold text-white">
+                  ${plan.monthly}<span className="text-sm font-normal text-slate-500">/mo</span>
+                </p>
+                <p className="text-[11px] text-slate-500 mt-1">${plan.annual}/mo billed annually</p>
               </div>
-            ))}
+              );
+            })}
           </div>
           <Link
             href="/pricing"

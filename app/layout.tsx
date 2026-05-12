@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Plus_Jakarta_Sans, Fraunces, DM_Sans } from "next/font/google";
+import { Geist, Geist_Mono, Plus_Jakarta_Sans, Fraunces, DM_Sans, Outfit } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/app/components/ui/toaster";
 import { Toaster as Sonner } from "@/app/components/ui/sonner";
@@ -34,9 +34,23 @@ const dmSans = DM_Sans({
   weight: ["300", "400", "500", "600", "700"],
 });
 
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600"],
+});
+
 export const metadata: Metadata = {
   title: "PrimeCFO.ai",
-  description: "AI-powered financial insights and client management for Prime Accounting Solutions.",
+  description:
+    "Unlocking Potential Through Financial Intelligence™ — AI-powered financial insights for Prime Accounting Solutions.",
+  openGraph: {
+    description:
+      "Unlocking Potential Through Financial Intelligence™ — connect QuickBooks for clear financial insight.",
+    type: "website",
+    siteName: "PrimeCFO.ai",
+  },
 };
 
 export default function RootLayout({
@@ -47,7 +61,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${plusJakarta.variable} ${fraunces.variable} ${dmSans.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${plusJakarta.variable} ${fraunces.variable} ${dmSans.variable} ${outfit.variable} antialiased`}
       >
         {children}
         <Toaster />

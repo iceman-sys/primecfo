@@ -255,6 +255,10 @@ export type ForecastApiResponse = {
       expectedOutflowsBills: number;
       estimatedRecurringMonthly: number;
       collectionRate: number;
+      arApWindowDays: number;
+      balanceSheetCash: number | null;
+      bankVsStatementDelta: number | null;
+      avgMonthlyOperatingCashNet: number | null;
     };
     horizonDays: number;
     endingCashExpected: number;

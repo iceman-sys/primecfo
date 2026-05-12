@@ -12,12 +12,19 @@ export type CashFlowForecastResult = {
   asOf: string;
   tier: ProductTier;
   bankBalance: number;
-  /** Formula components for 30-day window (spec transparency) */
+  /** Formula components (spec transparency) */
   components: {
     expectedInflowsWeighted: number;
     expectedOutflowsBills: number;
     estimatedRecurringMonthly: number;
     collectionRate: number;
+    /** Open AR/AP due-date window end = asOf + this many days (tier horizon). */
+    arApWindowDays: number;
+    /** Act tier: cash subtotal from Balance Sheet report vs sum of Bank accounts from QBO query. */
+    balanceSheetCash: number | null;
+    bankVsStatementDelta: number | null;
+    /** Act tier: avg monthly net operating cash from Cash Flow report when parsed. */
+    avgMonthlyOperatingCashNet: number | null;
   };
   horizonDays: 30 | 60 | 90;
   /** Ending cash at horizon (expected) */

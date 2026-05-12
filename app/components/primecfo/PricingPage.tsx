@@ -182,7 +182,7 @@ const PricingPage: React.FC<PricingPageProps> = ({
                 className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
                 style={{ color: ACCENT, background: ACCENT_GLOW }}
               >
-                Save 15–20%
+                Save 15%
               </span>
             </button>
           </div>

@@ -17,7 +17,7 @@ import PublicShell from "@/app/components/primecfo/PublicShell";
 export const metadata: Metadata = {
   title: "About Us | PrimeCFO.ai",
   description:
-    "PrimeCFO.ai turns QuickBooks data into clear, AI-powered financial insights for modern business owners.",
+    "Unlocking Potential Through Financial Intelligence™ — QuickBooks-connected AI insights for modern business owners.",
   alternates: { canonical: "/about" },
   openGraph: {
     title: "About PrimeCFO.ai",
@@ -71,7 +71,7 @@ export default function AboutPage() {
   const stats = [
     { value: "100%", label: "QuickBooks-native data" },
     { value: "<60s", label: "From connect to first insight" },
-    { value: "3", label: "Plans from $99 to $449/mo" },
+    { value: "3", label: "Plans $114–$551/mo (save 15% annually)" },
     { value: "14-day", label: "Free trial, no card required" },
   ];
 

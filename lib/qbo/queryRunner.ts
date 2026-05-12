@@ -58,18 +58,20 @@ export type QboMoneyEntity = {
 
 export async function fetchOpenInvoicesDueBy(
   clientId: string,
-  dueBeforeYmd: string
+  /** YYYY-MM-DD: include invoices with DueDate <= this (typically asOf + tier forecast horizon). Past-due open invoices included. */
+  dueOnOrBeforeYmd: string
 ): Promise<QboMoneyEntity[]> {
   const sql =
-    `SELECT * FROM Invoice WHERE Balance > '0' AND DueDate <= '${dueBeforeYmd}'`;
+    `SELECT * FROM Invoice WHERE Balance > '0' AND DueDate <= '${dueOnOrBeforeYmd}'`;
   return queryAllEntities<QboMoneyEntity>(clientId, sql, 'Invoice');
 }
 
 export async function fetchOpenBillsDueBy(
   clientId: string,
-  dueBeforeYmd: string
+  /** YYYY-MM-DD: include bills with DueDate <= this (same window as invoices). */
+  dueOnOrBeforeYmd: string
 ): Promise<QboMoneyEntity[]> {
   const sql =
-    `SELECT * FROM Bill WHERE Balance > '0' AND DueDate <= '${dueBeforeYmd}'`;
+    `SELECT * FROM Bill WHERE Balance > '0' AND DueDate <= '${dueOnOrBeforeYmd}'`;
   return queryAllEntities<QboMoneyEntity>(clientId, sql, 'Bill');
 }

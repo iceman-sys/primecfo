@@ -114,7 +114,7 @@ export function flattenReportRows(rows: unknown, depth = 0): FlatReportRow[] {
     if (hasNestedRows) {
       // Group title row: show value only from Header (avoid duplicating Summary total on next line)
       const groupValue = groupName
-        ? (pickNumericColValue(headerCols) || getLastColValue(headerCols))
+        ? pickNumericColValue(headerCols) || getLastColValue(headerCols)
         : '';
       if (groupName) {
         result.push({
@@ -144,4 +144,223 @@ export function flattenReportRows(rows: unknown, depth = 0): FlatReportRow[] {
     }
   }
   return result;
+}
+
+/** ─── Financial Reports spec (May 2026): multi-period + accounting display ───────────────── */
+
+/** USD with no cents; negatives parenthesized */
+export function formatAccountingUsdWhole(amount: number): string {
+  const absRounded = Math.abs(Math.round(amount));
+  const core = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(absRounded);
+  if (amount < 0) return `(${core})`;
+  return core;
+}
+
+function qbNumericStringToNumber(raw: string | undefined): number | null {
+  if (raw == null) return null;
+  const trimmed = raw.trim();
+  if (trimmed === '' || trimmed === '-' || trimmed === '—') return 0;
+  let cleaned = trimmed.replace(/[$,]/g, '');
+  let neg = false;
+  if (cleaned.startsWith('(') && cleaned.endsWith(')')) {
+    cleaned = cleaned.slice(1, -1).trim();
+    neg = true;
+  }
+  const n = parseFloat(cleaned);
+  if (Number.isNaN(n)) return null;
+  return neg ? -Math.abs(n) : n;
+}
+
+/** QB cell → $0 zeros, parens negatives, no cents */
+export function formatAccountingDisplayFromQbCell(raw: string | undefined): string {
+  const n = qbNumericStringToNumber(raw);
+  if (n === null) return '$0';
+  return formatAccountingUsdWhole(n);
+}
+
+export type FlatMultiPeriodRow = {
+  account: string;
+  values: string[];
+  depth: number;
+  isBold: boolean;
+  rowKind: 'detail' | 'sectionHeader' | 'subtotal' | 'grandTotal';
+};
+
+export function extractColumnTitles(rawJson: Record<string, unknown>): string[] {
+  const cols = rawJson.Columns as { Column?: Array<{ ColTitle?: { value?: string } }> } | undefined;
+  const column = cols?.Column;
+  if (!Array.isArray(column) || column.length < 2) return [];
+  return column.slice(1).map((c) => (c.ColTitle?.value ?? '').trim() || '—');
+}
+
+function classifyFinancialRow(account: string, isBold: boolean): FlatMultiPeriodRow['rowKind'] {
+  const a = account.trim().toLowerCase();
+  if (/^total liabilities & equity|^total liabilities and equity|^net assets$/.test(a)) return 'grandTotal';
+  if (
+    /^net income$/.test(a) ||
+    /^net operating income$/.test(a) ||
+    /^ending cash\b/.test(a) ||
+    /^beginning cash\b/.test(a) ||
+    /^net change in cash$/.test(a)
+  )
+    return 'grandTotal';
+  if (/^total\b/.test(a) && isBold) return 'subtotal';
+  if (isBold) return 'sectionHeader';
+  return 'detail';
+}
+
+function padPeriodAmounts(vals: string[], periodCount: number): string[] {
+  const out = [...vals];
+  while (out.length < periodCount) out.push('$0');
+  return out.slice(0, periodCount);
+}
+
+/** ColData slot 0 = row label; next slots = period amounts. */
+function slicePeriodAmounts(cd: ColDataItem[] | undefined, periodCount: number): string[] {
+  if (periodCount <= 0 || !cd?.length) return padPeriodAmounts([], Math.max(periodCount, 0));
+  if (cd.length < 2) return Array.from({ length: periodCount }, () => '$0');
+  const cells = cd.slice(1, 1 + Math.min(periodCount, cd.length - 1)).map((c) =>
+    formatAccountingDisplayFromQbCell(getColDataItemValue(c))
+  );
+  return padPeriodAmounts(cells, periodCount);
+}
+
+export function scanFirstColDataLengths(rows: unknown): number {
+  let maxLen = 0;
+  const visit = (r: Record<string, unknown>) => {
+    if (r.type === 'Data' && Array.isArray(r.ColData)) maxLen = Math.max(maxLen, r.ColData.length);
+    const nested = r.Rows as { Row?: unknown[] } | undefined;
+    if (!nested?.Row) return;
+    for (const child of nested.Row) visit(child as Record<string, unknown>);
+  };
+  const root = rows as { Row?: unknown[] } | undefined;
+  if (!root?.Row) return 0;
+  for (const row of root.Row) visit(row as Record<string, unknown>);
+  return maxLen;
+}
+
+/** Multi-period line items × time columns (QB `summarize_column_by`). Fallback: single Totals column via legacy flatten. */
+export function flattenReportRowsMulti(rawJson: Record<string, unknown>, maxCols = 32): {
+  columnTitles: string[];
+  rows: FlatMultiPeriodRow[];
+} {
+  let titles = extractColumnTitles(rawJson);
+  const inferredFromData = scanFirstColDataLengths(rawJson.Rows);
+
+  /** Period slots = (# ColData − label). Prefer Columns headings. */
+  const periodGuess = titles.length
+    ? titles.length
+    : Math.min(maxCols, Math.max(inferredFromData - 1, inferredFromData > 2 ? inferredFromData - 1 : 1));
+
+  if (!titles.length && periodGuess >= 2)
+    titles = Array.from({ length: periodGuess }, (_, i) => `Period ${i + 1}`);
+  while (titles.length < periodGuess) titles.push(`Column ${titles.length + 1}`);
+  titles = titles.slice(0, periodGuess);
+
+  let periodCount = Math.min(maxCols, titles.length || periodGuess || 1);
+  if (periodCount < 1) periodCount = 1;
+
+  const result: FlatMultiPeriodRow[] = [];
+
+  const walk = (nodes: unknown, depth: number) => {
+    const rowsObj = nodes as { Row?: unknown[] };
+    if (!rowsObj.Row || !Array.isArray(rowsObj.Row)) return;
+
+    for (const row of rowsObj.Row) {
+      const r = row as Record<string, unknown>;
+      const headerCols = (r.Header as { ColData?: ColDataItem[] })?.ColData;
+      const groupName = (r.group as string) ?? getColDataItemValue(headerCols?.[0]) ?? '';
+      const nested = r.Rows as { Row?: unknown[] } | undefined;
+      const hasNested = nested?.Row !== undefined && Array.isArray(nested.Row);
+
+      if (hasNested) {
+        if (groupName) {
+          result.push({
+            account: humanizeAccountLabel(groupName),
+            values: padPeriodAmounts(slicePeriodAmounts(headerCols, periodCount), periodCount),
+            depth,
+            isBold: true,
+            rowKind: 'sectionHeader',
+          });
+          walk(nested, depth + 1);
+
+          const summaryCols =
+            ((r.Summary as { ColData?: ColDataItem[] })?.ColData) ??
+            (Array.isArray(r.Summary)
+              ? (r.Summary[0] as { ColData?: ColDataItem[] })?.ColData
+              : undefined);
+          if (summaryCols?.length) {
+            const totalLabel = humanizeAccountLabel(
+              getColDataItemValue(summaryCols[0]) || `Total ${groupName}`
+            );
+            let vals =
+              summaryCols.length > 1 ? slicePeriodAmounts(summaryCols, periodCount) : padPeriodAmounts([], periodCount);
+            const rkClass = classifyFinancialRow(totalLabel, true);
+            const rk: FlatMultiPeriodRow['rowKind'] =
+              rkClass === 'grandTotal' ? 'grandTotal' : 'subtotal';
+            result.push({
+              account: totalLabel,
+              values: padPeriodAmounts(vals, periodCount),
+              depth,
+              isBold: true,
+              rowKind: rk,
+            });
+          }
+        } else walk(nested, depth);
+      } else if (r.type === 'Data' && Array.isArray(r.ColData)) {
+        const cols = r.ColData as ColDataItem[];
+        const label = humanizeAccountLabel(getColDataItemValue(cols[0]) ?? '');
+        let rk = classifyFinancialRow(label, false);
+        if (rk === 'grandTotal' || rk === 'subtotal' || rk === 'sectionHeader') rk = 'detail';
+        result.push({
+          account: label,
+          values: padPeriodAmounts(slicePeriodAmounts(cols, periodCount), periodCount),
+          depth,
+          isBold: false,
+          rowKind: rk,
+        });
+      } else if (groupName && !hasNested) {
+        result.push({
+          account: humanizeAccountLabel(groupName),
+          values: padPeriodAmounts([], periodCount),
+          depth,
+          isBold: true,
+          rowKind: 'sectionHeader',
+        });
+      }
+    }
+  };
+
+  walk(rawJson.Rows, 0);
+
+  if (result.length === 0) {
+    const single = flattenReportRows((rawJson as { Rows?: unknown }).Rows).slice(0, 400);
+    if (single.length)
+      return {
+        columnTitles: ['Total'],
+        rows: single.map((fr) => ({
+          account: fr.account,
+          values: [
+            formatAccountingDisplayFromQbCell(
+              fr.value === '-' || fr.value === '—' ? '0' : String(fr.value)
+            ),
+          ],
+          depth: fr.depth,
+          isBold: fr.isBold,
+          rowKind:
+            classifyFinancialRow(fr.account, fr.isBold) === 'grandTotal'
+              ? ('grandTotal' as const)
+              : fr.isBold
+                ? ('subtotal' as const)
+                : ('detail' as const),
+        })),
+      };
+  }
+
+  return { columnTitles: titles.slice(0, periodCount), rows: result };
 }

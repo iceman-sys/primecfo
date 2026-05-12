@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClientContext } from "@/contexts/ClientContext";
@@ -11,6 +11,7 @@ import { toastErrorWithProgress } from "@/app/components/ui/sonner";
 import { toast } from "sonner";
 import type { MetricCard, ChartDataPoint, AIInsight, RiskPosture } from "@/lib/financialData";
 import { formatCurrency, formatExactCurrency, getTrend } from "@/lib/financialData";
+import { buildHistoricCashTrail14d } from "@/lib/forecast/historicTrail";
 
 const RANGE_TO_LABEL: Record<ReportRange, string> = {
   "3m": "Last 3 Months",
@@ -289,6 +290,12 @@ export default function DashboardPage() {
   const forecastErrorObj =
     forecastError instanceof Error ? forecastError : forecastError ? new Error(String(forecastError)) : null;
 
+  const historicForecastTrail = useMemo(() => {
+    const bank = forecastData?.summary?.bankBalance;
+    if (bank == null || !chartData.length) return undefined;
+    return buildHistoricCashTrail14d(chartData, bank);
+  }, [chartData, forecastData?.summary?.bankBalance]);
+
   return (
     <DashboardView
       metrics={metrics}
@@ -302,6 +309,7 @@ export default function DashboardPage() {
             data={forecastData ?? null}
             loading={forecastLoading}
             error={forecastErrorObj}
+            historicTrail={historicForecastTrail}
           />
         ) : null
       }

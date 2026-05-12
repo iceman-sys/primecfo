@@ -33,7 +33,8 @@ const Hero: React.FC<HeroProps> = ({ onGetStarted }) => {
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
               Connect Your Books.{" "}
               <span className="bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">
-                Unlock Your Insights.
+                Unlocking Potential Through Financial Intelligence
+                <sup className="text-[0.45em] font-normal align-super text-emerald-300/95 ml-0.5">™</sup>
               </span>
             </h1>
 

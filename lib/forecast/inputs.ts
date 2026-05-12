@@ -9,6 +9,7 @@ import { fetchProfitLossByMonth, fetchArAgingSummary } from '@/lib/qbo/forecastR
 import { monthlyGrowthRateFromSix, parseMonthlyPnLSeries } from '@/lib/reporting/parseMonthlyPnL';
 import { parseArAgingBuckets } from '@/lib/reporting/parseArAging';
 import { fetchReportFromQuickBooks } from '@/lib/qbo/reports';
+import { averageMonthlyOperatingNetCash } from '@/lib/forecast/parseCashFlowForForecast';
 
 function ymd(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -23,8 +24,11 @@ function addDays(d: Date, n: number): Date {
 export type ForecastInputs = {
   asOf: string;
   bankBalance: number;
-  invoices30: QboMoneyEntity[];
-  bills30: QboMoneyEntity[];
+  /** Open invoices with Balance > 0 and DueDate on or before horizon end (includes past due). */
+  openInvoices: QboMoneyEntity[];
+  openBills: QboMoneyEntity[];
+  /** Upper bound (days from asOf) for open AR/AP QBO queries; equals tier forecast horizon. */
+  arApWindowDays: number;
   monthlyLabels: string[];
   revenues: number[];
   expenses: number[];
@@ -36,6 +40,8 @@ export type ForecastInputs = {
   /** Act tier: Balance sheet + cash-flow JSON when available */
   balanceSheetSnapshot: unknown | null;
   cashFlow12m: unknown | null;
+  /** Act tier: parsed from cashFlow12m when possible */
+  avgMonthlyOperatingCashNet: number | null;
 };
 
 export async function loadForecastInputs(
@@ -44,7 +50,8 @@ export async function loadForecastInputs(
 ): Promise<ForecastInputs> {
   const today = new Date();
   const asOf = ymd(today);
-  const horizon30 = ymd(addDays(today, 30));
+  const arApWindowDays = caps.forecastDays;
+  const horizonEnd = ymd(addDays(today, arApWindowDays));
 
   const months = caps.pnlHistoryMonths;
   const startAnchor = new Date(today);
@@ -52,10 +59,10 @@ export async function loadForecastInputs(
   startAnchor.setDate(1);
   const startStr = ymd(startAnchor);
 
-  const [bankBalance, invoices30, bills30, pnlResolved, arRaw] = await Promise.all([
+  const [bankBalance, openInvoices, openBills, pnlResolved, arRaw] = await Promise.all([
     sumBankAccountBalances(clientId),
-    fetchOpenInvoicesDueBy(clientId, horizon30),
-    fetchOpenBillsDueBy(clientId, horizon30),
+    fetchOpenInvoicesDueBy(clientId, horizonEnd),
+    fetchOpenBillsDueBy(clientId, horizonEnd),
     fetchProfitLossByMonth(clientId, startStr, asOf, 'Cash').catch(() =>
       fetchProfitLossByMonth(clientId, startStr, asOf, 'Accrual')
     ),
@@ -70,6 +77,7 @@ export async function loadForecastInputs(
 
   let balanceSheetSnapshot: unknown | null = null;
   let cashFlow12m: unknown | null = null;
+  let avgMonthlyOperatingCashNet: number | null = null;
   if (caps.includeBalanceSheetCf) {
     const startCf = addDays(today, 0);
     startCf.setMonth(startCf.getMonth() - 12);
@@ -80,13 +88,15 @@ export async function loadForecastInputs(
     ]);
     balanceSheetSnapshot = bs;
     cashFlow12m = cf;
+    if (cf) avgMonthlyOperatingCashNet = averageMonthlyOperatingNetCash(cf);
   }
 
   return {
     asOf,
     bankBalance,
-    invoices30,
-    bills30,
+    openInvoices,
+    openBills,
+    arApWindowDays,
     monthlyLabels: parsed.monthLabels,
     revenues: parsed.revenues,
     expenses: parsed.expenses,
@@ -97,5 +107,6 @@ export async function loadForecastInputs(
     arBuckets: arRaw ? parseArAgingBuckets(arRaw) : parseArAgingBuckets({}),
     balanceSheetSnapshot,
     cashFlow12m,
+    avgMonthlyOperatingCashNet,
   };
 }
