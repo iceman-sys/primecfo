@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { Check, Zap, Users, Building2, ArrowRight } from "lucide-react";
+import TrustStrip from "./TrustStrip";
 import {
   PLANS,
   FAQS,
@@ -190,6 +191,15 @@ const PricingPage: React.FC<PricingPageProps> = ({
       </div>
 
       {/* Subtle section divider */}
+      <div className="h-px w-full" style={{ background: `linear-gradient(90deg, transparent, ${BORDER_SOFT}, transparent)` }} />
+
+      {/* TRUST: logos + brief social proof, placed directly above pricing */}
+      <TrustStrip
+        className="!bg-transparent !border-y-0"
+        showTestimonials={true}
+        eyebrow="Trusted by small businesses · Built on tools you already know"
+      />
+
       <div className="h-px w-full" style={{ background: `linear-gradient(90deg, transparent, ${BORDER_SOFT}, transparent)` }} />
 
       {/* PRICING CARDS */}
@@ -411,9 +421,12 @@ const PricingPage: React.FC<PricingPageProps> = ({
       <div className="h-px w-full" style={{ background: `linear-gradient(90deg, transparent, ${BORDER_SOFT}, transparent)` }} />
 
       {/* FAQ */}
-      <div className="px-6 py-16" style={{ background: BG_DEEP }}>
+      <div className="px-4 py-10 sm:px-6 sm:py-16" style={{ background: BG_DEEP }}>
         <div className="mx-auto max-w-2xl">
-          <h2 className="mb-8 text-center text-[28px] font-bold" style={{ color: TEXT, fontFamily: serif }}>
+          <h2
+            className="mb-5 text-center text-[22px] font-bold sm:mb-8 sm:text-[28px]"
+            style={{ color: TEXT, fontFamily: serif }}
+          >
             Frequently Asked Questions
           </h2>
 
@@ -429,13 +442,16 @@ const PricingPage: React.FC<PricingPageProps> = ({
                   onClick={() => setExpandedFaq(isOpen ? null : idx)}
                   aria-expanded={isOpen}
                   aria-controls={panelId}
-                  className="flex w-full cursor-pointer items-center justify-between border-0 bg-transparent py-5 text-left"
+                  className="flex w-full cursor-pointer items-center justify-between gap-3 border-0 bg-transparent py-3.5 text-left sm:py-5"
                 >
-                  <span className="pr-4 text-[15px] font-semibold" style={{ color: TEXT }}>
+                  <span
+                    className="pr-2 text-[14px] font-semibold leading-snug sm:pr-4 sm:text-[15px]"
+                    style={{ color: TEXT }}
+                  >
                     {faq.q}
                   </span>
                   <span
-                    className="flex-shrink-0 text-xl transition-transform duration-300 motion-reduce:transition-none"
+                    className="flex-shrink-0 text-lg leading-none transition-transform duration-300 motion-reduce:transition-none sm:text-xl"
                     style={{
                       color: TEXT_DIM,
                       transform: isOpen ? "rotate(45deg)" : "none",
@@ -452,11 +468,14 @@ const PricingPage: React.FC<PricingPageProps> = ({
                   hidden={!isOpen}
                   className="overflow-hidden transition-all duration-300 motion-reduce:transition-none"
                   style={{
-                    maxHeight: isOpen ? 280 : 0,
+                    maxHeight: isOpen ? 360 : 0,
                     opacity: isOpen ? 1 : 0,
                   }}
                 >
-                  <p className="m-0 mb-5 pr-10 text-sm leading-[1.7]" style={{ color: TEXT_MUTED }}>
+                  <p
+                    className="m-0 mb-3.5 pr-2 text-[13px] leading-[1.65] sm:mb-5 sm:pr-10 sm:text-sm sm:leading-[1.7]"
+                    style={{ color: TEXT_MUTED }}
+                  >
                     {faq.a}
                   </p>
                 </div>

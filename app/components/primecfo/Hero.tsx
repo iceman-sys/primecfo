@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { BarChart3, Shield, Zap, ArrowRight, CheckCircle, TrendingUp, DollarSign, PieChart } from "lucide-react";
+import { Shield, Zap, ArrowRight, CheckCircle } from "lucide-react";
+import DashboardPreview from "./DashboardPreview";
 
 interface HeroProps {
   onGetStarted: () => void;
@@ -73,49 +74,10 @@ const Hero: React.FC<HeroProps> = ({ onGetStarted }) => {
             </div>
           </div>
 
-          <div className="relative lg:pl-8">
-            <div className="relative bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 shadow-2xl">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Financial Overview</p>
-                  <p className="text-lg font-semibold text-white">Your Company</p>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                  <div className="w-2 h-2 bg-emerald-400 rounded-full" />
-                  <span className="text-xs text-emerald-400 font-medium">QB Connected</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                {[
-                  { label: "Revenue", value: "$0", change: "—", icon: DollarSign },
-                  { label: "Net Profit", value: "$0", change: "—", icon: TrendingUp },
-                  { label: "Cash Position", value: "$0", change: "—", icon: BarChart3 },
-                  { label: "Profit Margin", value: "—", change: "—", icon: PieChart },
-                ].map((m) => (
-                  <div key={m.label} className="bg-slate-900/60 rounded-xl p-3.5 border border-slate-700/30">
-                    <m.icon className="w-4 h-4 text-slate-500 mb-2" />
-                    <p className="text-lg font-bold text-white">{m.value}</p>
-                    <p className="text-xs text-slate-500">{m.label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <DashboardPreview />
         </div>
       </div>
 
-      <div className="relative border-t border-slate-800/50 bg-slate-950/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-          <p className="text-center text-xs text-slate-600 uppercase tracking-widest mb-6">Trusted Integrations</p>
-          <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-12 opacity-40">
-            {["QuickBooks Online", "Intuit", "Stripe", "Plaid", "Xero"].map((name) => (
-              <span key={name} className="text-sm font-semibold text-slate-400 tracking-wider">
-                {name}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

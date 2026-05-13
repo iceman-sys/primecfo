@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import Navbar from "@/app/components/primecfo/Navbar";
 import Footer from "@/app/components/primecfo/Footer";
 import PricingPage from "@/app/components/primecfo/PricingPage";
-import { CONTACT_EMAIL, type Plan } from "@/app/lib/pricing-plans";
+import { CONTACT_EMAIL, CALENDAR_URL, type Plan } from "@/app/lib/pricing-plans";
 import { getBillingStatus, type BillingStatusResponse, BILLING_UPDATED_EVENT } from "@/lib/api/client";
 
 export default function PricingPageClient() {
@@ -117,6 +117,10 @@ export default function PricingPageClient() {
   };
 
   const handlePlanCta = (plan: Plan, interval: "month" | "year") => {
+    if (plan.ctaKind === "calendar") {
+      window.open(CALENDAR_URL, "_blank", "noopener,noreferrer");
+      return;
+    }
     if (plan.ctaKind === "contact") {
       window.location.href = `mailto:${CONTACT_EMAIL}?subject=PrimeCFO.ai%20${encodeURIComponent(plan.name)}%20inquiry`;
       return;
@@ -130,7 +134,7 @@ export default function PricingPageClient() {
   };
 
   const handleContact = () => {
-    window.location.href = `mailto:${CONTACT_EMAIL}?subject=PrimeCFO.ai%20consultation%20request`;
+    window.open(CALENDAR_URL, "_blank", "noopener,noreferrer");
   };
 
   const handleStartTrial = () => {

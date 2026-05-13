@@ -23,7 +23,12 @@ export type Plan = {
   headline: string;
   cta: string;
   ctaNote: string;
-  ctaKind: "signup" | "contact";
+  /**
+   * - "signup"   → self-serve checkout (Stripe)
+   * - "contact"  → mailto: opens an email draft
+   * - "calendar" → open a calendar booking link (Calendly/Cal.com)
+   */
+  ctaKind: "signup" | "contact" | "calendar";
   /** Outlined vs filled primary button */
   ctaVariant: "outline" | "solid";
   /** Muted line below the CTA */
@@ -42,7 +47,7 @@ export const PLANS: Plan[] = [
     id: "self-service",
     name: "Self-Service",
     subtitle: "AI Only",
-    monthly: 114,
+    monthly: 119,
     annual: 99,
     accent: LANE_COLORS.selfService,
     popular: false,
@@ -70,7 +75,7 @@ export const PLANS: Plan[] = [
     id: "starter",
     name: "Starter",
     subtitle: "AI + Hybrid",
-    monthly: 344,
+    monthly: 349,
     annual: 299,
     accent: LANE_COLORS.selfService,
     popular: true,
@@ -99,7 +104,7 @@ export const PLANS: Plan[] = [
     id: "growth",
     name: "Growth",
     subtitle: "AI + Advisory",
-    monthly: 551,
+    monthly: 529,
     annual: 479,
     accent: LANE_COLORS.hybrid,
     popular: false,
@@ -120,9 +125,9 @@ export const PLANS: Plan[] = [
     ],
     cta: "Book a Conversation",
     ctaNote: "",
-    ctaKind: "contact",
+    ctaKind: "calendar",
     ctaVariant: "outline",
-    ctaFooter: "For businesses ready to scale",
+    ctaFooter: "Pick a time that works — no email tag",
   },
 ];
 
@@ -138,19 +143,19 @@ export const DECISION_HELPERS: DecisionHelper[] = [
     icon: "zap",
     title: "I want to do it myself",
     desc: "See gives you a clear dashboard, monthly AI summary, and a 30-day cash outlook — you stay in control.",
-    tier: "See — $99/mo billed annually ($114 monthly)",
+    tier: "See — $99/mo billed annually ($119 monthly)",
   },
   {
     icon: "users",
     title: "I want a guide",
     desc: "Understand adds weekly summaries, a longer forecast, and a quarterly strategy meeting with your advisor.",
-    tier: "Understand — $299/mo billed annually ($344 monthly)",
+    tier: "Understand — $299/mo billed annually ($349 monthly)",
   },
   {
     icon: "building",
     title: "I want a partner",
     desc: "Act layers in scenario planning, alerts, and a monthly advisory meeting — a finance team in your corner.",
-    tier: "Act — $479/mo billed annually ($551 monthly)",
+    tier: "Act — $479/mo billed annually ($529 monthly)",
   },
 ];
 
@@ -176,3 +181,59 @@ export const FAQS: Faq[] = [
 ];
 
 export const CONTACT_EMAIL = "andrew@primeaccsolutions.com";
+
+/**
+ * Public calendar booking URL for the Growth tier "Book a Conversation" CTA.
+ * Override at build time with NEXT_PUBLIC_CALENDLY_URL (Calendly, Cal.com, etc.).
+ * Defaults to the Prime Accounting Solutions booking page so it's always live.
+ */
+export const CALENDAR_URL =
+  process.env.NEXT_PUBLIC_CALENDLY_URL?.trim() ||
+  "https://primeaccsolutions.com/connect/";
+
+/** Short testimonial pulled from real Yelp reviews of Prime Accounting Solutions. */
+export type Testimonial = {
+  quote: string;
+  author: string;
+  location: string;
+  source?: string;
+};
+
+export const TESTIMONIALS: Testimonial[] = [
+  {
+    quote:
+      "I cannot say enough good things about Andrew and his team. He's always responsive and easy to deal with. Do yourself a favor — hand off this task to Prime Accounting.",
+    author: "Michael B.",
+    location: "Los Angeles, CA",
+    source: "Yelp",
+  },
+  {
+    quote:
+      "Andrew and his team were so professional and welcoming. I needed help getting a better handle on my monthly expenses — if you're looking for someone who can get you on track and put you at ease, call them ASAP.",
+    author: "Paul J.",
+    location: "Santa Monica, CA",
+    source: "Yelp",
+  },
+  {
+    quote:
+      "7 years and counting. 30 years in business — believe me, I know what it's like to be frustrated with bookkeeping and taxes. He knows accounting better than anyone we've ever used. An absolute professional.",
+    author: "Richard R.",
+    location: "Los Angeles, CA",
+    source: "Yelp",
+  },
+];
+
+/** Trust logos shown above pricing. SVG strings are inlined to avoid extra asset hosting. */
+export type TrustLogo = {
+  name: string;
+  /** A short subtitle/badge, e.g. "Official Integration" or "SOC 2 aligned" */
+  caption?: string;
+};
+
+export const TRUST_LOGOS: TrustLogo[] = [
+  { name: "QuickBooks", caption: "Official Integration" },
+  { name: "Stripe", caption: "Secure Payments" },
+  { name: "Plaid", caption: "Bank-Level Connections" },
+  { name: "Supabase", caption: "Encrypted Storage" },
+  { name: "SOC 2", caption: "Compliance Aligned" },
+];

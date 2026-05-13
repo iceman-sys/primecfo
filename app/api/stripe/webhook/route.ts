@@ -7,6 +7,8 @@ import {
   markEventProcessed,
   upsertSubscription,
 } from '@/lib/stripe/repo';
+import { sendNewSubscriberAlert } from '@/lib/alerts/subscriberAlert';
+import { getPlanById } from '@/lib/stripe/plans';
 
 // Stripe webhook route: MUST run on Node.js runtime (needs raw body + node crypto).
 export const runtime = 'nodejs';
@@ -22,8 +24,29 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
           ? session.subscription
           : session.subscription?.id;
       if (!subscriptionId) return;
-      const sub = await stripe().subscriptions.retrieve(subscriptionId);
+      const sub = await stripe().subscriptions.retrieve(subscriptionId, {
+        expand: ['items.data.price'],
+      });
       await upsertSubscription(sub);
+
+      // Notify the operator about a brand-new subscriber. Idempotency is already
+      // guaranteed by the outer markEventProcessed gate, so this only fires once
+      // per Stripe event id even if Stripe retries.
+      const planId =
+        (typeof session.metadata?.plan_id === 'string' && session.metadata.plan_id) ||
+        (typeof sub.metadata?.plan_id === 'string' && sub.metadata.plan_id) ||
+        null;
+      const planName = planId ? getPlanById(planId)?.name ?? null : null;
+      const customerEmail =
+        session.customer_details?.email ||
+        session.customer_email ||
+        null;
+      await sendNewSubscriberAlert({
+        subscription: sub,
+        customerEmail,
+        planId,
+        planName,
+      });
       return;
     }
 

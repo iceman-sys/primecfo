@@ -4,11 +4,12 @@ import PricingPageClient from "./PricingPageClient";
 export const metadata: Metadata = {
   title: "Pricing | PrimeCFO.ai",
   description:
-    "Unlocking Potential Through Financial Intelligence™. Plans from $99/mo when billed annually. 14-day free trial.",
+    "Unlocking Potential Through Financial Intelligence™. Plans from $99/mo billed annually (or $119 monthly). 14-day free trial.",
   alternates: { canonical: "/pricing" },
   openGraph: {
     title: "PrimeCFO.ai Pricing",
-    description: "Unlocking Potential Through Financial Intelligence™. Plans from $99/mo billed annually.",
+    description:
+      "Unlocking Potential Through Financial Intelligence™. Plans from $99/mo billed annually (or $119 monthly).",
     url: "/pricing",
     type: "website",
   },
