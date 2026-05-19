@@ -86,13 +86,13 @@ export const PLANS: Plan[] = [
       "Everything in See",
       "Weekly AI financial summaries",
       "60-day cash flow forecast",
-      "Quarterly strategy meeting with your advisor",
+      "1 hour quarterly advisory meeting",
     ],
     features: [
       { label: "QuickBooks Dashboard", included: true },
       { label: "AI Financial Summaries", value: "Weekly" },
       { label: "Cash Flow Forecast", value: "60-day" },
-      { label: "Advisor touchpoint", value: "Quarterly strategy meeting" },
+      { label: "Advisory Hours", value: "1 hr/quarter meeting" },
     ],
     cta: "Start Free for 14 Days",
     ctaNote: "14-day free trial",
@@ -115,7 +115,7 @@ export const PLANS: Plan[] = [
       "Everything in Understand",
       "90-day forecast with scenarios",
       "Custom alerts when numbers shift",
-      "1 hour/month advisory meeting",
+      "1 hour monthly advisory meeting",
     ],
     features: [
       { label: "QuickBooks Dashboard", included: true },
@@ -148,13 +148,13 @@ export const DECISION_HELPERS: DecisionHelper[] = [
   {
     icon: "users",
     title: "I want a guide",
-    desc: "Understand adds weekly summaries, a longer forecast, and a quarterly strategy meeting with your advisor.",
+    desc: "Understand adds weekly summaries, a longer forecast, and a 1-hour quarterly advisory meeting.",
     tier: "Understand — $299/mo billed annually ($349 monthly)",
   },
   {
     icon: "building",
     title: "I want a partner",
-    desc: "Act layers in scenario planning, alerts, and a monthly advisory meeting — a finance team in your corner.",
+    desc: "Act layers in scenario planning, alerts, and a 1-hour monthly advisory meeting — a finance team in your corner.",
     tier: "Act — $479/mo billed annually ($529 monthly)",
   },
 ];
@@ -184,12 +184,12 @@ export const CONTACT_EMAIL = "andrew@primeaccsolutions.com";
 
 /**
  * Public calendar booking URL for the Growth tier "Book a Conversation" CTA.
- * Override at build time with NEXT_PUBLIC_CALENDLY_URL (Calendly, Cal.com, etc.).
- * Defaults to the Prime Accounting Solutions booking page so it's always live.
+ * Override at build/run time with NEXT_PUBLIC_CALENDLY_URL (Calendly, Cal.com, etc.).
+ * Defaults to the Prime Accounting Solutions Calendly so the CTA works out-of-the-box.
  */
 export const CALENDAR_URL =
   process.env.NEXT_PUBLIC_CALENDLY_URL?.trim() ||
-  "https://primeaccsolutions.com/connect/";
+  "https://calendly.com/primeacc/15min";
 
 /** Short testimonial pulled from real Yelp reviews of Prime Accounting Solutions. */
 export type Testimonial = {
