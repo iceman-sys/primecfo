@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { getFinancialContext } from '@/lib/ai/getFinancialContext';
 import { generateInsightsFromContext } from '@/lib/ai/generateInsights';
 import { saveInsights } from '@/lib/ai/saveInsights';
@@ -21,11 +22,10 @@ export async function POST(request: NextRequest) {
     // leave defaults
   }
 
-  if (!clientId) {
-    return NextResponse.json({ error: 'clientId is required' }, { status: 400 });
-  }
+  const access = await guardClientAccess(clientId);
+  if (!access.ok) return access.response;
 
-  const context = await getFinancialContext(clientId, range);
+  const context = await getFinancialContext(access.clientId, range);
   if (!context) {
     return NextResponse.json({
       insights: [],
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   try {
     const { insights, riskPosture } = await generateInsightsFromContext(context);
     await saveInsights({
-      clientId,
+      clientId: access.clientId,
       reportRange: range,
       periodId: null,
       insights,

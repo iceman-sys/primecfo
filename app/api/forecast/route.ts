@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { getTierCapabilitiesForSession } from '@/lib/billing/userTier';
 import { computeCashForecast } from '@/lib/forecast/engine';
 import { loadForecastInputs } from '@/lib/forecast/inputs';
@@ -13,9 +14,8 @@ export async function GET(request: NextRequest) {
   const clientId = request.nextUrl.searchParams.get('clientId');
   const persist = request.nextUrl.searchParams.get('persist') === '1';
 
-  if (!clientId) {
-    return NextResponse.json({ error: 'clientId is required' }, { status: 400 });
-  }
+  const access = await guardClientAccess(clientId);
+  if (!access.ok) return access.response;
 
   const session = await getTierCapabilitiesForSession();
   if (!session.userId) {
@@ -23,13 +23,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const inputs = await loadForecastInputs(clientId, session.capabilities);
+    const inputs = await loadForecastInputs(access.clientId, session.capabilities);
     const forecast = computeCashForecast(inputs, session.capabilities);
 
     if (persist) {
       const sb = supabaseAdmin();
       await sb.from('cash_forecast_snapshots').insert({
-        client_id: clientId,
+        client_id: access.clientId,
         horizon_days: session.capabilities.forecastDays,
         tier: session.capabilities.tier,
         payload: forecast as unknown as Record<string, unknown>,

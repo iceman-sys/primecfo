@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -55,12 +55,37 @@ export default function ClientsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { clients, selectedClient, setSelectedClient, isLoading } = useClientContext();
+  const [operatorChecked, setOperatorChecked] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/me", { cache: "no-store" });
+        if (!res.ok) {
+          router.replace("/login?next=/clients");
+          return;
+        }
+        const me = (await res.json()) as { isOperator?: boolean };
+        if (!me.isOperator) {
+          router.replace("/connect");
+          return;
+        }
+        if (!cancelled) setOperatorChecked(true);
+      } catch {
+        router.replace("/dashboard");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const filtered = clients.filter(
     (c) =>
@@ -109,6 +134,14 @@ export default function ClientsPage() {
       setDeletingId(null);
     }
   };
+
+  if (!operatorChecked) {
+    return (
+      <div className="flex items-center justify-center py-12 text-slate-400">
+        Loading…
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

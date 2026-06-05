@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import {
   QuickBooksApiError,
   QuickBooksNeedsReauthError,
@@ -17,9 +18,9 @@ export async function POST(request: NextRequest) {
   // Defaults to pulling supplemental reports; set includeOptional: false for Profit & Loss + Balance Sheet only (faster).
   const includeOptional = body.includeOptional !== false;
 
-  if (!clientId) {
-    return NextResponse.json({ error: 'clientId is required' }, { status: 400 });
-  }
+  const access = await guardClientAccess(clientId);
+  if (!access.ok) return access.response;
+
   const validRanges: ReportRange[] = ['3m', '6m', '12m', '4q'];
   if (!validRanges.includes(range)) {
     return NextResponse.json(
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await syncReportsForClient(clientId, range, periodType, includeOptional);
+    const result = await syncReportsForClient(access.clientId, range, periodType, includeOptional);
     return NextResponse.json({
       ok: true,
       ...result,

@@ -153,5 +153,16 @@ body {
     top: 0;
     width: 100%;
     background: #fff !important;
+    border: none !important;
+    color: #1a1a1a !important;
+  }
+  .financial-report-print table th,
+  .financial-report-print table td {
+    color: #1a1a1a !important;
+    background: #fff !important;
+    border-color: #e5e5e5 !important;
+  }
+  .financial-report-print .text-red-400 {
+    color: #c0392b !important;
   }
 }

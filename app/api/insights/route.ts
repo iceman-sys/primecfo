@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import type { InsightSeverity, Recommendation, RiskPosture } from '@/lib/financialData';
 
@@ -32,9 +33,8 @@ export async function GET(request: NextRequest) {
   const clientId = request.nextUrl.searchParams.get('clientId');
   const range = request.nextUrl.searchParams.get('range') ?? '12m';
 
-  if (!clientId) {
-    return NextResponse.json({ error: 'clientId is required' }, { status: 400 });
-  }
+  const access = await guardClientAccess(clientId);
+  if (!access.ok) return access.response;
 
   const sb = supabaseAdmin();
 

@@ -14,15 +14,27 @@ interface PublicShellProps {
 export default function PublicShell({ currentView = "", children }: PublicShellProps) {
   const router = useRouter();
   const [session, setSession] = useState<{ user: { email?: string } } | null>(null);
+  const [isOperator, setIsOperator] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session: s }, error }) => {
+    supabase.auth.getSession().then(async ({ data: { session: s }, error }) => {
       if (error?.code === "refresh_token_not_found") {
         supabase.auth.signOut();
       }
       setSession(s);
+      if (s) {
+        try {
+          const res = await fetch("/api/me", { cache: "no-store" });
+          if (res.ok) {
+            const me = (await res.json()) as { isOperator?: boolean };
+            setIsOperator(!!me.isOperator);
+          }
+        } catch {
+          setIsOperator(false);
+        }
+      }
       setLoading(false);
     });
   }, []);
@@ -65,6 +77,8 @@ export default function PublicShell({ currentView = "", children }: PublicShellP
         onNavigate={handleNavigate}
         isLoggedIn={!!session}
         onLogin={handleLogin}
+        userEmail={session?.user?.email ?? null}
+        isOperator={isOperator}
       />
       <main className="flex-1">{children}</main>
       <Footer />

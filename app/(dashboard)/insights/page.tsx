@@ -47,7 +47,7 @@ export default function InsightsPage() {
     return (
       <div>
         <h2 className="text-2xl font-bold text-white mb-6">AI Insights</h2>
-        <p className="text-slate-400">Select a client to view insights.</p>
+        <p className="text-slate-400">Loading your business profile…</p>
       </div>
     );
   }

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { ensureUserClient } from '@/lib/clients/provision';
 import { NextResponse } from 'next/server';
 
 /**
@@ -16,10 +17,18 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     console.error('Auth callback exchange error:', error);
     return NextResponse.redirect(`${requestUrl.origin}/login?error=callback_failed`);
+  }
+
+  if (sessionData.user) {
+    try {
+      await ensureUserClient(sessionData.user);
+    } catch (e) {
+      console.error('Client provision on auth callback failed:', e);
+    }
   }
 
   const redirectPath = next.startsWith('/') ? next : `/${next}`;

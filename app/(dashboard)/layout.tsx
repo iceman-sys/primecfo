@@ -27,6 +27,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   const { sidebarOpen, toggleSidebar } = useAppContext();
   const [session, setSession] = useState<{ user: { email?: string } } | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isOperator, setIsOperator] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
 
   const { data: apiClients = [], isLoading: clientsLoading } = useQuery({
@@ -35,6 +36,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       const list = await getClients();
       return list.map(mapApiClientToClient);
     },
+    enabled: !authLoading && !!session,
   });
 
   useQuery({
@@ -64,11 +66,24 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session: s }, error }) => {
+    supabase.auth.getSession().then(async ({ data: { session: s }, error }) => {
       if (error?.code === "refresh_token_not_found") {
         supabase.auth.signOut();
       }
       setSession(s);
+      if (s) {
+        try {
+          const res = await fetch("/api/me", { cache: "no-store" });
+          if (res.ok) {
+            const me = (await res.json()) as { isOperator?: boolean };
+            setIsOperator(!!me.isOperator);
+          }
+        } catch {
+          setIsOperator(false);
+        }
+      } else {
+        setIsOperator(false);
+      }
       setAuthLoading(false);
     });
   }, []);
@@ -128,6 +143,8 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           onNavigate={handleNavigate}
           isLoggedIn={!!session}
           onLogin={handleSignOut}
+          userEmail={session?.user?.email ?? null}
+          isOperator={isOperator}
         />
         <Sidebar
           currentView={currentView}
@@ -137,6 +154,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           onSelectClient={setSelectedClient}
           isOpen={sidebarOpen}
           onClose={toggleSidebar}
+          isOperator={isOperator}
         />
         <main className="flex-1 lg:ml-64 min-h-[calc(100vh-4rem)]">
           <div className="p-6 lg:p-8 max-w-7xl w-full mx-auto">{children}</div>

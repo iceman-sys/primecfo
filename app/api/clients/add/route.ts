@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
+import { requireOperator } from '@/lib/auth/requireOperator';
 
 export async function POST(request: Request) {
+  const auth = await requireOperator();
+  if (!auth.ok) return auth.response;
+
   let clientId: string | null = null;
   const supabase = supabaseAdmin();
   

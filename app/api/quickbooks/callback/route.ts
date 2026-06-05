@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
     // Redirect based on where the connection was initiated
     let redirectUrl: string;
     if (returnTo === 'add') {
-      redirectUrl = `${baseUrl}/admin/clients?connected=true`;
+      redirectUrl = `${baseUrl}/clients?connected=true`;
     } else if (returnTo === 'dashboard' || returnTo === 'connect') {
       redirectUrl = returnTo === 'connect'
         ? `${baseUrl}/connect?connected=true`
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
 
     let redirectUrl: string;
     if (returnTo === 'add') {
-      redirectUrl = `${baseUrl}/admin/clients?error=connection_failed`;
+      redirectUrl = `${baseUrl}/clients?error=connection_failed`;
     } else if (returnTo === 'dashboard' || returnTo === 'connect') {
       redirectUrl = returnTo === 'connect'
         ? `${baseUrl}/connect?error=connection_failed`

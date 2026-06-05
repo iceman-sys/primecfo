@@ -13,6 +13,7 @@ import { getBillingStatus, type BillingStatusResponse, BILLING_UPDATED_EVENT } f
 export default function PricingPageClient() {
   const router = useRouter();
   const [session, setSession] = useState<{ user: { email?: string; id?: string } } | null>(null);
+  const [isOperator, setIsOperator] = useState(false);
   const [loading, setLoading] = useState(true);
   const [checkoutPending, setCheckoutPending] = useState(false);
   const [billing, setBilling] = useState<BillingStatusResponse | null>(null);
@@ -44,11 +45,22 @@ export default function PricingPageClient() {
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session: s }, error }) => {
+    supabase.auth.getSession().then(async ({ data: { session: s }, error }) => {
       if (error?.code === "refresh_token_not_found") {
         supabase.auth.signOut();
       }
       setSession(s);
+      if (s) {
+        try {
+          const res = await fetch("/api/me", { cache: "no-store" });
+          if (res.ok) {
+            const me = (await res.json()) as { isOperator?: boolean };
+            setIsOperator(!!me.isOperator);
+          }
+        } catch {
+          setIsOperator(false);
+        }
+      }
       setLoading(false);
     });
   }, []);
@@ -194,6 +206,8 @@ export default function PricingPageClient() {
         onNavigate={handleNavigate}
         isLoggedIn={!!session}
         onLogin={handleLogin}
+        userEmail={session?.user?.email ?? null}
+        isOperator={isOperator}
       />
       <PricingPage
         onPlanCta={handlePlanCta}

@@ -8,40 +8,60 @@ interface AdminAuthProps {
   children: React.ReactNode;
 }
 
+type MeResponse = { isAdmin?: boolean; isOperator?: boolean };
+
 /**
- * Wraps admin content and ensures the user has a Supabase session.
- * If not signed in, redirects to /login. The root proxy also protects /admin server-side.
+ * Client-side guard for /admin pages. Server layout + proxy also enforce ADMIN_EMAILS.
  */
 export default function AdminAuth({ children }: AdminAuthProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
-  const [hasSession, setHasSession] = useState(false);
+  const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error?.code === "refresh_token_not_found") {
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error?.code === 'refresh_token_not_found') {
         supabase.auth.signOut();
       }
-      if (session) {
-        setHasSession(true);
-      } else {
-        const next = typeof window !== 'undefined' ? encodeURIComponent(window.location.pathname) : '';
+      if (!session) {
+        const next =
+          typeof window !== 'undefined' ? encodeURIComponent(window.location.pathname) : '';
         router.replace(next ? `/login?next=${next}` : '/login');
+        setIsLoading(false);
+        return;
       }
-      setIsLoading(false);
+
+      try {
+        const res = await fetch('/api/me', { cache: 'no-store' });
+        if (!res.ok) {
+          router.replace('/login?next=' + encodeURIComponent(window.location.pathname));
+          return;
+        }
+        const me = (await res.json()) as MeResponse;
+        const isAdmin = !!(me.isAdmin ?? me.isOperator);
+        if (!isAdmin) {
+          router.replace('/dashboard');
+          return;
+        }
+        setAllowed(true);
+      } catch {
+        router.replace('/dashboard');
+      } finally {
+        setIsLoading(false);
+      }
     });
   }, [router]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
       </div>
     );
   }
 
-  if (!hasSession) {
+  if (!allowed) {
     return null;
   }
 

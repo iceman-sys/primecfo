@@ -23,6 +23,8 @@ interface SidebarProps {
   onSelectClient: (client: Client) => void;
   isOpen: boolean;
   onClose: () => void;
+  /** Firm operators see multi-client picker + Clients nav. */
+  isOperator?: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -33,6 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSelectClient,
   isOpen,
   onClose,
+  isOperator = false,
 }) => {
   const [clientDropdownOpen, setClientDropdownOpen] = React.useState(false);
 
@@ -41,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: FileText, label: 'Reports', view: 'reports' },
     { icon: Brain, label: 'AI Insights', view: 'insights' },
     { icon: Link2, label: 'Connections', view: 'connect' },
-    { icon: Users, label: 'Clients', view: 'clients' },
+    ...(isOperator ? [{ icon: Users, label: 'Clients', view: 'clients' as const }] : []),
     { icon: Settings, label: 'Settings', view: 'settings' },
   ];
 
@@ -65,61 +68,86 @@ const Sidebar: React.FC<SidebarProps> = ({
       >
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-slate-800">
-            <div className="relative">
+            {isOperator && clients.length > 0 ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setClientDropdownOpen(!clientDropdownOpen)}
+                  className="w-full flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl hover:bg-slate-800 transition-colors"
+                >
+                  <div className="w-8 h-8 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Building2 className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 text-left min-w-0">
+                    <p className="text-sm font-medium text-white truncate">
+                      {selectedClient?.companyName || 'Select Client'}
+                    </p>
+                    {selectedClient && (
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className={`w-1.5 h-1.5 rounded-full ${qbStatusColors[selectedClient.qbStatus]}`}
+                        />
+                        <span className="text-xs text-slate-400 capitalize">{selectedClient.qbStatus}</span>
+                      </div>
+                    )}
+                  </div>
+                  <ChevronDown
+                    className={`w-4 h-4 text-slate-400 transition-transform ${clientDropdownOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {clientDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
+                    <div className="max-h-64 overflow-y-auto">
+                      {clients.filter((c) => c.status === 'active').map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          onClick={() => {
+                            onSelectClient(client);
+                            setClientDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700 transition-colors ${
+                            selectedClient?.id === client.id ? 'bg-slate-700/50' : ''
+                          }`}
+                        >
+                          <div className={`w-2 h-2 rounded-full ${qbStatusColors[client.qbStatus]}`} />
+                          <div className="text-left min-w-0">
+                            <p className="text-sm text-white truncate">{client.companyName}</p>
+                            <p className="text-xs text-slate-400">
+                              {client.qbStatus === 'connected'
+                                ? `Synced ${timeAgo(client.lastSync)}`
+                                : client.qbStatus}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
               <button
-                onClick={() => setClientDropdownOpen(!clientDropdownOpen)}
-                className="w-full flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl hover:bg-slate-800 transition-colors"
+                type="button"
+                onClick={() => {
+                  onNavigate('connect');
+                  onClose();
+                }}
+                className="w-full flex items-center gap-3 p-3 bg-slate-800/50 border border-slate-700 rounded-xl hover:bg-slate-800 transition-colors text-left"
               >
                 <div className="w-8 h-8 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Building2 className="w-4 h-4 text-white" />
+                  <Link2 className="w-4 h-4 text-white" />
                 </div>
-                <div className="flex-1 text-left min-w-0">
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">
-                    {selectedClient?.companyName || 'Select Client'}
+                    {selectedClient?.companyName || 'Your business'}
                   </p>
-                  {selectedClient && (
-                    <div className="flex items-center gap-1.5">
-                      <div
-                        className={`w-1.5 h-1.5 rounded-full ${qbStatusColors[selectedClient.qbStatus]}`}
-                      />
-                      <span className="text-xs text-slate-400 capitalize">{selectedClient.qbStatus}</span>
-                    </div>
-                  )}
+                  <p className="text-xs text-slate-400">
+                    {selectedClient?.qbStatus === 'connected' ? 'QuickBooks connected' : 'Connect QuickBooks'}
+                  </p>
                 </div>
-                <ChevronDown
-                  className={`w-4 h-4 text-slate-400 transition-transform ${clientDropdownOpen ? 'rotate-180' : ''}`}
-                />
               </button>
-
-              {clientDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50">
-                  <div className="max-h-64 overflow-y-auto">
-                    {clients.filter((c) => c.status === 'active').map((client) => (
-                      <button
-                        key={client.id}
-                        onClick={() => {
-                          onSelectClient(client);
-                          setClientDropdownOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700 transition-colors ${
-                          selectedClient?.id === client.id ? 'bg-slate-700/50' : ''
-                        }`}
-                      >
-                        <div className={`w-2 h-2 rounded-full ${qbStatusColors[client.qbStatus]}`} />
-                        <div className="text-left min-w-0">
-                          <p className="text-sm text-white truncate">{client.companyName}</p>
-                          <p className="text-xs text-slate-400">
-                            {client.qbStatus === 'connected'
-                              ? `Synced ${timeAgo(client.lastSync)}`
-                              : client.qbStatus}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            )}
 
             {selectedClient?.qbStatus === 'connected' && (
               <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { getTierCapabilitiesForSession } from '@/lib/billing/userTier';
 import { computeCashForecast } from '@/lib/forecast/engine';
 import { loadForecastInputs } from '@/lib/forecast/inputs';
@@ -40,8 +41,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'clientId and kind are required' }, { status: 400 });
   }
 
+  const access = await guardClientAccess(body.clientId);
+  if (!access.ok) return access.response;
+
   try {
-    const inputs = await loadForecastInputs(body.clientId, session.capabilities);
+    const inputs = await loadForecastInputs(access.clientId, session.capabilities);
     const baseline = computeCashForecast(inputs, session.capabilities);
     const scenario = applyScenario(baseline, body.kind, body.params, inputs.asOf);
     return NextResponse.json({ baseline, scenario });

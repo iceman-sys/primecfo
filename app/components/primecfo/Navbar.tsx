@@ -1,16 +1,43 @@
 "use client";
 
 import React, { useState } from 'react';
-import { BarChart3, Menu, X, ChevronDown, Bell, Settings, LogOut, User, CreditCard } from 'lucide-react';
+import { BarChart3, Menu, X, ChevronDown, Bell, Settings, LogOut, User, CreditCard, Users } from 'lucide-react';
+import { emailDisplayName, emailInitials } from '@/lib/auth/display';
 
 interface NavbarProps {
   currentView: string;
   onNavigate: (view: string) => void;
   isLoggedIn: boolean;
   onLogin: () => void;
+  /** Authenticated user's email — shown in profile instead of placeholder admin text. */
+  userEmail?: string | null;
+  /** Admin (ADMIN_EMAILS allowlist): sees Clients, firm tools, and /admin/*. */
+  isOperator?: boolean;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, onLogin }) => {
+const CUSTOMER_NAV = [
+  { label: 'Dashboard', view: 'dashboard' },
+  { label: 'Reports', view: 'reports' },
+  { label: 'Insights', view: 'insights' },
+  { label: 'About Us', view: 'about' },
+] as const;
+
+const OPERATOR_NAV = [
+  { label: 'Dashboard', view: 'dashboard' },
+  { label: 'Reports', view: 'reports' },
+  { label: 'Insights', view: 'insights' },
+  { label: 'Clients', view: 'clients' },
+  { label: 'About Us', view: 'about' },
+] as const;
+
+const Navbar: React.FC<NavbarProps> = ({
+  currentView,
+  onNavigate,
+  isLoggedIn,
+  onLogin,
+  userEmail = null,
+  isOperator = false,
+}) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -20,6 +47,10 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
     { id: 2, text: 'New AI insights available', time: '1h ago', read: false },
   ];
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const loggedInNav = isOperator ? OPERATOR_NAV : CUSTOMER_NAV;
+  const displayName = emailDisplayName(userEmail);
+  const initials = emailInitials(userEmail);
 
   return (
     <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
@@ -68,13 +99,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
             </div>
           ) : (
             <div className="hidden md:flex items-center gap-1">
-              {[
-                { label: 'Dashboard', view: 'dashboard' },
-                { label: 'Reports', view: 'reports' },
-                { label: 'Insights', view: 'insights' },
-                { label: 'Clients', view: 'clients' },
-                { label: 'About Us', view: 'about' },
-              ].map((item) => (
+              {loggedInNav.map((item) => (
                 <button
                   key={item.view}
                   onClick={() => onNavigate(item.view)}
@@ -132,19 +157,25 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
                     className="flex items-center gap-2 px-3 py-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
                   >
                     <div className="w-7 h-7 bg-gradient-to-br from-teal-400 to-blue-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-bold text-white">AD</span>
+                      <span className="text-xs font-bold text-white">{initials}</span>
                     </div>
-                    <span className="hidden sm:block text-sm">Admin</span>
+                    <span className="hidden sm:block text-sm max-w-[120px] truncate">{displayName}</span>
                     <ChevronDown className="w-4 h-4" />
                   </button>
                   {profileOpen && (
                     <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
                       <div className="px-4 py-3 border-b border-slate-700">
-                        <p className="text-sm font-semibold text-white">Admin User</p>
-                        <p className="text-xs text-slate-400">admin@primecfo.ai</p>
+                        <p className="text-sm font-semibold text-white truncate">{displayName}</p>
+                        <p className="text-xs text-slate-400 truncate">{userEmail ?? 'Signed in'}</p>
+                        {isOperator && (
+                          <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-teal-400">
+                            Admin
+                          </p>
+                        )}
                       </div>
                       <div className="py-1">
                         <button
+                          type="button"
                           onClick={() => {
                             onNavigate('settings');
                             setProfileOpen(false);
@@ -153,16 +184,32 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
                         >
                           <Settings className="w-4 h-4" /> Settings
                         </button>
+                        {isOperator && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onNavigate('clients');
+                                setProfileOpen(false);
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700"
+                            >
+                              <User className="w-4 h-4" /> Manage Clients
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                window.location.href = '/admin/subscribers';
+                                setProfileOpen(false);
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700"
+                            >
+                              <Users className="w-4 h-4" /> Subscribers
+                            </button>
+                          </>
+                        )}
                         <button
-                          onClick={() => {
-                            onNavigate('clients');
-                            setProfileOpen(false);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:text-white hover:bg-slate-700"
-                        >
-                          <User className="w-4 h-4" /> Manage Clients
-                        </button>
-                        <button
+                          type="button"
                           onClick={() => {
                             onNavigate('pricing');
                             setProfileOpen(false);
@@ -172,6 +219,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
                           <CreditCard className="w-4 h-4" /> Billing & Plans
                         </button>
                         <button
+                          type="button"
                           onClick={() => {
                             onLogin();
                             setProfileOpen(false);
@@ -216,20 +264,31 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
           <div className="px-4 py-3 space-y-1">
             {isLoggedIn ? (
               <>
-                {['dashboard', 'reports', 'insights', 'clients'].map((view) => (
+                {loggedInNav.map((item) => (
                   <button
-                    key={view}
+                    key={item.view}
                     onClick={() => {
-                      onNavigate(view);
+                      onNavigate(item.view);
                       setMobileMenuOpen(false);
                     }}
                     className={`block w-full text-left px-4 py-2.5 text-sm rounded-lg ${
-                      currentView === view ? 'text-teal-400 bg-slate-800' : 'text-slate-300 hover:bg-slate-800'
+                      currentView === item.view ? 'text-teal-400 bg-slate-800' : 'text-slate-300 hover:bg-slate-800'
                     }`}
                   >
-                    {view.charAt(0).toUpperCase() + view.slice(1)}
+                    {item.label}
                   </button>
                 ))}
+                <button
+                  onClick={() => {
+                    onNavigate('settings');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`block w-full text-left px-4 py-2.5 text-sm rounded-lg ${
+                    currentView === 'settings' ? 'text-teal-400 bg-slate-800' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  Settings
+                </button>
                 <button
                   onClick={() => {
                     onNavigate('pricing');
@@ -241,6 +300,17 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, isLoggedIn, on
                 >
                   Billing & Plans
                 </button>
+                {isOperator && (
+                  <button
+                    onClick={() => {
+                      window.location.href = '/admin/subscribers';
+                      setMobileMenuOpen(false);
+                    }}
+                    className="block w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 rounded-lg"
+                  >
+                    Subscribers
+                  </button>
+                )}
               </>
             ) : (
               <>

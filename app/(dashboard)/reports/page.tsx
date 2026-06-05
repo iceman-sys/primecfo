@@ -48,8 +48,8 @@ export default function ReportsPage() {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out ${
                 activeTab === tab.id
-                  ? "bg-teal-600 text-white"
-                  : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                  ? "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-md shadow-teal-500/20"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
               {tab.label}
@@ -57,7 +57,7 @@ export default function ReportsPage() {
           ))}
         </div>
       </div>
-      <div className={`flex-1 overflow-auto p-6 scrollbar-reports ${activeTab === "reports" ? "bg-[#FAFAF8]" : ""}`}>
+      <div className="flex-1 overflow-auto p-6 scrollbar-reports">
         {activeTab === "reports" && <ReportViewer />}
         {activeTab === "treasury" && <TreasuryTab />}
         {activeTab === "assets" && <AssetsTab />}

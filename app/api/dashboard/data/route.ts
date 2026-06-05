@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import { getSingleDateRange, type ReportRange, type PeriodType } from '@/lib/qbo/reports';
 import { parseArAgingBuckets, arOver30Ratio } from '@/lib/reporting/parseArAging';
@@ -56,9 +57,8 @@ export async function GET(request: NextRequest) {
   const range = (request.nextUrl.searchParams.get('range') ?? '12m') as ReportRange;
   const periodType: PeriodType = range === '4q' ? 'quarter' : 'month';
 
-  if (!clientId) {
-    return NextResponse.json({ error: 'clientId is required' }, { status: 400 });
-  }
+  const access = await guardClientAccess(clientId);
+  if (!access.ok) return access.response;
 
   const sb = supabaseAdmin();
   const cutoff = getStartDateCutoff(24);

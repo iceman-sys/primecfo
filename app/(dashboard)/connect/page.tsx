@@ -20,7 +20,7 @@ import { syncReports } from "@/lib/api/client";
 
 export default function ConnectPage() {
   const searchParams = useSearchParams();
-  const { selectedClient } = useClientContext();
+  const { selectedClient, isLoading: clientsLoading } = useClientContext();
   const queryClient = useQueryClient();
   const clientId = selectedClient?.id;
   const [connecting, setConnecting] = useState(false);
@@ -81,6 +81,15 @@ export default function ConnectPage() {
   const isConnected = selectedClient?.qbStatus === "connected";
   const isExpired = selectedClient?.qbStatus === "expired";
 
+  if (clientsLoading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-slate-400">
+        <Loader2 className="w-8 h-8 text-teal-400 animate-spin mr-3" />
+        Setting up your business…
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto relative">
       {/* Full-page loading overlay when redirecting to QuickBooks */}
@@ -115,7 +124,7 @@ export default function ConnectPage() {
         </div>
         <div>
           <h3 className="text-lg font-semibold text-white">QuickBooks Connection</h3>
-          <p className="text-xs text-slate-400">{selectedClient?.companyName || "No client selected"}</p>
+          <p className="text-xs text-slate-400">{selectedClient?.companyName || "Your business"}</p>
         </div>
       </div>
 

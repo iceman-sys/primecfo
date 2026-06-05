@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import { getSingleDateRange, type ReportRange, type PeriodType } from '@/lib/qbo/reports';
 
@@ -11,9 +12,8 @@ export async function GET(request: NextRequest) {
   const range = (request.nextUrl.searchParams.get('range') ?? '3m') as ReportRange;
   const periodType = (request.nextUrl.searchParams.get('periodType') ?? 'month') as PeriodType;
 
-  if (!clientId) {
-    return NextResponse.json({ error: 'clientId is required' }, { status: 400 });
-  }
+  const access = await guardClientAccess(clientId);
+  if (!access.ok) return access.response;
 
   const singlePeriod = getSingleDateRange(range, periodType);
   const effectivePeriodType: PeriodType = range === '4q' ? 'quarter' : 'month';

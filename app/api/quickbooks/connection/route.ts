@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import { proactivelyRefreshIfNeeded } from '@/lib/qbo/tokens';
 import { syncConnectionStatus } from '@/lib/qbo/syncConnectionStatus';
@@ -20,16 +21,15 @@ export type ConnectionStatusResponse = {
  */
 export async function GET(request: NextRequest) {
   const clientId = request.nextUrl.searchParams.get('clientId');
-  if (!clientId) {
-    return NextResponse.json({ error: 'clientId is required' }, { status: 400 });
-  }
+  const access = await guardClientAccess(clientId);
+  if (!access.ok) return access.response;
 
   const sb = supabaseAdmin();
 
   // Attempt proactive refresh so the token stays valid between API calls.
   // On failure, getValidQuickBooksAccessToken updates status to needs_reauth.
   try {
-    await proactivelyRefreshIfNeeded(clientId);
+    await proactivelyRefreshIfNeeded(access.clientId);
   } catch {
     // Status already updated inside the refresh path; continue to read fresh status below.
   }
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await sb
     .from('quickbooks_connections')
     .select('status, updated_at, access_expires_at, last_refresh_error')
-    .eq('client_id', clientId)
+    .eq('client_id', access.clientId)
     .maybeSingle();
 
   if (error) {
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!data) {
-    await syncConnectionStatus(clientId, 'disconnected').catch(() => {});
+    await syncConnectionStatus(access.clientId, 'disconnected').catch(() => {});
     return NextResponse.json({
       status: 'disconnected',
       lastSyncAt: null,
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
   // Keep client_qbo_connections in sync with the real status
   if (status !== 'connected') {
     await syncConnectionStatus(
-      clientId,
+      access.clientId,
       status === 'needs_reauth' ? 'needs_reauth' : 'disconnected',
       row.last_refresh_error ?? undefined
     ).catch(() => {});

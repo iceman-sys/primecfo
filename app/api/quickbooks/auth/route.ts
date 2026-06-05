@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OAuthClient from 'intuit-oauth';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { getQboOAuthConfig } from '@/lib/qbo/env';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 
@@ -21,18 +22,17 @@ export async function GET(request: NextRequest) {
   const clientId = searchParams.get('clientId')?.trim();
   const returnTo = searchParams.get('returnTo') || 'add';
 
-  if (!clientId) {
-    return NextResponse.json({ error: 'Client ID required' }, { status: 400 });
-  }
+  const access = await guardClientAccess(clientId);
+  if (!access.ok) return access.response;
 
-  const stateData = JSON.stringify({ clientId, returnTo });
+  const stateData = JSON.stringify({ clientId: access.clientId, returnTo });
 
   const sb = supabaseAdmin();
-  await sb.from('qbo_oauth_state').delete().eq('client_id', clientId);
+  await sb.from('qbo_oauth_state').delete().eq('client_id', access.clientId);
 
   const { error: insertError } = await sb.from('qbo_oauth_state').insert({
     state: stateData,
-    client_id: clientId,
+    client_id: access.clientId,
     return_to: returnTo,
   });
 

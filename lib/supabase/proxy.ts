@@ -1,5 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { isAdminEmail } from '@/lib/auth/admin';
+import { isAllowedAdminPath } from '@/lib/auth/adminRoutes';
 
 /**
  * Refreshes the Supabase auth session and updates cookies.
@@ -48,11 +50,20 @@ export async function updateSession(request: NextRequest) {
     // Stale or invalid session cookie — treat as logged out.
   }
 
-  if (isAdminRoute && !user && !isAuthRoute) {
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('next', pathname);
-    return NextResponse.redirect(loginUrl);
+  if (isAdminRoute && !isAuthRoute) {
+    if (!user) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('next', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (!isAdminEmail(user.email)) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    if (!isAllowedAdminPath(pathname)) {
+      return NextResponse.redirect(new URL('/admin/subscribers', request.url));
+    }
   }
 
+  supabaseResponse.headers.set('x-pathname', pathname);
   return supabaseResponse;
 }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { getTierCapabilitiesForSession } from '@/lib/billing/userTier';
 import { evaluateFinancialAlerts } from '@/lib/alerts/evaluate';
 import { persistFinancialAlerts } from '@/lib/alerts/persist';
@@ -14,9 +15,8 @@ export async function GET(request: NextRequest) {
   const clientId = request.nextUrl.searchParams.get('clientId');
   const shouldEval = request.nextUrl.searchParams.get('evaluate') === '1';
 
-  if (!clientId) {
-    return NextResponse.json({ error: 'clientId is required' }, { status: 400 });
-  }
+  const access = await guardClientAccess(clientId);
+  if (!access.ok) return access.response;
 
   const session = await getTierCapabilitiesForSession();
   if (!session.userId) {
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await sb
       .from('financial_alert_events')
       .select('id, alert_kind, state, title, body, severity_key, updated_at')
-      .eq('client_id', clientId)
+      .eq('client_id', access.clientId)
       .in('state', ['active', 'acknowledged', 'snoozed'])
       .order('updated_at', { ascending: false });
 
@@ -43,10 +43,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const inputs = await loadForecastInputs(clientId, session.capabilities);
+    const inputs = await loadForecastInputs(access.clientId, session.capabilities);
     const forecast = computeCashForecast(inputs, session.capabilities);
     const evaluated = evaluateFinancialAlerts(inputs, forecast);
-    await persistFinancialAlerts(clientId, evaluated);
+    await persistFinancialAlerts(access.clientId, evaluated);
     return NextResponse.json({
       alerts: evaluated.map((a) => ({
         alert_kind: a.alert_kind,

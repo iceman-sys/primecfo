@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 
 /**
@@ -22,12 +23,8 @@ export async function POST(request: NextRequest) {
     clientId = request.nextUrl.searchParams.get('clientId')?.trim() ?? null;
   }
 
-  if (!clientId) {
-    return NextResponse.json(
-      { error: 'clientId is required' },
-      { status: 400 }
-    );
-  }
+  const access = await guardClientAccess(clientId);
+  if (!access.ok) return access.response;
 
   const sb = supabaseAdmin();
 
@@ -35,7 +32,7 @@ export async function POST(request: NextRequest) {
   const { error: deleteConnError } = await sb
     .from('quickbooks_connections')
     .delete()
-    .eq('client_id', clientId);
+    .eq('client_id', access.clientId);
 
   if (deleteConnError) {
     console.error('QuickBooks disconnect: quickbooks_connections delete error', deleteConnError);
@@ -49,7 +46,7 @@ export async function POST(request: NextRequest) {
   const { error: updateQboError } = await sb
     .from('client_qbo_connections')
     .update({ status: 'disconnected' })
-    .eq('client_id', clientId);
+    .eq('client_id', access.clientId);
 
   if (updateQboError) {
     console.error('QuickBooks disconnect: client_qbo_connections update error', updateQboError);

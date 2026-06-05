@@ -1,11 +1,20 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
+import { isAdminEmail } from '@/lib/auth/admin';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
+import { requireOperator } from '@/lib/auth/requireOperator';
+import { requireUser } from '@/lib/auth/requireUser';
+import { fetchClientsWithLastSync } from '@/lib/clients/list';
+import { ensureUserClient } from '@/lib/clients/provision';
 
 /**
- * POST /api/clients — Create a new client (and optional QBO connection placeholder).
- * GET /api/clients?list=1 — List clients with optional client_qbo_connections.
+ * POST /api/clients — Create a new client (admin only).
+ * GET /api/clients?list=1 — Admins: all clients; customers: own business (auto-provisioned).
  */
 export async function POST(request: Request) {
+  const auth = await requireOperator();
+  if (!auth.ok) return auth.response;
+
   let clientId: string | null = null;
   const supabase = supabaseAdmin();
   
@@ -202,51 +211,24 @@ export async function GET(request: Request) {
     const supabase = supabaseAdmin();
 
     if (list) {
-      const { data, error } = await supabase
-        .from('clients')
-        .select(`
-          *,
-          client_qbo_connections (
-            company_id,
-            customer_id,
-            sync_enabled,
-            status,
-            connected_at
-          )
-        `)
-        .eq('is_active', true)
-        .order('client_name', { ascending: true })
-        .order('connected_at', { ascending: false, foreignTable: 'client_qbo_connections' });
+      const auth = await requireUser();
+      if (!auth.ok) return auth.response;
 
-      if (error) {
+      try {
+        if (isAdminEmail(auth.user.email)) {
+          const withLastSync = await fetchClientsWithLastSync();
+          return NextResponse.json(withLastSync);
+        }
+
+        const owned = await ensureUserClient(auth.user);
+        const withLastSync = await fetchClientsWithLastSync([owned.client_id]);
+        return NextResponse.json(withLastSync);
+      } catch (e) {
         return NextResponse.json(
-          { error: error.message || 'Failed to fetch clients' },
+          { error: e instanceof Error ? e.message : 'Failed to fetch clients' },
           { status: 500 }
         );
       }
-
-      const clients = data ?? [];
-      const clientIds = clients.map((c: { client_id: string }) => c.client_id);
-      const lastSyncByClient = new Map<string, string>();
-
-      if (clientIds.length > 0) {
-        const { data: reportRows } = await supabase
-          .from('financial_reports')
-          .select('client_id, synced_at')
-          .in('client_id', clientIds);
-        for (const r of reportRows ?? []) {
-          const cur = lastSyncByClient.get(r.client_id);
-          if (!cur || (r.synced_at && r.synced_at > cur)) {
-            lastSyncByClient.set(r.client_id, r.synced_at ?? '');
-          }
-        }
-      }
-
-      const withLastSync = clients.map((c: { client_id: string }) => ({
-        ...c,
-        last_sync: lastSyncByClient.get(c.client_id) ?? null,
-      }));
-      return NextResponse.json(withLastSync);
     }
 
     // Health check
@@ -282,9 +264,8 @@ export async function PATCH(request: Request) {
   try {
     const body = await request.json();
     const { client_id, notes } = body;
-    if (!client_id) {
-      return NextResponse.json({ error: 'client_id is required' }, { status: 400 });
-    }
+    const access = await guardClientAccess(client_id);
+    if (!access.ok) return access.response;
 
     const supabase = supabaseAdmin();
     const { error } = await supabase
@@ -306,6 +287,9 @@ export async function PATCH(request: Request) {
 
 // DELETE: remove a client and related QBO data
 export async function DELETE(request: Request) {
+  const auth = await requireOperator();
+  if (!auth.ok) return auth.response;
+
   try {
     let clientId: string | null = null;
     const contentType = request.headers.get('content-type') ?? '';

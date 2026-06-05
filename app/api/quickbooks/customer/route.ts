@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardClientAccess } from '@/lib/auth/clientAccess';
 import {
   QuickBooksApiError,
   QuickBooksNeedsReauthError,
@@ -101,16 +102,15 @@ export async function GET(request: NextRequest) {
     : undefined;
 
   try {
-    if (!clientId) {
-      return NextResponse.json({ error: 'clientId is required' }, { status: 400 });
-    }
+    const access = await guardClientAccess(clientId);
+    if (!access.ok) return access.response;
 
     const customerQuery = customerId
       ? `select * from Customer where Id = '${customerId.replace(/'/g, "''")}'`
       : 'select * from Customer';
 
     const customerRes = await quickBooksRequest<{ QueryResponse?: { Customer?: QboCustomer[] } }>(
-      clientId,
+      access.clientId,
       {
         path: '/v3/company/{realmId}/query',
         method: 'GET',
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       const invoiceQuery = `select * from Invoice where CustomerRef = '${customerId.replace(/'/g, "''")}'`;
       try {
         const invoiceRes = await quickBooksRequest<{ QueryResponse?: { Invoice?: QboInvoice[] } }>(
-          clientId,
+          access.clientId,
           {
             path: '/v3/company/{realmId}/query',
             method: 'GET',
