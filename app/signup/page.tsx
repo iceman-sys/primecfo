@@ -2,16 +2,17 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Lock, Mail, CheckCircle } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 
 export default function SignUpPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,69 +31,31 @@ export default function SignUpPage() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const baseUrl =
-        typeof window !== 'undefined'
-          ? window.location.origin
-          : process.env.NEXT_PUBLIC_URL ?? '';
 
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${baseUrl}/auth/callback?next=/dashboard`,
-        },
       });
 
       if (signUpError) {
         setError(signUpError.message);
-        setLoading(false);
         return;
       }
 
-      setSuccess(true);
+      if (data.session) {
+        router.push('/dashboard');
+        router.refresh();
+        return;
+      }
+
+      // Fallback when Supabase still requires email confirmation (no session yet).
+      router.push('/login?signup=success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setLoading(false);
     }
   };
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col">
-        <header className="border-b border-white/10 px-6 py-4">
-          <nav className="max-w-6xl mx-auto flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="text-xl font-semibold tracking-tight">
-                <span className="text-emerald-400">P</span>rimeCFO.ai
-              </span>
-            </Link>
-          </nav>
-        </header>
-        <main className="max-w-md mx-auto px-6 py-20 flex-1 flex flex-col justify-center">
-          <div className="bg-gradient-to-b from-white/[0.08] to-white/[0.02] border border-white/10 rounded-2xl p-8 text-center">
-            <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-7 h-7 text-emerald-400" />
-            </div>
-            <h1 className="text-xl font-semibold mb-2">Check your email</h1>
-            <p className="text-white/60 text-sm mb-6">
-              We sent a confirmation link to <strong className="text-white/80">{email}</strong>.
-              Click the link to confirm your account and sign in.
-            </p>
-            <p className="text-white/50 text-xs mb-6">
-              If you don’t see it, check your spam folder or wait a few minutes.
-            </p>
-            <Link
-              href="/login"
-              className="inline-block text-emerald-400 hover:text-emerald-300 text-sm font-medium"
-            >
-              Go to sign in →
-            </Link>
-          </div>
-        </main>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white flex flex-col">
@@ -119,7 +82,7 @@ export default function SignUpPage() {
           </div>
           <h1 className="text-2xl font-semibold text-center mb-2">Create an account</h1>
           <p className="text-white/60 text-center text-sm mb-6">
-            Sign up with your email. You’ll need to confirm it before signing in.
+            Sign up with your email and go straight to your dashboard.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">

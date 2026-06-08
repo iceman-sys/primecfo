@@ -18,6 +18,7 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const signupSuccess = searchParams.get('signup') === 'success';
 
   useEffect(() => {
     const errorCode = searchParams.get('error');
@@ -116,6 +117,12 @@ function LoginContent() {
                 />
               </div>
             </div>
+
+            {signupSuccess && !error && (
+              <p className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
+                Account created. Sign in with your email and password.
+              </p>
+            )}
 
             {error && (
               <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
