@@ -180,16 +180,12 @@ export const FAQS: Faq[] = [
   },
 ];
 
-export const CONTACT_EMAIL = "andrew@primeaccsolutions.com";
-
-/**
- * Public calendar booking URL for the Growth tier "Book a Conversation" CTA.
- * Override at build/run time with NEXT_PUBLIC_CALENDLY_URL (Calendly, Cal.com, etc.).
- * Defaults to the Prime Accounting Solutions Calendly so the CTA works out-of-the-box.
- */
-export const CALENDAR_URL =
-  process.env.NEXT_PUBLIC_CALENDLY_URL?.trim() ||
-  "https://calendly.com/primeacc/15min";
+export {
+  CALENDAR_URL,
+  CONTACT_EMAIL,
+  SALES_EMAIL,
+  SUPPORT_EMAIL,
+} from '@/lib/site/contact';
 
 /** Short testimonial pulled from real Yelp reviews of Prime Accounting Solutions. */
 export type Testimonial = {

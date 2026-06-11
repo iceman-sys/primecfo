@@ -17,6 +17,7 @@ import {
 import { useClientContext } from "@/contexts/ClientContext";
 import { timeAgo } from "@/lib/financialData";
 import { syncReports } from "@/lib/api/client";
+import ContactHelpBlock from "@/app/components/primecfo/ContactHelpBlock";
 
 export default function ConnectPage() {
   const searchParams = useSearchParams();
@@ -80,6 +81,7 @@ export default function ConnectPage() {
 
   const isConnected = selectedClient?.qbStatus === "connected";
   const isExpired = selectedClient?.qbStatus === "expired";
+  const connectionFailed = searchParams.get("error") === "connection_failed";
 
   if (clientsLoading) {
     return (
@@ -127,6 +129,13 @@ export default function ConnectPage() {
           <p className="text-xs text-slate-400">{selectedClient?.companyName || "Your business"}</p>
         </div>
       </div>
+
+      {connectionFailed && (
+        <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          QuickBooks did not connect. Try again, or contact support with a screenshot of any
+          Intuit error message.
+        </div>
+      )}
 
       {/* Connection Status Card */}
       <div
@@ -294,6 +303,12 @@ export default function ConnectPage() {
           </div>
         </div>
       </div>
+
+      <ContactHelpBlock
+        className="mt-8"
+        message="Having trouble connecting QuickBooks or syncing your data? We can help."
+        subject="PrimeCFO.ai QuickBooks connection help"
+      />
     </div>
   );
 }

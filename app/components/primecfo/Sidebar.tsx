@@ -178,7 +178,18 @@ const Sidebar: React.FC<SidebarProps> = ({
           </nav>
 
           <div className="p-4 border-t border-slate-800">
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors">
+            <button
+              type="button"
+              onClick={() => {
+                onNavigate('contact');
+                onClose();
+              }}
+              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm rounded-xl transition-colors ${
+                currentView === 'contact'
+                  ? 'text-teal-400 bg-teal-500/10 border border-teal-500/20'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              }`}
+            >
               <HelpCircle className="w-5 h-5" />
               Help & Support
             </button>

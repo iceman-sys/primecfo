@@ -3,6 +3,7 @@
 import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { SUPPORT_EMAIL } from '@/lib/site/contact';
 
 function DisconnectQuickBooksContent() {
   const searchParams = useSearchParams();
@@ -181,7 +182,11 @@ function DisconnectQuickBooksContent() {
           <span>•</span>
           <Link href="/terms" className="hover:text-white/60 transition-colors">Terms of Service</Link>
           <span>•</span>
-          <span>Need Help? primecfoaidev@gmail.com</span>
+          <Link href="/contact" className="hover:text-white/60 transition-colors">Contact Us</Link>
+          <span>•</span>
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-white/60 transition-colors">
+            {SUPPORT_EMAIL}
+          </a>
         </div>
       </main>
 

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PublicShell from "@/app/components/primecfo/PublicShell";
+import { SUPPORT_EMAIL } from "@/lib/site/contact";
 
 export const metadata: Metadata = {
   title: "Terms of Service | PrimeCFO.ai",
@@ -136,10 +137,10 @@ export default function TermsOfServicePage() {
               <p>
                 Questions about these Terms? Contact us at{" "}
                 <a
-                  href="mailto:support@primecfo.ai"
+                  href={`mailto:${SUPPORT_EMAIL}`}
                   className="text-teal-400 hover:text-teal-300 underline"
                 >
-                  support@primecfo.ai
+                  {SUPPORT_EMAIL}
                 </a>
                 .
               </p>

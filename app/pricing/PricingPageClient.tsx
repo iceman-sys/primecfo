@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import Navbar from "@/app/components/primecfo/Navbar";
 import Footer from "@/app/components/primecfo/Footer";
 import PricingPage from "@/app/components/primecfo/PricingPage";
-import { CONTACT_EMAIL, CALENDAR_URL, type Plan } from "@/app/lib/pricing-plans";
+import { CONTACT_EMAIL, CALENDAR_URL, SUPPORT_EMAIL, type Plan } from "@/app/lib/pricing-plans";
 import { getBillingStatus, type BillingStatusResponse, BILLING_UPDATED_EVENT } from "@/lib/api/client";
 
 export default function PricingPageClient() {
@@ -116,7 +116,11 @@ export default function PricingPageClient() {
       });
       const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!res.ok || !data.url) {
-        toast.error(data.error || "Could not start checkout. Please try again.");
+        toast.error(
+          data.error
+            ? `${data.error} Contact ${SUPPORT_EMAIL} if this continues.`
+            : `Could not start checkout. Contact ${SUPPORT_EMAIL} if this continues.`
+        );
         setCheckoutPending(false);
         return;
       }

@@ -20,6 +20,7 @@ const CUSTOMER_NAV = [
   { label: 'Reports', view: 'reports' },
   { label: 'Insights', view: 'insights' },
   { label: 'About Us', view: 'about' },
+  { label: 'Contact', view: 'contact' },
 ] as const;
 
 const OPERATOR_NAV = [
@@ -28,6 +29,7 @@ const OPERATOR_NAV = [
   { label: 'Insights', view: 'insights' },
   { label: 'Clients', view: 'clients' },
   { label: 'About Us', view: 'about' },
+  { label: 'Contact', view: 'contact' },
 ] as const;
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -73,6 +75,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 { label: 'How It Works', view: 'how-it-works', anchor: true },
                 { label: 'Pricing', view: 'pricing', anchor: false },
                 { label: 'About Us', view: 'about', anchor: false },
+                { label: 'Contact', view: 'contact', anchor: false },
               ].map((item) => (
                 <button
                   key={item.view}
@@ -335,6 +338,17 @@ const Navbar: React.FC<NavbarProps> = ({
                   }`}
                 >
                   About Us
+                </button>
+                <button
+                  onClick={() => {
+                    onNavigate('contact');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`block w-full text-left px-4 py-2.5 text-sm rounded-lg ${
+                    currentView === 'contact' ? 'text-teal-400 bg-slate-800' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  Contact
                 </button>
                 <button
                   onClick={() => {

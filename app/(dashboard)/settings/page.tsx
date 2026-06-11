@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CreditCard, ExternalLink, Loader2 } from "lucide-react";
+import ContactHelpBlock from "@/app/components/primecfo/ContactHelpBlock";
 
 type BillingStatus = {
   hasSubscription: boolean;
@@ -171,6 +172,12 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      <ContactHelpBlock
+        className="mb-6"
+        message="Billing issues, account access, or general questions — our team is here to help."
+        subject="PrimeCFO.ai account help"
+      />
 
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-2">Preferences</h3>
