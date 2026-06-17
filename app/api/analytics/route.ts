@@ -5,12 +5,12 @@ import { computeAnalyticsKpis } from '@/lib/metrics/ratios';
 import type { ReportRange } from '@/lib/qbo/reports';
 
 /**
- * GET /api/analytics?clientId=xxx&range=12m
+ * GET /api/analytics?clientId=xxx&range=3m
  * Live KPIs + monthly revenue/expense trends from synced QBO metrics.
  */
 export async function GET(request: NextRequest) {
   const clientId = request.nextUrl.searchParams.get('clientId');
-  const range = (request.nextUrl.searchParams.get('range') ?? '12m') as ReportRange;
+  const range = (request.nextUrl.searchParams.get('range') ?? '3m') as ReportRange;
   const access = await guardClientAccess(clientId);
   if (!access.ok) return access.response;
 

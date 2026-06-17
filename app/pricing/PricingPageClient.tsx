@@ -133,10 +133,6 @@ export default function PricingPageClient() {
   };
 
   const handlePlanCta = (plan: Plan, interval: "month" | "year") => {
-    if (plan.ctaKind === "calendar") {
-      window.open(CALENDAR_URL, "_blank", "noopener,noreferrer");
-      return;
-    }
     if (plan.ctaKind === "contact") {
       window.location.href = `mailto:${CONTACT_EMAIL}?subject=PrimeCFO.ai%20${encodeURIComponent(plan.name)}%20inquiry`;
       return;
@@ -149,18 +145,22 @@ export default function PricingPageClient() {
     void startCheckout(plan.id, interval);
   };
 
+  const handleSecondaryPlanCta = (plan: Plan) => {
+    if (plan.secondaryCtaKind === "calendar") {
+      window.open(CALENDAR_URL, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (plan.secondaryCtaKind === "contact") {
+      window.location.href = `mailto:${CONTACT_EMAIL}?subject=PrimeCFO.ai%20${encodeURIComponent(plan.name)}%20inquiry`;
+    }
+  };
+
   const handleContact = () => {
     window.open(CALENDAR_URL, "_blank", "noopener,noreferrer");
   };
 
   const handleStartTrial = () => {
-    if (session) {
-      void startCheckout("self-service", "month");
-    } else {
-      router.push(
-        `/login?next=${encodeURIComponent("/pricing?plan=self-service&interval=month&autostart=1")}`
-      );
-    }
+    document.getElementById("pricing-plans")?.scrollIntoView({ behavior: "smooth" });
   };
 
   // Auto-resume checkout after a user signs in and comes back with ?autostart=1.
@@ -215,6 +215,7 @@ export default function PricingPageClient() {
       />
       <PricingPage
         onPlanCta={handlePlanCta}
+        onSecondaryPlanCta={handleSecondaryPlanCta}
         onContact={handleContact}
         onStartTrial={handleStartTrial}
         activeSubscription={activeSubscription}

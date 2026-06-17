@@ -8,13 +8,28 @@ export type AnalyticsKpis = {
   quickRatio: number | null;
   dso: number | null;
   dpo: number | null;
+  dsoNote: string | null;
+  dpoNote: string | null;
   burnRate: number | null;
   runway: number | null;
 };
 
-function safeRatio(numerator: number, denominator: number): number | null {
+/** Percentage KPIs (margins): returns value 0–100 with one decimal. */
+function percentValue(numerator: number, denominator: number): number | null {
   if (!denominator || !Number.isFinite(denominator) || !Number.isFinite(numerator)) return null;
   return Math.round((numerator / denominator) * 1000) / 10;
+}
+
+/** Financial ratios (current/quick): NOT multiplied by 100. */
+function ratioValue(numerator: number, denominator: number): number | null {
+  if (!denominator || !Number.isFinite(denominator) || !Number.isFinite(numerator)) return null;
+  return Math.round((numerator / denominator) * 100) / 100;
+}
+
+/** Days metrics (DSO/DPO): days in period × (numerator / denominator). */
+function daysValue(numerator: number, denominator: number, days: number): number | null {
+  if (!denominator || !Number.isFinite(denominator) || !Number.isFinite(numerator)) return null;
+  return Math.round((numerator / denominator) * days);
 }
 
 function periodDays(range: '3m' | '6m' | '12m' | '4q'): number {
@@ -38,6 +53,8 @@ export function computeAnalyticsKpis(
       quickRatio: null,
       dso: null,
       dpo: null,
+      dsoNote: null,
+      dpoNote: null,
       burnRate: null,
       runway: runwayMonths,
     };
@@ -49,17 +66,28 @@ export function computeAnalyticsKpis(
       ? summary.gross_profit
       : revenue - Math.abs(summary.cogs);
 
-  const grossMargin = safeRatio(grossProfit, revenue);
-  const netMargin = summary.data_error ? null : safeRatio(summary.net_income, revenue);
+  const grossMargin = percentValue(grossProfit, revenue);
+  const netMargin = summary.data_error ? null : percentValue(summary.net_income, revenue);
 
-  const currentRatio = safeRatio(summary.current_assets, summary.current_liabilities);
-  const quickAssets = summary.current_assets - summary.inventory;
-  const quickRatio = safeRatio(quickAssets, summary.current_liabilities);
+  const currentRatio = ratioValue(summary.current_assets, summary.current_liabilities);
+
+  // Quick ratio = liquid assets only (bank/cash + AR), not total current assets
+  const quickAssets = summary.quick_assets ?? summary.cash + summary.accounts_receivable;
+  const quickRatio = ratioValue(quickAssets, summary.current_liabilities);
 
   const days = periodDays(range);
-  const dso = safeRatio(summary.accounts_receivable * days, revenue);
+  const dso = daysValue(summary.accounts_receivable, revenue, days);
   const cogs = Math.abs(summary.cogs) || null;
-  const dpo = cogs ? safeRatio(summary.accounts_payable * days, cogs) : null;
+  const dpo = cogs ? daysValue(summary.accounts_payable, cogs, days) : null;
+
+  const dsoNote =
+    dso === 0 && summary.accounts_receivable === 0
+      ? 'No outstanding receivables at period end'
+      : null;
+  const dpoNote =
+    dpo === 0 && summary.accounts_payable === 0
+      ? 'No outstanding payables at period end'
+      : null;
 
   const last3 = trends
     .map((t) => t.expenses)
@@ -75,6 +103,7 @@ export function computeAnalyticsKpis(
       grossProfit,
       current_assets: summary.current_assets,
       current_liabilities: summary.current_liabilities,
+      quick_assets: quickAssets,
       ar: summary.accounts_receivable,
       ap: summary.accounts_payable,
       cogs: summary.cogs,
@@ -96,6 +125,8 @@ export function computeAnalyticsKpis(
     quickRatio,
     dso,
     dpo,
+    dsoNote,
+    dpoNote,
     burnRate,
     runway: runwayMonths,
   };

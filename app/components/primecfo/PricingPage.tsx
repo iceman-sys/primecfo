@@ -28,6 +28,7 @@ const ACCENT_GLOW = "hsl(var(--primary) / 0.22)";
 
 interface PricingPageProps {
   onPlanCta: (plan: Plan, interval: "month" | "year") => void;
+  onSecondaryPlanCta?: (plan: Plan) => void;
   onContact: () => void;
   onStartTrial: () => void;
   /** When set, derived from Stripe subscription — tier + wordmark for the user's active plan. */
@@ -49,6 +50,7 @@ const DecisionIcon: React.FC<{ kind: DecisionHelper["icon"]; className?: string 
 
 const PricingPage: React.FC<PricingPageProps> = ({
   onPlanCta,
+  onSecondaryPlanCta,
   onContact,
   onStartTrial,
   activeSubscription = null,
@@ -204,6 +206,7 @@ const PricingPage: React.FC<PricingPageProps> = ({
 
       {/* PRICING CARDS */}
       <div
+        id="pricing-plans"
         className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-14 md:grid-cols-3 md:gap-5"
         style={{ background: BG_DEEP }}
       >
@@ -354,6 +357,25 @@ const PricingPage: React.FC<PricingPageProps> = ({
                   >
                     {plan.cta}
                   </button>
+                  {plan.ctaNote && (
+                    <p className="mt-2 text-center text-xs font-medium" style={{ color: ACCENT }}>
+                      {plan.ctaNote}
+                    </p>
+                  )}
+                  {plan.secondaryCta && onSecondaryPlanCta && (
+                    <button
+                      type="button"
+                      onClick={() => onSecondaryPlanCta(plan)}
+                      className="mt-3 w-full cursor-pointer rounded-xl py-2.5 text-sm font-medium transition-colors"
+                      style={{
+                        border: `1px solid ${BORDER_SOFT}`,
+                        color: TEXT_MUTED,
+                        background: "transparent",
+                      }}
+                    >
+                      {plan.secondaryCta}
+                    </button>
+                  )}
                   <p className="mt-3 text-center text-xs" style={{ color: TEXT_DIM }}>
                     {plan.ctaFooter}
                   </p>
@@ -497,7 +519,7 @@ const PricingPage: React.FC<PricingPageProps> = ({
           Ready to see your numbers clearly?
         </h2>
         <p className="mb-8 text-base" style={{ color: TEXT_MUTED }}>
-          Start with a free 14-day trial. No credit card required.
+          Every plan includes a 14-day free trial. Pick the tier that fits you above.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <button

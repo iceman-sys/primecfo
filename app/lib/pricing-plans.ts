@@ -33,6 +33,9 @@ export type Plan = {
   ctaVariant: "outline" | "solid";
   /** Muted line below the CTA */
   ctaFooter: string;
+  /** Optional secondary action (e.g. book a call on self-serve tiers) */
+  secondaryCta?: string;
+  secondaryCtaKind?: "calendar" | "contact";
 };
 
 /** Teal aligned with `globals.css` `--primary` (173 80% 40%) / Navbar accents */
@@ -123,11 +126,13 @@ export const PLANS: Plan[] = [
       { label: "Custom Alerts", included: true },
       { label: "Advisory Hours", value: "1 hr/month meeting" },
     ],
-    cta: "Book a Conversation",
-    ctaNote: "",
-    ctaKind: "calendar",
+    cta: "Start Free for 14 Days",
+    ctaNote: "14-day free trial",
+    ctaKind: "signup",
     ctaVariant: "outline",
-    ctaFooter: "Pick a time that works — no email tag",
+    ctaFooter: "14-day free trial · or book a conversation first",
+    secondaryCta: "Book a Conversation",
+    secondaryCtaKind: "calendar" as const,
   },
 ];
 

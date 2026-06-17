@@ -23,6 +23,7 @@ export type SummaryMetrics = {
   current_assets: number;
   current_liabilities: number;
   inventory: number;
+  quick_assets: number;
   data_error: boolean;
 };
 
@@ -58,6 +59,7 @@ function aggregatePeriods(
   let current_assets = 0;
   let current_liabilities = 0;
   let inventory = 0;
+  let quick_assets = 0;
   let data_error = false;
   let hasAny = false;
 
@@ -76,6 +78,7 @@ function aggregatePeriods(
     current_assets = m.current_assets ?? current_assets;
     current_liabilities = m.current_liabilities ?? current_liabilities;
     inventory = m.inventory ?? inventory;
+    quick_assets = m.quick_assets ?? quick_assets;
     if (m.data_error) data_error = true;
   }
 
@@ -100,6 +103,7 @@ function aggregatePeriods(
     current_assets,
     current_liabilities,
     inventory,
+    quick_assets: quick_assets || cash + ar,
     data_error,
   };
 }

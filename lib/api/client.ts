@@ -346,17 +346,24 @@ export async function getAlerts(clientId: string, evaluate = false): Promise<{ a
 export type TreasuryResponse = {
   hasData: boolean;
   error?: string;
+  periodLabel?: string;
   totalCash?: number;
   netCashFlow?: number;
   monthlyBurn?: number;
   daysCashOnHand?: number | null;
   runwayMonths?: number | null;
   forecast30Day?: number;
+  forecastBreakdown?: {
+    currentCash: number;
+    projectedNet: number;
+    projectedBalance: number;
+    basis: 'cash_flow_statement' | 'pnl_proxy';
+  };
   bankAccounts?: Array<{ name: string; balance: number; subType: string; active: boolean }>;
   dataError?: boolean;
 };
 
-export async function getTreasury(clientId: string, range: ReportRange = '12m'): Promise<TreasuryResponse> {
+export async function getTreasury(clientId: string, range: ReportRange = '3m'): Promise<TreasuryResponse> {
   const params = new URLSearchParams({ clientId, range });
   const res = await fetch(`/api/treasury?${params}`);
   return res.json();
@@ -391,13 +398,15 @@ export type AnalyticsResponse = {
     quickRatio: number | null;
     dso: number | null;
     dpo: number | null;
+    dsoNote?: string | null;
+    dpoNote?: string | null;
     burnRate: number | null;
     runway: number | null;
   } | null;
   trends: Array<{ month: string; revenue: number; expenses: number }>;
 };
 
-export async function getAnalytics(clientId: string, range: ReportRange = '12m'): Promise<AnalyticsResponse> {
+export async function getAnalytics(clientId: string, range: ReportRange = '3m'): Promise<AnalyticsResponse> {
   const params = new URLSearchParams({ clientId, range });
   const res = await fetch(`/api/analytics?${params}`);
   return res.json();

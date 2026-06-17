@@ -39,6 +39,8 @@ export function deriveMetricsFromBalanceSheet(rawJson: unknown): MetricEntry[] {
     { metric_key: 'current_assets', value: totals.current_assets, unit: 'currency' },
     { metric_key: 'current_liabilities', value: totals.current_liabilities, unit: 'currency' },
     { metric_key: 'inventory', value: totals.inventory, unit: 'currency' },
+    { metric_key: 'quick_assets', value: totals.quick_assets, unit: 'currency' },
+    { metric_key: 'undeposited_funds', value: totals.undeposited_funds, unit: 'currency' },
   ];
 }
 

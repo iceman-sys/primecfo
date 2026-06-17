@@ -219,6 +219,8 @@ export type BalanceSheetTotals = {
   current_assets: number;
   current_liabilities: number;
   inventory: number;
+  undeposited_funds: number;
+  quick_assets: number;
 };
 
 export function extractPnlTotals(rawJson: unknown, columnIndex = -1): PnlTotals {
@@ -275,13 +277,139 @@ export function extractBalanceSheetTotals(
 
   const bankTotal = pickBestAmount(items, BS_CASH_RULES);
   const undeposited = items.find((i) => i.norm === 'undeposited funds')?.amount ?? 0;
+  const ar = pickBestAmount(items, BS_AR_RULES);
 
   return {
     cash: bankTotal + undeposited,
-    accounts_receivable: pickBestAmount(items, BS_AR_RULES),
+    accounts_receivable: ar,
     accounts_payable: pickBestAmount(items, BS_AP_RULES),
     current_assets: pickBestAmount(items, BS_CURRENT_ASSETS_RULES),
     current_liabilities: pickBestAmount(items, BS_CURRENT_LIAB_RULES),
     inventory: pickBestAmount(items, BS_INVENTORY_RULES),
+    undeposited_funds: undeposited,
+    quick_assets: bankTotal + undeposited + ar,
   };
+}
+
+const CF_NET_INCREASE_RULES: Array<{ patterns: RegExp[]; priority: number }> = [
+  {
+    patterns: [
+      /^net cash increase for period$/i,
+      /^net cash increase$/i,
+      /^net change in cash$/i,
+      /^cash increase for period$/i,
+    ],
+    priority: 100,
+  },
+];
+
+function sumRowAllPeriodAmounts(row: Record<string, unknown>, periodCount: number): number {
+  const summary = row.Summary;
+  let summaryCols: ColDataItem[] | undefined;
+  if (summary != null) {
+    if (Array.isArray(summary) && summary[0] != null) {
+      summaryCols = (summary[0] as { ColData?: ColDataItem[] }).ColData;
+    } else {
+      summaryCols = (summary as { ColData?: ColDataItem[] }).ColData;
+    }
+  }
+  const colData = row.ColData as ColDataItem[] | undefined;
+  const cols = summaryCols?.length ? summaryCols : colData;
+  if (!cols?.length) return getRowAmountAtColumn(row, -1);
+
+  let sum = 0;
+  const slots = Math.max(periodCount, cols.length - 1);
+  for (let i = 1; i <= slots && i < cols.length; i++) {
+    sum += parseAmount(getColDataItemValue(cols[i]));
+  }
+  return sum;
+}
+
+function walkCashFlowRows(
+  rows: unknown,
+  periodCount: number,
+  out: { label: string; amount: number; priority: number }[]
+): void {
+  const rowsObj = rows as { Row?: unknown[] } | undefined;
+  if (!rowsObj?.Row || !Array.isArray(rowsObj.Row)) return;
+
+  for (const row of rowsObj.Row) {
+    const r = row as Record<string, unknown>;
+    const headerCols = (r.Header as { ColData?: ColDataItem[] } | undefined)?.ColData;
+    const groupName = (r.group as string) ?? getColDataItemValue(headerCols?.[0]) ?? '';
+    const nested = r.Rows as { Row?: unknown[] } | undefined;
+
+    const summaryCols =
+      ((r.Summary as { ColData?: ColDataItem[] })?.ColData) ??
+      (Array.isArray(r.Summary)
+        ? (r.Summary[0] as { ColData?: ColDataItem[] })?.ColData
+        : undefined);
+
+    const labels: string[] = [];
+    if (summaryCols?.length) {
+      labels.push(getColDataItemValue(summaryCols[0]) || `Total ${groupName}`);
+    }
+    if (groupName) labels.push(groupName);
+    if (r.type === 'Data' && Array.isArray(r.ColData)) {
+      labels.push(getColDataItemValue((r.ColData as ColDataItem[])[0]));
+    }
+
+    const amount = sumRowAllPeriodAmounts(r, periodCount);
+    for (const label of labels) {
+      const norm = normalizeReportLabel(label);
+      if (!norm) continue;
+      const score = scoreLabel(norm, CF_NET_INCREASE_RULES);
+      if (score > 0) out.push({ label, amount, priority: score });
+    }
+
+    if (nested?.Row) walkCashFlowRows(nested, periodCount, out);
+  }
+}
+
+/** Per-period net cash increase values (column order left → right). */
+export function extractCashFlowNetByPeriod(rawJson: unknown): number[] {
+  const json = (rawJson ?? {}) as Record<string, unknown>;
+  const cols = (json.Columns as { Column?: unknown[] } | undefined)?.Column;
+  const periodCount = Array.isArray(cols) && cols.length > 1 ? cols.length - 1 : 1;
+
+  const rowsObj = json.Rows as { Row?: unknown[] } | undefined;
+  if (!rowsObj?.Row) return [];
+
+  for (const row of rowsObj.Row) {
+    const r = row as Record<string, unknown>;
+    const headerCols = (r.Header as { ColData?: ColDataItem[] })?.ColData;
+    const summaryCols =
+      ((r.Summary as { ColData?: ColDataItem[] })?.ColData) ??
+      (Array.isArray(r.Summary)
+        ? (r.Summary[0] as { ColData?: ColDataItem[] })?.ColData
+        : undefined);
+    const colData = r.ColData as ColDataItem[] | undefined;
+    const cd = summaryCols?.length ? summaryCols : colData;
+    if (!cd?.length) continue;
+
+    const label = normalizeReportLabel(getColDataItemValue(cd[0]) || getColDataItemValue(headerCols?.[0]) || '');
+    const score = scoreLabel(label, CF_NET_INCREASE_RULES);
+    if (score === 0) continue;
+
+    const values: number[] = [];
+    for (let i = 1; i < cd.length; i++) {
+      values.push(parseAmount(getColDataItemValue(cd[i])));
+    }
+    if (values.length > 0) return values;
+  }
+
+  // Fallback: depth-first search
+  const matches: { label: string; amount: number; priority: number }[] = [];
+  walkCashFlowRows(json.Rows, periodCount, matches);
+  if (matches.length === 0) return [];
+  matches.sort((a, b) => b.priority - a.priority);
+  // Re-walk to get array - use single total if only one period
+  return [matches[0].amount];
+}
+
+/** Sum of net cash increase across all periods in a multi-column Cash Flow report. */
+export function extractCashFlowNetIncreaseTotal(rawJson: unknown): number {
+  const byPeriod = extractCashFlowNetByPeriod(rawJson);
+  if (byPeriod.length === 0) return 0;
+  return byPeriod.reduce((s, v) => s + v, 0);
 }

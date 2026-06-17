@@ -18,13 +18,15 @@ const formatCurrency = (n: number) =>
 
 const formatPercent = (n: number | null) => (n == null ? "N/A" : `${n.toFixed(1)}%`);
 
+const formatRatio = (n: number | null) => (n == null ? "N/A" : n.toFixed(2));
+
 export default function AnalyticsTab() {
   const { selectedClient } = useClientContext();
   const clientId = selectedClient?.id;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["analytics", clientId],
-    queryFn: () => getAnalytics(clientId!),
+    queryKey: ["analytics", clientId, "3m"],
+    queryFn: () => getAnalytics(clientId!, "3m"),
     enabled: !!clientId,
   });
 
@@ -80,10 +82,18 @@ export default function AnalyticsTab() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard label="Gross Margin" value={formatPercent(kpis.grossMargin)} />
         <KpiCard label="Net Margin" value={formatPercent(kpis.netMargin)} />
-        <KpiCard label="Current Ratio" value={kpis.currentRatio?.toFixed(1) ?? "N/A"} />
-        <KpiCard label="Quick Ratio" value={kpis.quickRatio?.toFixed(1) ?? "N/A"} />
-        <KpiCard label="DSO" value={kpis.dso != null ? `${Math.round(kpis.dso)} days` : "N/A"} />
-        <KpiCard label="DPO" value={kpis.dpo != null ? `${Math.round(kpis.dpo)} days` : "N/A"} />
+        <KpiCard label="Current Ratio" value={formatRatio(kpis.currentRatio)} />
+        <KpiCard label="Quick Ratio" value={formatRatio(kpis.quickRatio)} subtitle="Cash + AR ÷ current liabilities" />
+        <KpiCard
+          label="DSO"
+          value={kpis.dso != null ? `${Math.round(kpis.dso)} days` : "N/A"}
+          subtitle={kpis.dsoNote ?? undefined}
+        />
+        <KpiCard
+          label="DPO"
+          value={kpis.dpo != null ? `${Math.round(kpis.dpo)} days` : "N/A"}
+          subtitle={kpis.dpoNote ?? undefined}
+        />
         <KpiCard label="Monthly Burn" value={kpis.burnRate != null ? formatCurrency(kpis.burnRate) : "N/A"} />
         <KpiCard
           label="Runway"
@@ -203,11 +213,12 @@ export default function AnalyticsTab() {
   );
 }
 
-function KpiCard({ label, value }: { label: string; value: string }) {
+function KpiCard({ label, value, subtitle }: { label: string; value: string; subtitle?: string }) {
   return (
     <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
       <p className="text-xs font-medium text-slate-400 mb-1">{label}</p>
       <p className="text-xl font-bold text-white">{value}</p>
+      {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
     </div>
   );
 }

@@ -17,7 +17,10 @@ const PRICE_ENV_MAP: Record<string, Partial<Record<BillingInterval, string>>> = 
     month: 'STRIPE_PRICE_STARTER_MONTHLY',
     year: 'STRIPE_PRICE_STARTER_ANNUAL',
   },
-  // Act (growth) tier is conversation-led in the product UI; no self-serve Checkout.
+  growth: {
+    month: 'STRIPE_PRICE_GROWTH_MONTHLY',
+    year: 'STRIPE_PRICE_GROWTH_ANNUAL',
+  },
 };
 
 export function isCheckoutPlan(planId: string): boolean {
