@@ -40,12 +40,69 @@ export async function queryAllEntities<T>(
 }
 
 export async function sumBankAccountBalances(clientId: string): Promise<number> {
-  const accounts = await queryAllEntities<{ CurrentBalance?: number; AccountType?: string }>(
-    clientId,
-    `SELECT * FROM Account WHERE AccountType = 'Bank'`,
-    'Account'
-  );
-  return accounts.reduce((s, a) => s + (typeof a.CurrentBalance === 'number' ? a.CurrentBalance : 0), 0);
+  const accounts = await fetchBankAccounts(clientId);
+  return accounts.reduce((s, a) => s + a.balance, 0);
+}
+
+export type QboAccountRow = {
+  id: string;
+  name: string;
+  accountType: string;
+  accountSubType: string;
+  balance: number;
+  active: boolean;
+};
+
+function parseAccountBalance(a: {
+  CurrentBalance?: number | string;
+  CurrentBalanceWithSubAccounts?: number | string;
+}): number {
+  const raw = a.CurrentBalanceWithSubAccounts ?? a.CurrentBalance;
+  if (typeof raw === 'number') return raw;
+  if (typeof raw === 'string') return parseFloat(raw) || 0;
+  return 0;
+}
+
+export async function fetchBankAccounts(clientId: string): Promise<QboAccountRow[]> {
+  const accounts = await queryAllEntities<{
+    Id?: string;
+    Name?: string;
+    AccountType?: string;
+    AccountSubType?: string;
+    Active?: boolean;
+    CurrentBalance?: number | string;
+    CurrentBalanceWithSubAccounts?: number | string;
+  }>(clientId, `SELECT * FROM Account WHERE AccountType = 'Bank'`, 'Account');
+
+  return accounts.map((a) => ({
+    id: String(a.Id ?? ''),
+    name: a.Name ?? 'Bank Account',
+    accountType: a.AccountType ?? 'Bank',
+    accountSubType: a.AccountSubType ?? '',
+    balance: parseAccountBalance(a),
+    active: a.Active !== false,
+  }));
+}
+
+export async function fetchFixedAssetAccounts(clientId: string): Promise<QboAccountRow[]> {
+  const accounts = await queryAllEntities<{
+    Id?: string;
+    Name?: string;
+    AccountType?: string;
+    AccountSubType?: string;
+    Active?: boolean;
+    CurrentBalance?: number | string;
+    CurrentBalanceWithSubAccounts?: number | string;
+  }>(clientId, `SELECT * FROM Account WHERE AccountType = 'Fixed Asset'`, 'Account');
+
+  return accounts.map((a) => ({
+    id: String(a.Id ?? ''),
+    name: a.Name ?? 'Asset',
+    accountType: a.AccountType ?? 'Fixed Asset',
+    accountSubType: a.AccountSubType ?? '',
+    balance: parseAccountBalance(a),
+    active: a.Active !== false,
+  }));
 }
 
 export type QboMoneyEntity = {

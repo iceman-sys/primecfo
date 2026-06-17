@@ -342,3 +342,63 @@ export async function getAlerts(clientId: string, evaluate = false): Promise<{ a
   if (!res.ok) throw new Error(data.error ?? `Alerts failed: ${res.status}`);
   return { alerts: data.alerts ?? [], tier: (data as { tier?: string }).tier };
 }
+
+export type TreasuryResponse = {
+  hasData: boolean;
+  error?: string;
+  totalCash?: number;
+  netCashFlow?: number;
+  monthlyBurn?: number;
+  daysCashOnHand?: number | null;
+  runwayMonths?: number | null;
+  forecast30Day?: number;
+  bankAccounts?: Array<{ name: string; balance: number; subType: string; active: boolean }>;
+  dataError?: boolean;
+};
+
+export async function getTreasury(clientId: string, range: ReportRange = '12m'): Promise<TreasuryResponse> {
+  const params = new URLSearchParams({ clientId, range });
+  const res = await fetch(`/api/treasury?${params}`);
+  return res.json();
+}
+
+export type AssetsResponse = {
+  hasData: boolean;
+  error?: string | null;
+  assets: Array<{
+    id: string;
+    name: string;
+    category: string;
+    currentValue: number;
+    originalCost: number;
+    status: 'active' | 'inactive';
+  }>;
+};
+
+export async function getAssets(clientId: string): Promise<AssetsResponse> {
+  const res = await fetch(`/api/assets?clientId=${encodeURIComponent(clientId)}`);
+  return res.json();
+}
+
+export type AnalyticsResponse = {
+  hasData: boolean;
+  error?: string;
+  dataError?: boolean;
+  kpis: {
+    grossMargin: number | null;
+    netMargin: number | null;
+    currentRatio: number | null;
+    quickRatio: number | null;
+    dso: number | null;
+    dpo: number | null;
+    burnRate: number | null;
+    runway: number | null;
+  } | null;
+  trends: Array<{ month: string; revenue: number; expenses: number }>;
+};
+
+export async function getAnalytics(clientId: string, range: ReportRange = '12m'): Promise<AnalyticsResponse> {
+  const params = new URLSearchParams({ clientId, range });
+  const res = await fetch(`/api/analytics?${params}`);
+  return res.json();
+}

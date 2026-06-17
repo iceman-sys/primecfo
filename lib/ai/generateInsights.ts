@@ -61,8 +61,17 @@ function buildPrompt(context: FinancialContext): string {
   const prev = previousSummary;
   const lines: string[] = [
     `Period: ${periodLabel}`,
-    `Current: Revenue $${summary.revenue.toFixed(2)}, Expenses $${summary.expenses.toFixed(2)}, Net Income $${summary.net_income.toFixed(2)}, Profit Margin ${summary.profit_margin_pct}%, Cash $${summary.cash.toFixed(2)}, Accounts Receivable $${summary.accounts_receivable.toFixed(2)}, Accounts Payable $${summary.accounts_payable.toFixed(2)}.`,
   ];
+
+  if (derived.dataError) {
+    lines.push(
+      'IMPORTANT: Financial metrics failed sanity checks (likely incomplete QBO sync). Do NOT invent dollar amounts. State that data needs re-sync and recommend connecting QuickBooks and running Sync.'
+    );
+  }
+
+  lines.push(
+    `Current: Revenue $${summary.revenue.toFixed(2)}, Expenses $${summary.expenses.toFixed(2)}, Net Income $${summary.net_income.toFixed(2)}, Profit Margin ${summary.data_error ? 'N/A (data error)' : `${summary.profit_margin_pct}%`}, Cash $${summary.cash.toFixed(2)}, Accounts Receivable $${summary.accounts_receivable.toFixed(2)}, Accounts Payable $${summary.accounts_payable.toFixed(2)}.`
+  );
 
   if (prev) {
     lines.push(

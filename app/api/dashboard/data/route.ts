@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardClientAccess } from '@/lib/auth/clientAccess';
-import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
-import { getSingleDateRange, type ReportRange, type PeriodType } from '@/lib/qbo/reports';
-import { parseArAgingBuckets, arOver30Ratio } from '@/lib/reporting/parseArAging';
+import { loadClientMetrics } from '@/lib/metrics/loadClientMetrics';
 import { getPercentChange } from '@/lib/financialData';
-
-type PeriodRow = { id: string; period_type: string; start_date: string; end_date: string; label: string };
-type MetricRow = { period_id: string; metric_key: string; value: number; unit: string };
+import { parseArAgingBuckets, arOver30Ratio } from '@/lib/reporting/parseArAging';
+import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
+import type { ReportRange } from '@/lib/qbo/reports';
 
 type CoreHealth = 'good' | 'warn' | 'bad';
 
-function runwayHealth(months: number): CoreHealth {
+function runwayHealth(months: number | null): CoreHealth {
+  if (months == null) return 'warn';
   if (months < 2) return 'bad';
   if (months < 5) return 'warn';
   return 'good';
@@ -42,40 +41,19 @@ function cashHealth(cash: number, avgBurn: number): CoreHealth {
   return 'good';
 }
 
-function getStartDateCutoff(monthsBack: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - monthsBack);
-  return d.toISOString().slice(0, 10);
-}
-
 /**
  * GET /api/dashboard/data?clientId=xxx&range=3m|6m|12m|4q
- * Returns summary (current period metrics), previousSummary (for trend), and trends (per-period for charts).
  */
 export async function GET(request: NextRequest) {
   const clientId = request.nextUrl.searchParams.get('clientId');
   const range = (request.nextUrl.searchParams.get('range') ?? '12m') as ReportRange;
-  const periodType: PeriodType = range === '4q' ? 'quarter' : 'month';
 
   const access = await guardClientAccess(clientId);
   if (!access.ok) return access.response;
 
-  const sb = supabaseAdmin();
-  const cutoff = getStartDateCutoff(24);
+  const bundle = await loadClientMetrics(access.clientId, range);
 
-  const { data: periods, error: periodsError } = await sb
-    .from('financial_report_periods')
-    .select('id, period_type, start_date, end_date, label')
-    .eq('client_id', clientId)
-    .gte('start_date', cutoff)
-    .order('start_date', { ascending: true });
-
-  if (periodsError) {
-    return NextResponse.json({ error: periodsError.message }, { status: 500 });
-  }
-
-  const periodList = (periods ?? []) as PeriodRow[];
-  if (periodList.length === 0) {
+  if (!bundle.hasData || !bundle.summary) {
     return NextResponse.json({
       summary: null,
       previousSummary: null,
@@ -86,130 +64,86 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const periodIds = periodList.map((p) => p.id);
-  const { data: metricsRows, error: metricsError } = await sb
-    .from('financial_metrics')
-    .select('period_id, metric_key, value, unit')
-    .eq('client_id', clientId)
-    .in('period_id', periodIds);
-
-  if (metricsError) {
-    return NextResponse.json({ error: metricsError.message }, { status: 500 });
-  }
-
-  const metricsByPeriod = new Map<string, Record<string, number>>();
-  for (const row of (metricsRows ?? []) as MetricRow[]) {
-    let map = metricsByPeriod.get(row.period_id);
-    if (!map) {
-      map = {};
-      metricsByPeriod.set(row.period_id, map);
-    }
-    map[row.metric_key] = Number(row.value);
-  }
-
-  const singleRange = getSingleDateRange(range, periodType);
-  const matchingPeriod =
-    periodList.find(
-      (p) => p.start_date === singleRange.start_date && p.end_date === singleRange.end_date
-    ) ?? periodList[periodList.length - 1];
-
-  const currentIndex = periodList.findIndex((p) => p.id === matchingPeriod.id);
-  const previousPeriod = currentIndex > 0 ? periodList[currentIndex - 1] : null;
-
-  const toSummary = (p: PeriodRow | null): Record<string, number> | null => {
-    if (!p) return null;
-    const m = metricsByPeriod.get(p.id);
-    if (!m) return null;
-    return {
-      revenue: m.revenue ?? 0,
-      expenses: m.expenses ?? 0,
-      net_income: m.net_income ?? 0,
-      profit_margin_pct: m.profit_margin_pct ?? 0,
-      cash: m.cash ?? 0,
-      accounts_receivable: m.accounts_receivable ?? 0,
-      accounts_payable: m.accounts_payable ?? 0,
-    };
+  const finSummary = bundle.summary;
+  const finPrev = bundle.previousSummary ?? {
+    revenue: 0,
+    expenses: 0,
+    net_income: 0,
+    profit_margin_pct: 0,
+    cash: 0,
+    accounts_receivable: 0,
+    accounts_payable: 0,
+    cogs: 0,
+    gross_profit: 0,
+    current_assets: 0,
+    current_liabilities: 0,
+    inventory: 0,
+    data_error: false,
   };
 
-  const summary = toSummary(matchingPeriod);
-  const previousSummary = toSummary(previousPeriod);
-
-  const trends = periodList.map((p) => {
-    const m = metricsByPeriod.get(p.id) ?? {};
-    return {
-      periodLabel: p.label,
-      start_date: p.start_date,
-      end_date: p.end_date,
-      revenue: m.revenue ?? 0,
-      expenses: m.expenses ?? 0,
-      profit: m.net_income ?? 0,
-      cash: m.cash ?? 0,
-    };
-  });
-
+  const sb = supabaseAdmin();
   const { data: arReport } = await sb
     .from('financial_reports')
     .select('raw_json')
-    .eq('client_id', clientId)
+    .eq('client_id', access.clientId)
     .eq('report_type', 'ar_aging')
     .order('synced_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const finSummary = summary ?? {
-    revenue: 0,
-    expenses: 0,
-    net_income: 0,
-    profit_margin_pct: 0,
-    cash: 0,
-    accounts_receivable: 0,
-    accounts_payable: 0,
-  };
-  const finPrev = previousSummary ?? {
-    revenue: 0,
-    expenses: 0,
-    net_income: 0,
-    profit_margin_pct: 0,
-    cash: 0,
-    accounts_receivable: 0,
-    accounts_payable: 0,
-  };
-
   const arBuckets = parseArAgingBuckets(arReport?.raw_json ?? {});
-  const last3Expenses = trends
-    .map((t) => t.expenses)
-    .slice(-3)
-    .filter((x) => x > 0);
-  const avgBurn =
-    last3Expenses.length > 0
-      ? last3Expenses.reduce((a, b) => a + b, 0) / last3Expenses.length
-      : finSummary.expenses || 1;
-  const runwayMonths = avgBurn > 0 ? finSummary.cash / avgBurn : 0;
   const revPctChange = getPercentChange(finSummary.revenue, finPrev.revenue);
   const arRatioPast30 = arOver30Ratio(arBuckets);
+  const runwayMonths = bundle.runway.runwayMonths ?? 0;
 
   const coreMetrics = {
     cashPosition: finSummary.cash,
     revenueChangePct: Math.round(revPctChange * 10) / 10,
-    profitMarginPct: finSummary.profit_margin_pct,
+    profitMarginPct: finSummary.data_error ? null : finSummary.profit_margin_pct,
     arAging: arBuckets,
-    cashRunwayMonths: Math.round(runwayMonths * 10) / 10,
+    cashRunwayMonths: runwayMonths,
+    dataError: finSummary.data_error,
     health: {
-      runway: runwayHealth(runwayMonths),
+      runway: runwayHealth(bundle.runway.runwayMonths),
       ar: arHealth(arRatioPast30),
       revenue: revenueHealth(revPctChange),
       margin: marginHealth(finSummary.profit_margin_pct, finPrev.profit_margin_pct),
-      cash: cashHealth(finSummary.cash, avgBurn),
+      cash: cashHealth(finSummary.cash, bundle.runway.monthlyBurn),
     },
   };
 
+  const latestPeriod = bundle.periods[bundle.periods.length - 1];
+
   return NextResponse.json({
-    summary: finSummary,
-    previousSummary: finPrev,
-    period: matchingPeriod
-      ? { id: matchingPeriod.id, label: matchingPeriod.label, start_date: matchingPeriod.start_date, end_date: matchingPeriod.end_date }
+    summary: {
+      revenue: finSummary.revenue,
+      expenses: finSummary.expenses,
+      net_income: finSummary.net_income,
+      profit_margin_pct: finSummary.profit_margin_pct,
+      cash: finSummary.cash,
+      accounts_receivable: finSummary.accounts_receivable,
+      accounts_payable: finSummary.accounts_payable,
+    },
+    previousSummary: bundle.previousSummary
+      ? {
+          revenue: finPrev.revenue,
+          expenses: finPrev.expenses,
+          net_income: finPrev.net_income,
+          profit_margin_pct: finPrev.profit_margin_pct,
+          cash: finPrev.cash,
+          accounts_receivable: finPrev.accounts_receivable,
+          accounts_payable: finPrev.accounts_payable,
+        }
       : null,
-    trends,
+    period: latestPeriod
+      ? {
+          id: latestPeriod.id,
+          label: latestPeriod.label,
+          start_date: latestPeriod.start_date,
+          end_date: latestPeriod.end_date,
+        }
+      : null,
+    trends: bundle.trends,
     range,
     coreMetrics,
   });

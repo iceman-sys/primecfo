@@ -364,8 +364,9 @@ export async function deriveAndSaveMetricsForPeriod(
 }
 
 /**
- * Sync QuickBooks reports for a client for the given range (single integrated period).
- * Fetches one report per report type for the full date range and saves to DB.
+ * Sync QuickBooks reports for a client.
+ * - Per calendar period: P&L + Balance Sheet for metrics/trends (monthly or quarterly).
+ * - Integrated span: multi-column reports for Financial Reports viewer + optional reports.
  */
 export async function syncReportsForClient(
   clientId: string,
@@ -373,34 +374,72 @@ export async function syncReportsForClient(
   periodType: PeriodType,
   includeOptional: boolean = true
 ): Promise<{ periods: number; reportsSaved: number; errors: string[] }> {
-  const period = getSingleDateRange(range, periodType);
   const effectivePeriodType: PeriodType = range === '4q' ? 'quarter' : 'month';
+  const granularPeriods = getDateRanges(range, effectivePeriodType);
+  const integrated = getSingleDateRange(range, periodType);
   const reportTypes = includeOptional
     ? [...REQUIRED_REPORT_TYPES, ...OPTIONAL_REPORT_TYPES]
     : REQUIRED_REPORT_TYPES;
   const errors: string[] = [];
   let reportsSaved = 0;
 
-  // Pre-flight: verify QuickBooks connection exists before doing any work.
-  // If there's no connection/token, throw immediately so the API returns a clear error
-  // instead of silently collecting per-report failures and returning ok:true with reportsSaved:0.
   await getValidQuickBooksAccessToken(clientId);
 
-  let periodId: string;
+  // ── Per-period sync (metrics + trend charts) ─────────────────────────────
+  for (const period of granularPeriods) {
+    let periodId: string;
+    try {
+      periodId = await ensurePeriod(
+        clientId,
+        effectivePeriodType,
+        period.start_date,
+        period.end_date,
+        period.label
+      );
+    } catch (e) {
+      errors.push(`${period.label}: ${e instanceof Error ? e.message : 'Unknown'}`);
+      continue;
+    }
+
+    for (const reportType of REQUIRED_REPORT_TYPES) {
+      try {
+        const raw = await fetchReportFromQuickBooks(
+          clientId,
+          reportType,
+          period.start_date,
+          period.end_date,
+          'Cash'
+        );
+        await saveReport(clientId, reportType, periodId, raw);
+        reportsSaved++;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e ?? 'Unknown');
+        errors.push(`${period.label} ${reportType}: ${msg}`);
+        console.error('[QuickBooks] Per-period report failed', { period: period.label, reportType, msg });
+      }
+    }
+
+    try {
+      await deriveAndSaveMetricsForPeriod(clientId, periodId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e ?? 'Unknown');
+      errors.push(`${period.label} metrics: ${msg}`);
+    }
+  }
+
+  // ── Integrated multi-column sync (Financial Reports tab) ─────────────────
+  let integratedPeriodId: string;
   try {
-    periodId = await ensurePeriod(
+    integratedPeriodId = await ensurePeriod(
       clientId,
       effectivePeriodType,
-      period.start_date,
-      period.end_date,
-      period.label
+      integrated.start_date,
+      integrated.end_date,
+      integrated.label
     );
   } catch (e) {
-    return {
-      periods: 0,
-      reportsSaved: 0,
-      errors: [period.label + ': ' + (e instanceof Error ? e.message : 'Unknown')],
-    };
+    errors.push(`${integrated.label}: ${e instanceof Error ? e.message : 'Unknown'}`);
+    return { periods: granularPeriods.length, reportsSaved, errors };
   }
 
   for (const reportType of reportTypes) {
@@ -408,53 +447,25 @@ export async function syncReportsForClient(
       const raw = await fetchReportFromQuickBooks(
         clientId,
         reportType,
-        period.start_date,
-        period.end_date,
+        integrated.start_date,
+        integrated.end_date,
         'Cash',
         range
       );
-      console.log('[QuickBooks] Fetched report', {
-        reportType,
-        period: period.label,
-        start_date: period.start_date,
-        end_date: period.end_date,
-      });
-      await saveReport(clientId, reportType, periodId, raw);
+      await saveReport(clientId, reportType, integratedPeriodId, raw);
       reportsSaved++;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e ?? 'Unknown');
       const status = e instanceof QuickBooksApiError ? e.status : undefined;
-      errors.push(`${period.label} ${reportType}: ${msg}`);
+      errors.push(`${integrated.label} ${reportType}: ${msg}`);
       const isOptional = OPTIONAL_REPORT_TYPES.includes(reportType);
-      const logPayload = {
-        reportType,
-        period: period.label,
-        start_date: period.start_date,
-        end_date: period.end_date,
-        errorMessage: msg,
-        errorName: e instanceof Error ? e.name : undefined,
-        errorStack: e instanceof Error ? e.stack : undefined,
-        optional: isOptional,
-      };
       if (isOptional && reportFailureIsLikelyEnvironmental(msg, status)) {
-        console.warn('[QuickBooks] Optional report unavailable (skipped)', logPayload);
+        console.warn('[QuickBooks] Optional integrated report skipped', { reportType, msg });
       } else {
-        console.error('[QuickBooks] Report fetch/save failed', logPayload);
+        console.error('[QuickBooks] Integrated report failed', { reportType, msg });
       }
     }
   }
 
-  try {
-    await deriveAndSaveMetricsForPeriod(clientId, periodId);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e ?? 'Unknown');
-    errors.push(`Metrics: ${msg}`);
-    console.error('[QuickBooks] Metrics derive/save failed', {
-      periodId,
-      errorMessage: msg,
-      errorStack: e instanceof Error ? e.stack : undefined,
-    });
-  }
-
-  return { periods: 1, reportsSaved, errors };
+  return { periods: granularPeriods.length + 1, reportsSaved, errors };
 }
