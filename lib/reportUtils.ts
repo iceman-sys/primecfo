@@ -204,6 +204,7 @@ function classifyFinancialRow(account: string, isBold: boolean): FlatMultiPeriod
   if (
     /^net income$/.test(a) ||
     /^net operating income$/.test(a) ||
+    /^net other income$/.test(a) ||
     /^ending cash\b/.test(a) ||
     /^beginning cash\b/.test(a) ||
     /^net change in cash$/.test(a)
@@ -298,8 +299,7 @@ export function flattenReportRowsMulti(rawJson: Record<string, unknown>, maxCols
             const totalLabel = humanizeAccountLabel(
               getColDataItemValue(summaryCols[0]) || `Total ${groupName}`
             );
-            let vals =
-              summaryCols.length > 1 ? slicePeriodAmounts(summaryCols, periodCount) : padPeriodAmounts([], periodCount);
+            let vals = slicePeriodAmounts(summaryCols, periodCount);
             const rkClass = classifyFinancialRow(totalLabel, true);
             const rk: FlatMultiPeriodRow['rowKind'] =
               rkClass === 'grandTotal' ? 'grandTotal' : 'subtotal';
@@ -312,26 +312,51 @@ export function flattenReportRowsMulti(rawJson: Record<string, unknown>, maxCols
             });
           }
         } else walk(nested, depth);
-      } else if (r.type === 'Data' && Array.isArray(r.ColData)) {
-        const cols = r.ColData as ColDataItem[];
-        const label = humanizeAccountLabel(getColDataItemValue(cols[0]) ?? '');
-        let rk = classifyFinancialRow(label, false);
-        if (rk === 'grandTotal' || rk === 'subtotal' || rk === 'sectionHeader') rk = 'detail';
-        result.push({
-          account: label,
-          values: padPeriodAmounts(slicePeriodAmounts(cols, periodCount), periodCount),
-          depth,
-          isBold: false,
-          rowKind: rk,
-        });
-      } else if (groupName && !hasNested) {
-        result.push({
-          account: humanizeAccountLabel(groupName),
-          values: padPeriodAmounts([], periodCount),
-          depth,
-          isBold: true,
-          rowKind: 'sectionHeader',
-        });
+      } else if (!hasNested) {
+        const summaryCols =
+          ((r.Summary as { ColData?: ColDataItem[] })?.ColData) ??
+          (Array.isArray(r.Summary)
+            ? (r.Summary[0] as { ColData?: ColDataItem[] })?.ColData
+            : undefined);
+
+        if (summaryCols?.length) {
+          const totalLabel = humanizeAccountLabel(
+            getColDataItemValue(summaryCols[0]) || humanizeAccountLabel(groupName) || 'Total'
+          );
+          const vals = slicePeriodAmounts(summaryCols, periodCount);
+          const rkClass = classifyFinancialRow(totalLabel, true);
+          const rk: FlatMultiPeriodRow['rowKind'] =
+            rkClass === 'grandTotal' ? 'grandTotal' : 'subtotal';
+          result.push({
+            account: totalLabel,
+            values: padPeriodAmounts(vals, periodCount),
+            depth,
+            isBold: true,
+            rowKind: rk,
+          });
+        } else if (r.type === 'Data' && Array.isArray(r.ColData)) {
+          const cols = r.ColData as ColDataItem[];
+          const label = humanizeAccountLabel(getColDataItemValue(cols[0]) ?? '');
+          let rk = classifyFinancialRow(label, false);
+          if (rk === 'grandTotal' || rk === 'subtotal' || rk === 'sectionHeader') rk = 'detail';
+          result.push({
+            account: label,
+            values: padPeriodAmounts(slicePeriodAmounts(cols, periodCount), periodCount),
+            depth,
+            isBold: false,
+            rowKind: rk,
+          });
+        } else if (groupName) {
+          const headerVals = slicePeriodAmounts(headerCols, periodCount);
+          const hasAmounts = headerVals.some((v) => v !== '$0');
+          result.push({
+            account: humanizeAccountLabel(groupName),
+            values: padPeriodAmounts(hasAmounts ? headerVals : [], periodCount),
+            depth,
+            isBold: true,
+            rowKind: classifyFinancialRow(groupName, true),
+          });
+        }
       }
     }
   };
@@ -363,4 +388,24 @@ export function flattenReportRowsMulti(rawJson: Record<string, unknown>, maxCols
   }
 
   return { columnTitles: titles.slice(0, periodCount), rows: result };
+}
+
+/** True when Net Income rows are all zero but expense subtotals show material amounts. */
+export function detectPnlNetIncomeAnomaly(rows: FlatMultiPeriodRow[]): boolean {
+  const netRows = rows.filter((r) => /^net income$/i.test(r.account.trim()) || /^net operating income$/i.test(r.account.trim()));
+  if (netRows.length === 0) return false;
+
+  const expenseRows = rows.filter(
+    (r) => /total expenses/i.test(r.account) || /^total for expenses$/i.test(r.account.trim())
+  );
+  const hasExpenseTotals = expenseRows.some((r) =>
+    r.values.some((v) => {
+      const n = qbNumericStringToNumber(v);
+      return n != null && Math.abs(n) > 0;
+    })
+  );
+  if (!hasExpenseTotals) return false;
+
+  const netAllZero = netRows.every((r) => r.values.every((v) => v === '$0' || v === '-' || v === '—'));
+  return netAllZero;
 }

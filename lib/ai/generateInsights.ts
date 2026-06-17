@@ -7,6 +7,7 @@
 import OpenAI from 'openai';
 import type { FinancialContext } from './getFinancialContext';
 import type { AIInsight, RiskPosture, InsightSeverity, Recommendation } from '@/lib/financialData';
+import { applyInsightSeverityRules } from '@/lib/ai/severityRules';
 
 /* ───────────────────────────── Types ───────────────────────────── */
 
@@ -342,8 +343,26 @@ export async function generateInsightsFromContext(context: FinancialContext): Pr
   const list = Array.isArray(parsed.insights) ? parsed.insights : [];
   const now = new Date().toISOString();
 
+  const severityContext = {
+    runwayMonths: context.derived.runwayMonths,
+    revenueGrowthPct: context.derived.revenueGrowthPct,
+    profitMarginPct: context.summary.data_error ? null : context.summary.profit_margin_pct,
+    expenseGrowthPct: context.derived.expenseGrowthPct,
+  };
+
   const insights: AIInsight[] = list.slice(0, 15).map((item, i) => {
-    const urgency: InsightSeverity = isValidUrgency(String(item.urgency)) ? (item.urgency as InsightSeverity) : 'info';
+    let urgency: InsightSeverity = isValidUrgency(String(item.urgency)) ? (item.urgency as InsightSeverity) : 'info';
+
+    const title = typeof item.title === 'string' && item.title.trim() ? item.title.trim() : 'Insight';
+    const description = typeof item.description === 'string' && item.description.trim() ? item.description.trim() : '';
+    const category = typeof item.category === 'string' && item.category.trim() ? item.category.trim() : 'General';
+    const metric = typeof item.metric === 'string' && item.metric.trim() ? item.metric.trim() : undefined;
+    const metricValue = typeof item.metricValue === 'string' && item.metricValue.trim() ? item.metricValue.trim() : undefined;
+
+    urgency = applyInsightSeverityRules(
+      { title, description, urgency, category, metric, metricValue },
+      severityContext
+    );
 
     const recommendations: Recommendation[] = Array.isArray(item.recommendations)
       ? item.recommendations
@@ -360,12 +379,12 @@ export async function generateInsightsFromContext(context: FinancialContext): Pr
 
     return {
       id: `ai-${Date.now()}-${i}`,
-      title: typeof item.title === 'string' && item.title.trim() ? item.title.trim() : 'Insight',
-      description: typeof item.description === 'string' && item.description.trim() ? item.description.trim() : '',
+      title,
+      description,
       urgency,
-      category: typeof item.category === 'string' && item.category.trim() ? item.category.trim() : 'General',
-      metric: typeof item.metric === 'string' && item.metric.trim() ? item.metric.trim() : undefined,
-      metricValue: typeof item.metricValue === 'string' && item.metricValue.trim() ? item.metricValue.trim() : undefined,
+      category,
+      metric,
+      metricValue,
       recommendations: recommendations.length > 0 ? recommendations : undefined,
       talkingPoints: talkingPoints.length > 0 ? talkingPoints : undefined,
       createdAt: now,

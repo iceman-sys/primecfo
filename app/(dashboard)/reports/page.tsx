@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import ReportViewer from "@/app/components/primecfo/ReportViewer";
 import TreasuryTab from "@/app/components/primecfo/reports/TreasuryTab";
 import AnalyticsTab from "@/app/components/primecfo/reports/AnalyticsTab";
@@ -13,8 +14,28 @@ const TABS: Array<{ id: ReportsTabId; label: string }> = [
   { id: "reports", label: "Financial Reports" },
 ];
 
+const VALID_TABS = new Set<ReportsTabId>(["treasury", "analytics", "reports"]);
+
+function parseTabParam(value: string | null): ReportsTabId {
+  if (value && VALID_TABS.has(value as ReportsTabId)) return value as ReportsTabId;
+  return "reports";
+}
+
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState<ReportsTabId>("reports");
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<ReportsTabId>(() => parseTabParam(searchParams.get("tab")));
+
+  useEffect(() => {
+    setActiveTab(parseTabParam(searchParams.get("tab")));
+  }, [searchParams]);
+
+  const selectTab = (tab: ReportsTabId) => {
+    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", tab);
+    if (tab !== "reports") params.delete("report");
+    window.history.replaceState(null, "", `/reports?${params.toString()}`);
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -24,7 +45,7 @@ export default function ReportsPage() {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => selectTab(tab.id)}
               className={`px-4 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200 ease-in-out ${
                 activeTab === tab.id
                   ? "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-md shadow-teal-500/20"

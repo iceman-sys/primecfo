@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
+import { loadClientMetrics } from '@/lib/metrics/loadClientMetrics';
+import { applyInsightSeverityRules } from '@/lib/ai/severityRules';
+import { SEVERITY_ORDER } from '@/lib/ai/generateInsights';
+import type { ReportRange } from '@/lib/qbo/reports';
 import type { InsightSeverity, Recommendation, RiskPosture } from '@/lib/financialData';
 
 type DbRow = {
@@ -52,18 +56,49 @@ export async function GET(request: NextRequest) {
   }
 
   const rows = (data ?? []) as DbRow[];
-  const insights = rows.map((r) => ({
-    id: r.id,
-    title: r.title,
-    description: r.description,
-    urgency: r.urgency as InsightSeverity,
-    category: r.category,
-    metric: r.metric ?? undefined,
-    metricValue: r.metric_value ?? undefined,
-    recommendations: r.recommendations ?? undefined,
-    talkingPoints: r.talking_points ?? undefined,
-    createdAt: r.created_at,
-  }));
+
+  const bundle = await loadClientMetrics(access.clientId, range as ReportRange);
+  const severityContext = {
+    runwayMonths: bundle.runway.runwayMonths,
+    revenueGrowthPct:
+      bundle.previousSummary && bundle.previousSummary.revenue !== 0 && bundle.summary
+        ? ((bundle.summary.revenue - bundle.previousSummary.revenue) / Math.abs(bundle.previousSummary.revenue)) * 100
+        : null,
+    profitMarginPct: bundle.summary?.data_error ? null : bundle.summary?.profit_margin_pct ?? null,
+    expenseGrowthPct:
+      bundle.previousSummary && bundle.previousSummary.expenses !== 0 && bundle.summary
+        ? ((bundle.summary.expenses - bundle.previousSummary.expenses) / Math.abs(bundle.previousSummary.expenses)) * 100
+        : null,
+  };
+
+  const insights = rows.map((r) => {
+    const urgency = applyInsightSeverityRules(
+      {
+        title: r.title,
+        description: r.description,
+        urgency: r.urgency as InsightSeverity,
+        category: r.category,
+        metric: r.metric ?? undefined,
+        metricValue: r.metric_value ?? undefined,
+      },
+      severityContext
+    );
+
+    return {
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      urgency,
+      category: r.category,
+      metric: r.metric ?? undefined,
+      metricValue: r.metric_value ?? undefined,
+      recommendations: r.recommendations ?? undefined,
+      talkingPoints: r.talking_points ?? undefined,
+      createdAt: r.created_at,
+    };
+  });
+
+  insights.sort((a, b) => (SEVERITY_ORDER[a.urgency] ?? 4) - (SEVERITY_ORDER[b.urgency] ?? 4));
 
   // Fetch risk posture
   const { data: rpData } = await sb

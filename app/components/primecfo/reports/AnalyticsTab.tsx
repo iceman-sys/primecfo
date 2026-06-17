@@ -163,33 +163,39 @@ export default function AnalyticsTab() {
         <h3 className="text-lg font-semibold text-white mb-4">Financial Reports</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link
-            href="/reports"
-            className="p-4 border border-slate-600 rounded-xl hover:bg-slate-700/30 text-left transition-colors"
+            href="/reports?tab=reports&report=pnl"
+            className="p-4 border border-slate-600 rounded-xl hover:border-teal-500/40 hover:bg-slate-700/30 hover:-translate-y-0.5 text-left transition-all cursor-pointer"
           >
             <FileSpreadsheet className="w-6 h-6 text-blue-400 mb-2" />
             <h4 className="font-medium text-white">Profit &amp; Loss Statement</h4>
             <p className="text-sm text-slate-500">Income statement for the period</p>
           </Link>
           <Link
-            href="/reports"
-            className="p-4 border border-slate-600 rounded-xl hover:bg-slate-700/30 text-left transition-colors"
+            href="/reports?tab=reports&report=balance_sheet"
+            className="p-4 border border-slate-600 rounded-xl hover:border-teal-500/40 hover:bg-slate-700/30 hover:-translate-y-0.5 text-left transition-all cursor-pointer"
           >
             <BarChart3 className="w-6 h-6 text-emerald-400 mb-2" />
             <h4 className="font-medium text-white">Balance Sheet</h4>
             <p className="text-sm text-slate-500">Financial position snapshot</p>
           </Link>
           <Link
-            href="/reports"
-            className="p-4 border border-slate-600 rounded-xl hover:bg-slate-700/30 text-left transition-colors"
+            href="/reports?tab=reports&report=cash_flow"
+            className="p-4 border border-slate-600 rounded-xl hover:border-teal-500/40 hover:bg-slate-700/30 hover:-translate-y-0.5 text-left transition-all cursor-pointer"
           >
             <TrendingUp className="w-6 h-6 text-violet-400 mb-2" />
             <h4 className="font-medium text-white">Cash Flow Statement</h4>
             <p className="text-sm text-slate-500">Cash movement analysis</p>
           </Link>
-          <div className="p-4 border border-slate-600/50 rounded-xl text-left opacity-60">
+          <div
+            className="p-4 border border-slate-600/50 rounded-xl text-left opacity-50 cursor-not-allowed relative"
+            title="Coming soon — custom reporting for a future release"
+          >
+            <span className="absolute top-3 right-3 text-[10px] font-semibold uppercase tracking-wide text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+              Coming Soon
+            </span>
             <PieChart className="w-6 h-6 text-amber-400 mb-2" />
             <h4 className="font-medium text-white">Custom Report Builder</h4>
-            <p className="text-sm text-slate-500">Coming soon</p>
+            <p className="text-sm text-slate-500">Create custom financial reports</p>
           </div>
         </div>
       </div>

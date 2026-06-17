@@ -17,6 +17,7 @@ import { toastErrorWithProgress } from "@/app/components/ui/sonner";
 import {
   humanizeAccountLabel,
   flattenReportRowsMulti,
+  detectPnlNetIncomeAnomaly,
   type FlatMultiPeriodRow,
 } from "@/lib/reportUtils";
 
@@ -138,13 +139,23 @@ const ReportViewer: React.FC = () => {
 
   const [activeReport, setActiveReport] = useState<ActiveReport>("pnl");
   const urlRange = searchParams.get("range");
+  const urlReport = searchParams.get("report");
   const initialRange: ReportRange =
     urlRange && VALID_RANGES.includes(urlRange as ReportRange) ? (urlRange as ReportRange) : "3m";
   const [datePreset, setDatePreset] = useState<ReportRange>(initialRange);
 
+  const reportFromUrl = (value: string | null): ActiveReport | null => {
+    if (value === "pnl" || value === "profit-loss" || value === "profit_and_loss") return "pnl";
+    if (value === "balance_sheet" || value === "balance-sheet") return "balance_sheet";
+    if (value === "cash_flow" || value === "cash-flow") return "cash_flow";
+    return null;
+  };
+
   useEffect(() => {
     const r = searchParams.get("range");
     if (r && VALID_RANGES.includes(r as ReportRange)) setDatePreset(r as ReportRange);
+    const report = reportFromUrl(searchParams.get("report"));
+    if (report) setActiveReport(report);
   }, [searchParams]);
 
   const periodType: PeriodType = datePreset === "4q" ? "quarter" : "month";
@@ -201,12 +212,33 @@ const ReportViewer: React.FC = () => {
     [activeReport, columnTitles, rows]
   );
 
+  const pnlDataAnomaly = useMemo(
+    () => activeReport === "pnl" && detectPnlNetIncomeAnomaly(rows),
+    [activeReport, rows]
+  );
+
   const onPresetChange = useCallback(
     (r: ReportRange) => {
       setDatePreset(r);
-      router.replace(`${pathname}?range=${r}`, { scroll: false });
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("range", r);
+      params.set("tab", "reports");
+      params.set("report", activeReport);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
-    [pathname, router]
+    [pathname, router, searchParams, activeReport]
+  );
+
+  const onReportChange = useCallback(
+    (report: ActiveReport) => {
+      setActiveReport(report);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", "reports");
+      params.set("report", report);
+      if (!params.get("range")) params.set("range", datePreset);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams, datePreset]
   );
 
   const handleDownloadPdf = useCallback(() => {
@@ -281,7 +313,7 @@ const ReportViewer: React.FC = () => {
               type="button"
               role="tab"
               aria-selected={activeReport === t.id}
-              onClick={() => setActiveReport(t.id)}
+              onClick={() => onReportChange(t.id)}
               className={`px-5 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 activeReport === t.id
                   ? "bg-gradient-to-r from-teal-500 to-emerald-500 text-white shadow-md shadow-teal-500/20"
@@ -294,7 +326,7 @@ const ReportViewer: React.FC = () => {
         </div>
 
         <div className="md:hidden mb-5">
-          <TabSelect value={activeReport} onChange={setActiveReport} />
+          <TabSelect value={activeReport} onChange={onReportChange} />
         </div>
 
         {/* Date presets */}
@@ -318,6 +350,13 @@ const ReportViewer: React.FC = () => {
             );
           })}
         </div>
+
+        {pnlDataAnomaly && (
+          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            Net Income summary rows look incorrect while expenses show activity. Try Sync again — if this persists,
+            contact support to verify your QuickBooks connection.
+          </div>
+        )}
 
         {(isLoading && !reportsData) || syncMutation.isPending ? (
           <div className="rounded-xl border border-slate-700/50 bg-slate-900/40 p-6">
