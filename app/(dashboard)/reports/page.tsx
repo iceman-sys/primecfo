@@ -3,35 +3,14 @@
 import { useState } from "react";
 import ReportViewer from "@/app/components/primecfo/ReportViewer";
 import TreasuryTab from "@/app/components/primecfo/reports/TreasuryTab";
-import AssetsTab from "@/app/components/primecfo/reports/AssetsTab";
-import APARTab from "@/app/components/primecfo/reports/APARTab";
 import AnalyticsTab from "@/app/components/primecfo/reports/AnalyticsTab";
-import AlertsTab from "@/app/components/primecfo/reports/AlertsTab";
-import DocumentsTab from "@/app/components/primecfo/reports/DocumentsTab";
-import IntegrationsTab from "@/app/components/primecfo/reports/IntegrationsTab";
-import NotesAndTasksTab from "@/app/components/primecfo/reports/NotesAndTasksTab";
 
-export type ReportsTabId =
-  | "treasury"
-  | "assets"
-  | "ap-ar"
-  | "analytics"
-  | "reports"
-  | "alerts"
-  | "documents"
-  | "integrations"
-  | "notes";
+export type ReportsTabId = "treasury" | "analytics" | "reports";
 
 const TABS: Array<{ id: ReportsTabId; label: string }> = [
   { id: "treasury", label: "Treasury" },
-  { id: "assets", label: "Assets" },
-  { id: "ap-ar", label: "AP/AR" },
   { id: "analytics", label: "Analytics & Reports" },
   { id: "reports", label: "Financial Reports" },
-  { id: "alerts", label: "Alerts" },
-  { id: "documents", label: "Documents" },
-  { id: "integrations", label: "Integrations" },
-  { id: "notes", label: "Notes & Tasks" },
 ];
 
 export default function ReportsPage() {
@@ -60,13 +39,7 @@ export default function ReportsPage() {
       <div className="flex-1 overflow-auto p-6 scrollbar-reports">
         {activeTab === "reports" && <ReportViewer />}
         {activeTab === "treasury" && <TreasuryTab />}
-        {activeTab === "assets" && <AssetsTab />}
-        {activeTab === "ap-ar" && <APARTab />}
         {activeTab === "analytics" && <AnalyticsTab />}
-        {activeTab === "alerts" && <AlertsTab />}
-        {activeTab === "documents" && <DocumentsTab />}
-        {activeTab === "integrations" && <IntegrationsTab />}
-        {activeTab === "notes" && <NotesAndTasksTab />}
       </div>
     </div>
   );

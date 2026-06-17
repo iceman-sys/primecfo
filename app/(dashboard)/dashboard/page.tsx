@@ -299,7 +299,6 @@ export default function DashboardPage() {
   return (
     <DashboardView
       metrics={metrics}
-      chartData={chartData}
       insights={insights}
       riskPosture={riskPosture}
       client={selectedClient}

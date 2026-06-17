@@ -3,11 +3,9 @@
 import React, { useState } from "react";
 import { RefreshCw, Calendar, ChevronDown, Download, Loader2, AlertTriangle, X, Link2 } from "lucide-react";
 import MetricCards from "./MetricCards";
-import RevenueChart from "./RevenueChart";
-import CashFlowChart from "./CashFlowChart";
 import AIInsights from "./AIInsights";
 import RiskPosture from "./RiskPosture";
-import { MetricCard, ChartDataPoint, AIInsight, Client, timeAgo } from "@/lib/financialData";
+import { MetricCard, AIInsight, Client, timeAgo } from "@/lib/financialData";
 import type { RiskPosture as RiskPostureType } from "@/lib/financialData";
 
 export type DashboardRange = "3m" | "6m" | "12m" | "4q";
@@ -23,7 +21,6 @@ interface DashboardViewProps {
   metrics: MetricCard[];
   /** Cash outlook / tier-gated forecast (optional). */
   forecastPanel?: React.ReactNode;
-  chartData: ChartDataPoint[];
   insights: AIInsight[];
   riskPosture?: RiskPostureType | null;
   client: Client | null;
@@ -45,7 +42,6 @@ interface DashboardViewProps {
 const DashboardView: React.FC<DashboardViewProps> = ({
   metrics,
   forecastPanel,
-  chartData,
   insights,
   riskPosture,
   client,
@@ -183,11 +179,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {forecastPanel ? <div className="mb-6">{forecastPanel}</div> : null}
-
-      <div className="grid lg:grid-cols-2 gap-6 mb-6">
-        <RevenueChart data={chartData} />
-        <CashFlowChart data={chartData} />
-      </div>
 
       {riskPosture && (
         <div className="mb-4">
