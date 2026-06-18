@@ -7,6 +7,9 @@ import { getDateRanges, type ReportRange, type PeriodType } from '@/lib/qbo/repo
 import { loadClientMetrics } from '@/lib/metrics/loadClientMetrics';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import { flattenReportRows } from '@/lib/reportUtils';
+import { loadSyncedMonthlyCashFlow } from '@/lib/ai/loadSyncedCashFlow';
+import { trailingAverageNetCashIncrease } from '@/lib/forecast/parseCashFlowForForecast';
+import { pctChange, sumRevenueByKind } from '@/lib/ai/recurringRevenue';
 
 export type RevenueLineItem = { label: string; amount: number };
 
@@ -50,12 +53,16 @@ export type FinancialContext = {
     expenseGrowthPct: number | null;
     profitMarginChangePct: number | null;
     runwayMonths: number | null;
+    netRunwayMonths: number | null;
+    trailingNetCashFlow: number | null;
     ownerCompensation: number | null;
     taxExpense: number | null;
     grossMarginPct: number | null;
     operatingLeverageRatio: number | null;
     expenseToRevenueRatio: number | null;
     revenueLineItems: RevenueLineItem[];
+    previousRevenueLineItems: RevenueLineItem[];
+    recurringRevenueChangePct: number | null;
     dataError: boolean;
   };
 };
@@ -202,16 +209,25 @@ export async function getFinancialContext(
     : bundle.periods[bundle.periods.length - 1]?.id;
 
   let extras: PnlExtras | null = null;
-  if (latestPeriodId) {
+  let previousExtras: PnlExtras | null = null;
+  const previousPeriodId =
+    windowPeriods.length >= 2 ? windowPeriods[windowPeriods.length - 2].id : null;
+
+  if (latestPeriodId || previousPeriodId) {
     const sb = supabaseAdmin();
-    const { data: pnlReport } = await sb
+    const periodIds = [latestPeriodId, previousPeriodId].filter(Boolean) as string[];
+    const { data: pnlReports } = await sb
       .from('financial_reports')
-      .select('raw_json')
+      .select('period_id, raw_json')
       .eq('client_id', clientId)
-      .eq('period_id', latestPeriodId)
-      .eq('report_type', 'pnl')
-      .maybeSingle();
-    if (pnlReport?.raw_json) extras = extractPnlExtras(pnlReport.raw_json);
+      .in('period_id', periodIds)
+      .eq('report_type', 'pnl');
+
+    for (const row of pnlReports ?? []) {
+      if (!row.raw_json) continue;
+      if (row.period_id === latestPeriodId) extras = extractPnlExtras(row.raw_json);
+      if (row.period_id === previousPeriodId) previousExtras = extractPnlExtras(row.raw_json);
+    }
   }
 
   const grossMarginPct =
@@ -229,6 +245,22 @@ export async function getFinancialContext(
       ? extras.grossProfit / summary.net_income
       : null;
 
+  const cashFlowRaw = await loadSyncedMonthlyCashFlow(clientId);
+  const trailingNetCashFlow = cashFlowRaw
+    ? trailingAverageNetCashIncrease(cashFlowRaw, 3)
+    : null;
+
+  const netRunwayMonths =
+    trailingNetCashFlow != null && trailingNetCashFlow < 0 && summary.cash > 0
+      ? summary.cash / Math.abs(trailingNetCashFlow)
+      : null;
+
+  const revenueLineItems = extras?.revenueLineItems ?? [];
+  const previousRevenueLineItems = previousExtras?.revenueLineItems ?? [];
+  const recurringNow = sumRevenueByKind(revenueLineItems, 'recurring');
+  const recurringPrev = sumRevenueByKind(previousRevenueLineItems, 'recurring');
+  const recurringRevenueChangePct = pctChange(recurringPrev, recurringNow);
+
   return {
     periodLabel: RANGE_LABELS[range],
     reportRange: range,
@@ -240,12 +272,16 @@ export async function getFinancialContext(
       expenseGrowthPct,
       profitMarginChangePct,
       runwayMonths: bundle.runway.runwayMonths,
+      netRunwayMonths,
+      trailingNetCashFlow,
       ownerCompensation: extras?.ownerCompensation ?? null,
       taxExpense: extras?.taxExpense ?? null,
       grossMarginPct: grossMarginPct != null ? Math.round(grossMarginPct * 10) / 10 : null,
       operatingLeverageRatio: operatingLeverageRatio != null ? Math.round(operatingLeverageRatio * 100) / 100 : null,
       expenseToRevenueRatio: expenseToRevenueRatio != null ? Math.round(expenseToRevenueRatio * 10) / 10 : null,
-      revenueLineItems: extras?.revenueLineItems ?? [],
+      revenueLineItems,
+      previousRevenueLineItems,
+      recurringRevenueChangePct,
       dataError: summary.data_error ?? false,
     },
   };

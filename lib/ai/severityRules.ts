@@ -4,11 +4,12 @@ const CRITICAL_WORDS = ['urgent', 'critical', 'immediate', 'danger', 'depleted',
 const ADVISORY_WORDS = ['concerning', 'declining', 'warning', 'attention', 'approaching'];
 const POSITIVE_WORDS = ['improved', 'healthy', 'strong', 'growing', 'positive'];
 
-export function getCashRunwaySeverity(months: number): InsightSeverity {
+export function getCashRunwaySeverity(months: number, trailingNetCashFlow?: number | null): InsightSeverity {
+  if (trailingNetCashFlow != null && trailingNetCashFlow >= 0) return 'positive';
   if (months <= 1) return 'critical';
   if (months <= 3) return 'warning';
   if (months <= 6) return 'watch';
-  return 'positive';
+  return 'info';
 }
 
 export function getRevenueGrowthSeverity(pctChange: number): InsightSeverity {
@@ -82,9 +83,13 @@ function parsePercent(metricValue?: string): number | null {
 
 export type SeverityContext = {
   runwayMonths?: number | null;
+  netRunwayMonths?: number | null;
+  trailingNetCashFlow?: number | null;
   revenueGrowthPct?: number | null;
+  recurringRevenueChangePct?: number | null;
   profitMarginPct?: number | null;
   expenseGrowthPct?: number | null;
+  cashFlowPositive?: boolean;
 };
 
 export function applyInsightSeverityRules(
@@ -106,18 +111,33 @@ export function applyInsightSeverityRules(
   let severity = insight.urgency;
 
   const runwayMonths =
+    context.netRunwayMonths ??
     context.runwayMonths ??
     parseRunwayMonths(insight.metricValue, combined);
-  if (
-    runwayMonths != null &&
-    (category.includes('cash runway') || metric.includes('runway') || titleLower.includes('runway'))
-  ) {
-    severity = pickMoreSevere(severity, getCashRunwaySeverity(runwayMonths));
+  const isRunway =
+    category.includes('cash runway') || metric.includes('runway') || titleLower.includes('runway');
+  if (runwayMonths != null && isRunway) {
+    if (context.cashFlowPositive || (context.trailingNetCashFlow != null && context.trailingNetCashFlow >= 0)) {
+      severity = 'positive';
+    } else {
+      severity = pickMoreSevere(
+        severity,
+        getCashRunwaySeverity(runwayMonths, context.trailingNetCashFlow)
+      );
+    }
   }
 
-  const revPct = context.revenueGrowthPct ?? (metric.includes('revenue') ? parsePercent(insight.metricValue) : null);
+  const isRecurringRevenue =
+    metric.includes('recurring') || titleLower.includes('recurring') || titleLower.includes('seasonal');
+  const revPct = isRecurringRevenue
+    ? (context.recurringRevenueChangePct ?? parsePercent(insight.metricValue))
+    : (context.revenueGrowthPct ?? (metric.includes('revenue') ? parsePercent(insight.metricValue) : null));
   if (revPct != null && (category.includes('revenue') || metric.includes('revenue'))) {
-    severity = pickMoreSevere(severity, getRevenueGrowthSeverity(revPct));
+    if (isRecurringRevenue && titleLower.includes('seasonal')) {
+      severity = pickMoreSevere(severity, 'info');
+    } else {
+      severity = pickMoreSevere(severity, getRevenueGrowthSeverity(revPct));
+    }
   }
 
   const marginPct =
@@ -133,5 +153,13 @@ export function applyInsightSeverityRules(
   }
 
   severity = validateSeverityFromText(severity, combined);
+
+  if (isRunway && (context.cashFlowPositive || (context.trailingNetCashFlow != null && context.trailingNetCashFlow >= 0))) {
+    if (severity === 'critical' || severity === 'warning' || severity === 'watch') severity = 'positive';
+  }
+  if (isRecurringRevenue && titleLower.includes('seasonal') && (severity === 'critical' || severity === 'warning')) {
+    severity = 'info';
+  }
+
   return severity;
 }

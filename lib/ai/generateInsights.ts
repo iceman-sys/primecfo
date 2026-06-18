@@ -8,6 +8,7 @@ import OpenAI from 'openai';
 import type { FinancialContext } from './getFinancialContext';
 import type { AIInsight, RiskPosture, InsightSeverity, Recommendation } from '@/lib/financialData';
 import { applyInsightSeverityRules } from '@/lib/ai/severityRules';
+import { applyTrendAwareInsightRules } from '@/lib/ai/trendAwareInsights';
 
 /* ───────────────────────────── Types ───────────────────────────── */
 
@@ -83,7 +84,29 @@ function buildPrompt(context: FinancialContext): string {
   if (derived.revenueGrowthPct != null) lines.push(`Revenue growth vs previous: ${derived.revenueGrowthPct.toFixed(1)}%.`);
   if (derived.expenseGrowthPct != null) lines.push(`Expense growth vs previous: ${derived.expenseGrowthPct.toFixed(1)}%.`);
   if (derived.profitMarginChangePct != null) lines.push(`Profit margin change: ${derived.profitMarginChangePct.toFixed(1)} percentage points.`);
-  if (derived.runwayMonths != null) lines.push(`Cash runway: ${derived.runwayMonths.toFixed(1)} months.`);
+  if (derived.trailingNetCashFlow != null) {
+    lines.push(
+      `Trailing net cash flow (Cash Flow Statement): $${derived.trailingNetCashFlow.toFixed(2)}/mo.`
+    );
+    if (derived.trailingNetCashFlow >= 0) {
+      lines.push(
+        'Cash-flow positive: operations are self-sustaining. Do NOT flag low runway or "immediate attention" — runway is not meaningful when net cash flow is positive.'
+      );
+    } else if (derived.netRunwayMonths != null) {
+      lines.push(`Net burn runway (cash ÷ net burn): ${derived.netRunwayMonths.toFixed(1)} months.`);
+    }
+  } else if (derived.runwayMonths != null) {
+    lines.push(`Gross cash runway (legacy): ${derived.runwayMonths.toFixed(1)} months — prefer net cash flow when available.`);
+  }
+
+  if (derived.recurringRevenueChangePct != null) {
+    lines.push(`Recurring revenue change vs previous: ${derived.recurringRevenueChangePct.toFixed(1)}%.`);
+  }
+  if (derived.revenueGrowthPct != null && derived.recurringRevenueChangePct != null) {
+    lines.push(
+      'When total revenue declines but recurring revenue is stable, classify as seasonal shift (info), not sustainability risk.'
+    );
+  }
 
   if (derived.ownerCompensation != null) {
     const pctOfRev = summary.revenue !== 0 ? ((derived.ownerCompensation / Math.abs(summary.revenue)) * 100).toFixed(1) : 'N/A';
@@ -206,8 +229,11 @@ limited — note what's missing and flag it.
    categories, optimization opportunities.
 4. OWNER COMPENSATION — Alignment with profitability and scale, industry
    comparison, optimal level for growth.
-5. CASH RUNWAY — Current runway, receivables collection, working capital
-   efficiency.
+5. CASH RUNWAY — Use trailing NET cash flow from the Cash Flow Statement.
+   If net cash flow is positive, the business is self-sustaining — do NOT alarm on
+   runway months or use startup-style "immediate attention" language. Only treat
+   runway as a risk when net cash flow is negative (net burn). Use net burn, not
+   gross outflows, when runway is relevant.
 6. TAX POSITIONING — Strategy optimization, underutilized savings (retirement,
    deductions, credits), projected 12-month burden.
 7. GROWTH CAPACITY — Capacity utilization, bottlenecks, scalability, investment
@@ -230,15 +256,16 @@ SEVERITY TIERING
 Assign urgency to each insight using these exact tiers:
 
 CRITICAL — Immediate Attention Required
-  Triggers: Cash runway < 60 days, margin compression > 5 percentage points,
-  revenue concentration > 40% in one client/product, net loss exceeding 20%
-  of revenue.
-  Format: [What the data shows] → [Why it is critical] → [Immediate action]
+  Triggers: NET cash burn runway < 60 days (only when trailing net cash flow is
+  negative), margin compression > 5 percentage points, revenue concentration > 40%
+  in one client/product, net loss exceeding 20% of revenue.
+  Do NOT use critical for cash runway when net cash flow is positive.
 
 WARNING — Monitor Closely
-  Triggers: Declining revenue trends, rising expense ratios, thinning margins,
-  growing receivables.
-  Format: [What the data shows] → [Potential outcome] → [Preventive action]
+  Triggers: Declining RECURRING revenue (not seasonal one-time dips), rising
+  expense ratios, thinning margins, growing receivables.
+  Do NOT flag total revenue declines as sustainability risks when recurring
+  revenue is stable — label those as seasonal/info instead.
 
 WATCH — Emerging Pattern
   Triggers: Early-stage trends, seasonal anomalies, items to track over next
@@ -345,9 +372,13 @@ export async function generateInsightsFromContext(context: FinancialContext): Pr
 
   const severityContext = {
     runwayMonths: context.derived.runwayMonths,
+    netRunwayMonths: context.derived.netRunwayMonths,
+    trailingNetCashFlow: context.derived.trailingNetCashFlow,
     revenueGrowthPct: context.derived.revenueGrowthPct,
+    recurringRevenueChangePct: context.derived.recurringRevenueChangePct,
     profitMarginPct: context.summary.data_error ? null : context.summary.profit_margin_pct,
     expenseGrowthPct: context.derived.expenseGrowthPct,
+    cashFlowPositive: (context.derived.trailingNetCashFlow ?? 0) >= 0,
   };
 
   const insights: AIInsight[] = list.slice(0, 15).map((item, i) => {
@@ -394,7 +425,9 @@ export async function generateInsightsFromContext(context: FinancialContext): Pr
   // Sort by severity (critical first)
   insights.sort((a, b) => (SEVERITY_ORDER[a.urgency] ?? 4) - (SEVERITY_ORDER[b.urgency] ?? 4));
 
-  return { insights, riskPosture };
+  const trendAwareInsights = applyTrendAwareInsightRules(insights, context);
+
+  return { insights: trendAwareInsights, riskPosture };
 }
 
 export { SEVERITY_ORDER };
