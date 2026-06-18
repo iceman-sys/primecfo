@@ -31,6 +31,8 @@ interface DashboardViewProps {
   onSync?: () => void;
   syncing?: boolean;
   isLoading?: boolean;
+  /** True while refetching after a range change (cached data may still show). */
+  isRangeLoading?: boolean;
   loadError?: unknown;
   hasSyncedData?: boolean;
   /** Show inline warning when sync failed due to QuickBooks not connected */
@@ -52,6 +54,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   onSync,
   syncing = false,
   isLoading = false,
+  isRangeLoading = false,
   loadError,
   hasSyncedData = false,
   showSyncConnectionWarning = false,
@@ -105,9 +108,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="relative">
             <button
               onClick={() => setPeriodDropdownOpen(!periodDropdownOpen)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white hover:bg-slate-600 transition-colors"
+              disabled={isRangeLoading || syncing}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-sm text-white hover:bg-slate-600 transition-colors disabled:opacity-70 disabled:cursor-wait"
             >
-              <Calendar className="w-4 h-4 text-slate-400" />
+              {isRangeLoading ? (
+                <Loader2 className="w-4 h-4 text-teal-400 animate-spin" />
+              ) : (
+                <Calendar className="w-4 h-4 text-slate-400" />
+              )}
               <span className="hidden sm:inline">{selectedPeriodLabel}</span>
               <ChevronDown className="w-4 h-4 text-slate-400" />
             </button>
@@ -122,7 +130,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         onPeriodChange?.(opt.range);
                         setPeriodDropdownOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-600 transition-colors ${
+                      disabled={isRangeLoading || syncing}
+                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-600 transition-colors disabled:opacity-60 disabled:cursor-wait ${
                         range === opt.range ? "text-teal-400 bg-slate-600/50" : "text-slate-300"
                       }`}
                     >
@@ -148,21 +157,29 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {(syncing || isLoading) && (
+      {(syncing || isLoading || isRangeLoading) && (
         <div className="mb-6 bg-teal-500/10 border border-teal-500/20 rounded-xl p-4 flex items-center gap-3">
           <Loader2 className="w-5 h-5 text-teal-400 animate-spin" />
           <div>
             <p className="text-sm font-medium text-teal-400">
-              {syncing ? "Syncing financial data from QuickBooks..." : "Loading dashboard..."}
+              {syncing
+                ? "Syncing financial data from QuickBooks..."
+                : isRangeLoading
+                  ? `Loading ${selectedPeriodLabel}...`
+                  : "Loading dashboard..."}
             </p>
             <p className="text-xs text-slate-400">
-              {syncing ? "Pulling latest reports and calculating metrics" : "Fetching summary and trends"}
+              {syncing
+                ? "Pulling latest reports and calculating metrics"
+                : isRangeLoading
+                  ? "Updating metrics and insights for the selected period"
+                  : "Fetching summary and trends"}
             </p>
           </div>
         </div>
       )}
 
-      {!!loadError && !syncing && (
+      {!!loadError && !syncing && !isRangeLoading && (
         <div className="mb-6 bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm">
           {loadError instanceof Error ? (loadError as Error).message : "Failed to load dashboard data"}
         </div>
@@ -174,7 +191,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
-      <div className="mb-6">
+      <div className={`mb-6 transition-opacity duration-200 ${isRangeLoading ? "opacity-60 pointer-events-none" : ""}`}>
         <MetricCards metrics={metrics} />
       </div>
 

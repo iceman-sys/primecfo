@@ -226,13 +226,13 @@ export default function DashboardPage() {
     setSyncWarningDismissed(false);
   }, [selectedClient?.id]);
 
-  const { data: dashboardData, isLoading, error } = useQuery({
+  const { data: dashboardData, isLoading, isFetching, error } = useQuery({
     queryKey: ["dashboard", selectedClient?.id, range],
     queryFn: () => getDashboardData(selectedClient!.id, range),
     enabled: !!selectedClient?.id,
   });
 
-  const { data: insightsData } = useQuery({
+  const { data: insightsData, isFetching: insightsFetching } = useQuery({
     queryKey: ["insights", selectedClient?.id, range],
     queryFn: () => getInsights(selectedClient!.id, range),
     enabled: !!selectedClient?.id,
@@ -266,6 +266,9 @@ export default function DashboardPage() {
       }
     },
   });
+
+  const isRangeLoading =
+    !syncMutation.isPending && !!selectedClient?.id && (isFetching || insightsFetching) && !isLoading;
 
   const isSyncConnectionError =
     syncMutation.isError &&
@@ -322,6 +325,7 @@ export default function DashboardPage() {
       onSync={() => syncMutation.mutate()}
       syncing={syncMutation.isPending}
       isLoading={isLoading}
+      isRangeLoading={isRangeLoading}
       loadError={error}
       hasSyncedData={hasSyncedData}
       showSyncConnectionWarning={showSyncConnectionWarning}

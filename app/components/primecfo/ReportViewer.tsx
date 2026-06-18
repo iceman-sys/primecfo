@@ -15,6 +15,7 @@ import {
   getBillingStatus,
 } from "@/lib/api/client";
 import { toastErrorWithProgress } from "@/app/components/ui/sonner";
+import ReportRangePresetBar from "@/app/components/primecfo/ReportRangePresetBar";
 import {
   humanizeAccountLabel,
   flattenReportRowsMulti,
@@ -210,6 +211,7 @@ const ReportViewer: React.FC = () => {
   });
 
   const activeRow = reportsData?.reports?.find((r: { report_type: string }) => r.report_type === activeReport);
+  const rangeLoading = isFetching || syncMutation.isPending;
 
   const { columnTitles, rows } = useMemo(() => {
     if (!activeRow?.raw_json) return { columnTitles: [] as string[], rows: [] as FlatMultiPeriodRow[] };
@@ -341,26 +343,20 @@ const ReportViewer: React.FC = () => {
         </div>
 
         {/* Date presets */}
-        <div className="grid grid-cols-2 lg:flex lg:flex-wrap gap-2 mb-6">
-          {DATE_PRESETS.map((p) => {
-            const on = datePreset === p.key;
-            return (
-              <button
-                key={p.key}
-                type="button"
-                onClick={() => onPresetChange(p.key)}
-                disabled={syncMutation.isPending}
-                className={`min-h-[44px] rounded-xl px-4 py-2.5 text-sm font-medium border transition-all ${
-                  on
-                    ? "bg-gradient-to-r from-teal-500 to-emerald-500 text-white border-transparent shadow-md shadow-teal-500/20"
-                    : "border-slate-700 bg-slate-800/50 text-slate-400 hover:text-white hover:border-slate-600"
-                }`}
-              >
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
+        <ReportRangePresetBar
+          presets={DATE_PRESETS}
+          value={datePreset}
+          onChange={onPresetChange}
+          loading={rangeLoading}
+          className="mb-6"
+        />
+
+        {rangeLoading && !syncMutation.isPending ? (
+          <p className="mb-4 flex items-center gap-2 text-xs text-slate-500" role="status" aria-live="polite">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-400" aria-hidden />
+            Loading {rangeLabels[datePreset]}…
+          </p>
+        ) : null}
 
         {pnlDataAnomaly && (
           <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
@@ -396,10 +392,23 @@ const ReportViewer: React.FC = () => {
         ) : (
           <>
             <div
-              className={`rounded-xl border border-slate-700/50 bg-slate-900/40 overflow-hidden transition-opacity duration-300 ${
-                isFetching && rows.length ? "opacity-60" : "opacity-100"
+              className={`relative rounded-xl border border-slate-700/50 bg-slate-900/40 overflow-hidden transition-opacity duration-200 ${
+                rangeLoading && rows.length ? "opacity-50 pointer-events-none" : "opacity-100"
               }`}
             >
+              {rangeLoading && rows.length ? (
+                <div
+                  className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/40 backdrop-blur-[1px]"
+                  role="status"
+                  aria-live="polite"
+                  aria-label="Loading report data"
+                >
+                  <div className="flex items-center gap-2 rounded-full bg-slate-900/90 px-4 py-2 text-sm text-slate-200 ring-1 ring-slate-700">
+                    <Loader2 className="w-4 h-4 animate-spin text-teal-400" />
+                    Updating…
+                  </div>
+                </div>
+              ) : null}
               <div className="overflow-x-auto scrollbar-reports overscroll-x-contain">
                 <table className="w-full border-collapse text-sm">
                   <caption className="sr-only">

@@ -166,3 +166,12 @@ body {
     color: #c0392b !important;
   }
 }
+
+@keyframes range-load {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
