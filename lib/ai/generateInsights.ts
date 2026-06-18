@@ -111,8 +111,14 @@ function buildPrompt(context: FinancialContext): string {
   if (derived.ownerCompensation != null) {
     const pctOfRev = summary.revenue !== 0 ? ((derived.ownerCompensation / Math.abs(summary.revenue)) * 100).toFixed(1) : 'N/A';
     lines.push(`Owner Compensation: $${derived.ownerCompensation.toFixed(2)} (${pctOfRev}% of revenue).`);
+  } else {
+    lines.push('Owner Compensation: NOT AVAILABLE — do not generate an Owner Compensation insight.');
   }
-  if (derived.taxExpense != null) lines.push(`Tax Expense: $${derived.taxExpense.toFixed(2)}.`);
+  if (derived.taxExpense != null) {
+    lines.push(`Tax Expense: $${derived.taxExpense.toFixed(2)}.`);
+  } else {
+    lines.push('Tax Expense: NOT AVAILABLE — do not generate a Tax Positioning insight.');
+  }
   if (derived.grossMarginPct != null) lines.push(`Gross Margin: ${derived.grossMarginPct}%.`);
   if (derived.expenseToRevenueRatio != null) lines.push(`Expense-to-Revenue Ratio: ${derived.expenseToRevenueRatio}%.`);
   if (derived.operatingLeverageRatio != null) lines.push(`Operating Leverage Ratio: ${derived.operatingLeverageRatio}.`);
@@ -313,8 +319,12 @@ Return a SINGLE valid JSON object with these exact keys:
 }
 
 RULES:
-- You MUST produce at least one insight for EACH of the 7 analysis domains.
-- Every insight MUST include "metric" and "metricValue" derived from the data.
+- Produce insights for domains where real numeric data is provided in the prompt.
+- SKIP Owner Compensation entirely if owner compensation data is marked NOT AVAILABLE.
+- SKIP Tax Positioning entirely if tax expense data is marked NOT AVAILABLE.
+- Never use "N/A" as metricValue. Never assign critical/warning/watch severity without a real metric.
+- Do not give generic boilerplate recommendations (e.g. "consult a tax advisor") unless derived from this client's numbers.
+- Every insight MUST include "metric" and "metricValue" derived from the data when included.
 - Every insight MUST include at least 3 "recommendations" with "action" and "expectedImpact".
 - Every risk flag (critical/warning/watch) MUST include 3–4 "talkingPoints".
 - Positive insights SHOULD include 1–2 talkingPoints.

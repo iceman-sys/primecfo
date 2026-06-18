@@ -3,6 +3,7 @@ import type { FinancialContext } from '@/lib/ai/getFinancialContext';
 import { evaluateCashRunway } from '@/lib/ai/cashRunwayInsight';
 import { evaluateRevenueTrend } from '@/lib/ai/recurringRevenue';
 import { applyInsightSeverityRules, type SeverityContext } from '@/lib/ai/severityRules';
+import { applyInsightDataValidation } from '@/lib/ai/insightValidation';
 import { SEVERITY_ORDER } from '@/lib/ai/generateInsights';
 
 function isRunwayInsight(insight: Pick<AIInsight, 'title' | 'category' | 'metric'>): boolean {
@@ -39,8 +40,8 @@ function toInsight(
     description: string;
     urgency: InsightSeverity;
     category: string;
-    metric: string;
-    metricValue: string;
+    metric?: string;
+    metricValue?: string;
   },
   idSuffix: string
 ): AIInsight {
@@ -51,7 +52,7 @@ function toInsight(
     urgency: partial.urgency,
     category: partial.category,
     metric: partial.metric,
-    metricValue: partial.metricValue,
+    metricValue: partial.metricValue?.trim() ? partial.metricValue : undefined,
     createdAt: new Date().toISOString(),
     talkingPoints:
       partial.urgency === 'positive' || partial.urgency === 'info'
@@ -77,8 +78,12 @@ function buildCashRunwayInsight(context: FinancialContext): AIInsight {
       description: evalResult.message,
       urgency: evalResult.severity,
       category: 'Cash Runway',
-      metric: evalResult.showRunway ? 'Cash Runway' : 'Net Cash Flow',
-      metricValue: evalResult.metricValue,
+      metric: evalResult.showRunway
+        ? 'Cash Runway'
+        : evalResult.metricValue
+          ? 'Net Cash Flow'
+          : undefined,
+      metricValue: evalResult.metricValue || undefined,
     },
     'runway'
   );
@@ -144,5 +149,5 @@ export function applyTrendAwareInsightRules(
   });
 
   reconciled.sort((a, b) => (SEVERITY_ORDER[a.urgency] ?? 4) - (SEVERITY_ORDER[b.urgency] ?? 4));
-  return reconciled;
+  return applyInsightDataValidation(reconciled, context);
 }

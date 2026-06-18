@@ -29,25 +29,14 @@ export function evaluateCashRunway(input: {
   const { trailingNetCashFlow, cashBalance, grossRunwayMonths } = input;
 
   if (trailingNetCashFlow == null) {
-    if (grossRunwayMonths != null && grossRunwayMonths <= 3) {
-      return {
-        severity: 'watch',
-        title: 'Cash Runway',
-        message:
-          'Cash runway appears limited, but net cash flow data is unavailable. Sync your Cash Flow Statement to confirm whether operations are self-sustaining.',
-        showRunway: true,
-        runwayMonths: grossRunwayMonths,
-        metricValue: `${grossRunwayMonths.toFixed(1)} mo`,
-      };
-    }
     return {
       severity: 'info',
-      title: 'Cash Flow Data Needed',
+      title: 'Cash Flow Analysis Pending',
       message:
-        'Connect QuickBooks and sync Cash Flow reports to evaluate whether operations are cash-flow positive.',
+        'Sync your Cash Flow Statement to enable runway and self-sustainability analysis. Runway countdown is not shown until net cash flow data is available.',
       showRunway: false,
       runwayMonths: null,
-      metricValue: 'N/A',
+      metricValue: '',
     };
   }
 

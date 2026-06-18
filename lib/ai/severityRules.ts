@@ -110,6 +110,15 @@ export function applyInsightSeverityRules(
 
   let severity = insight.urgency;
 
+  if (
+    (!insight.metricValue?.trim() ||
+      insight.metricValue.trim().toLowerCase() === 'n/a' ||
+      insight.metricValue.trim() === '—') &&
+    (severity === 'critical' || severity === 'warning' || severity === 'watch')
+  ) {
+    return 'info';
+  }
+
   const runwayMonths =
     context.netRunwayMonths ??
     context.runwayMonths ??
