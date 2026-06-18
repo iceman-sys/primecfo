@@ -20,6 +20,26 @@ export async function fetchProfitLossByMonth(
   });
 }
 
+/** Multi-column Cash Flow for trailing net cash increase. */
+export async function fetchCashFlowByMonth(
+  clientId: string,
+  startDate: string,
+  endDate: string,
+  accountingMethod: 'Accrual' | 'Cash' = 'Cash'
+): Promise<unknown> {
+  const path = `/v3/company/{realmId}/reports/CashFlow`;
+  return quickBooksRequest<unknown>(clientId, {
+    path,
+    method: 'GET',
+    searchParams: {
+      start_date: startDate,
+      end_date: endDate,
+      summarize_column_by: 'Month',
+      accounting_method: accountingMethod,
+    },
+  });
+}
+
 /** Align with `lib/qbo/reports.ts` QBO_REPORT_NAMES.ar_aging */
 export async function fetchArAgingSummary(
   clientId: string,

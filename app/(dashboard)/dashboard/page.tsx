@@ -38,7 +38,7 @@ function mapDashboardDataToMetrics(
     },
     {
       id: "2",
-      title: "Total Expenses",
+      title: "Total Costs",
       value: summary.expenses,
       previousValue: previousSummary.expenses,
       format: "currency",

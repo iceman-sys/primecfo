@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import { getDateRanges, getSingleDateRange, type ReportRange, type PeriodType } from '@/lib/qbo/reports';
 import { computeRunway, type TrendPoint } from '@/lib/metrics/runway';
+import { totalCosts } from '@/lib/metrics/costs';
 
 export type PeriodRow = {
   id: string;
@@ -12,7 +13,10 @@ export type PeriodRow = {
 
 export type SummaryMetrics = {
   revenue: number;
+  /** Operating expenses only (excludes COGS). */
   expenses: number;
+  /** COGS + operating expenses. */
+  total_costs: number;
   net_income: number;
   profit_margin_pct: number;
   cash: number;
@@ -31,6 +35,8 @@ export type ClientMetricsBundle = {
   range: ReportRange;
   periods: PeriodRow[];
   trends: TrendPoint[];
+  /** Trends limited to the selected range window (for charts / period totals). */
+  windowTrends: TrendPoint[];
   summary: SummaryMetrics | null;
   previousSummary: SummaryMetrics | null;
   runway: ReturnType<typeof computeRunway>;
@@ -84,6 +90,8 @@ function aggregatePeriods(
 
   if (!hasAny) return null;
 
+  const total_costs = totalCosts(cogs, expenses);
+
   let profit_margin_pct = 0;
   if (Math.abs(revenue) > 0) {
     profit_margin_pct = Math.round((net_income / Math.abs(revenue)) * 1000) / 10;
@@ -93,6 +101,7 @@ function aggregatePeriods(
   return {
     revenue,
     expenses,
+    total_costs,
     net_income,
     profit_margin_pct: data_error ? 0 : profit_margin_pct,
     cash,
@@ -166,12 +175,17 @@ export async function loadClientMetrics(
 
   const trends: TrendPoint[] = periodList.map((p) => {
     const m = metricsByPeriod.get(p.id) ?? {};
+    const opex = Math.abs(m.expenses ?? 0);
+    const cogsVal = Math.abs(m.cogs ?? 0);
+    const costs = totalCosts(cogsVal, opex);
     return {
       periodLabel: p.label,
       start_date: p.start_date,
       end_date: p.end_date,
       revenue: m.revenue ?? 0,
-      expenses: m.expenses ?? 0,
+      expenses: costs,
+      cogs: cogsVal,
+      operatingExpenses: opex,
       profit: m.net_income ?? 0,
       cash: m.cash ?? 0,
     };
@@ -191,6 +205,7 @@ export async function loadClientMetrics(
     range,
     periods: periodList,
     trends,
+    windowTrends: trendWindow.length ? trendWindow : trends.slice(-periodCount),
     summary,
     previousSummary,
     runway,

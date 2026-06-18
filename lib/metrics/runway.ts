@@ -3,11 +3,13 @@ export type TrendPoint = {
   start_date?: string;
   end_date?: string;
   revenue: number;
+  /** Total costs (COGS + operating expenses) for charting and burn. */
   expenses: number;
+  cogs?: number;
+  operatingExpenses?: number;
   profit: number;
   cash: number;
 };
-
 export type RunwayResult = {
   /** Cash balance used (from latest period with cash data). */
   cashBalance: number;
@@ -23,7 +25,7 @@ const RUNWAY_CAP_MONTHS = 120;
 
 /**
  * Authoritative runway: Total Cash / Average Monthly Burn.
- * Burn = average of last 3 months expenses (net outflow proxy from P&L expenses).
+ * Burn = average of last 3 months total costs (COGS + operating expenses).
  */
 export function computeRunway(
   trends: TrendPoint[],

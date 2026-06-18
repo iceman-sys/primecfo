@@ -254,11 +254,13 @@ export type ForecastApiResponse = {
       expectedInflowsWeighted: number;
       expectedOutflowsBills: number;
       estimatedRecurringMonthly: number;
+      recurringBasis: 'cash_flow_statement' | 'pnl_net_income_fallback';
       collectionRate: number;
       arApWindowDays: number;
       balanceSheetCash: number | null;
       bankVsStatementDelta: number | null;
       avgMonthlyOperatingCashNet: number | null;
+      includesOpenArApInProjection: boolean;
     };
     horizonDays: number;
     endingCashExpected: number;
@@ -411,7 +413,19 @@ export type AnalyticsResponse = {
     burnRate: number | null;
     runway: number | null;
   } | null;
-  trends: Array<{ month: string; revenue: number; expenses: number }>;
+  trends: Array<{ month: string; revenue: number; expenses: number; netIncome?: number }>;
+  periodTotals?: {
+    totalRevenue: number;
+    totalCosts: number;
+    totalNetIncome: number;
+    periodCount: number;
+  } | null;
+  validation?: {
+    ok: boolean;
+    message: string | null;
+    periodCount: number;
+    missingPeriods: number;
+  } | null;
 };
 
 export async function getAnalytics(clientId: string, range: ReportRange = '3m'): Promise<AnalyticsResponse> {

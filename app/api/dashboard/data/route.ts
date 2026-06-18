@@ -68,6 +68,7 @@ export async function GET(request: NextRequest) {
   const finPrev = bundle.previousSummary ?? {
     revenue: 0,
     expenses: 0,
+    total_costs: 0,
     net_income: 0,
     profit_margin_pct: 0,
     cash: 0,
@@ -117,7 +118,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     summary: {
       revenue: finSummary.revenue,
-      expenses: finSummary.expenses,
+      expenses: finSummary.total_costs,
       net_income: finSummary.net_income,
       profit_margin_pct: finSummary.profit_margin_pct,
       cash: finSummary.cash,
@@ -127,7 +128,7 @@ export async function GET(request: NextRequest) {
     previousSummary: bundle.previousSummary
       ? {
           revenue: finPrev.revenue,
-          expenses: finPrev.expenses,
+          expenses: finPrev.total_costs,
           net_income: finPrev.net_income,
           profit_margin_pct: finPrev.profit_margin_pct,
           cash: finPrev.cash,

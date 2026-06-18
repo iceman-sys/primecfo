@@ -6,6 +6,7 @@ import { Wallet, ArrowRightLeft, Calendar, TrendingUp, Loader2, AlertTriangle } 
 import { useClientContext } from "@/contexts/ClientContext";
 import { useReportRange } from "@/contexts/ReportRangeContext";
 import { getTreasury } from "@/lib/api/client";
+import TreasuryForecastSection from "@/app/components/primecfo/reports/TreasuryForecastSection";
 
 const formatCurrency = (n: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(n);
@@ -106,35 +107,7 @@ export default function TreasuryTab() {
         </div>
       </div>
 
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">30-Day Forecast</h3>
-        <div className="bg-slate-700/30 rounded-xl p-4 space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-slate-400">Projected cash balance</span>
-            <span className="font-bold text-lg text-white">{formatCurrency(data.forecast30Day ?? 0)}</span>
-          </div>
-          {data.forecastBreakdown && (
-            <div className="pt-2 border-t border-slate-600/50 space-y-1 text-xs text-slate-400">
-              <div className="flex justify-between">
-                <span>Current cash</span>
-                <span className="text-slate-300">{formatCurrency(data.forecastBreakdown.currentCash)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Avg monthly net ({data.forecastBreakdown.basis === "cash_flow_statement" ? "cash flow" : "P&amp;L proxy"})</span>
-                <span className={data.forecastBreakdown.projectedNet >= 0 ? "text-emerald-400" : "text-red-400"}>
-                  {data.forecastBreakdown.projectedNet >= 0 ? "+" : ""}
-                  {formatCurrency(data.forecastBreakdown.projectedNet)}
-                </span>
-              </div>
-              <div className="flex justify-between font-medium">
-                <span>Projected balance (30 days)</span>
-                <span className="text-slate-200">{formatCurrency(data.forecastBreakdown.projectedBalance)}</span>
-              </div>
-            </div>
-          )}
-          <p className="text-xs text-slate-500 pt-1">Based on last 3 months from synced QuickBooks reports</p>
-        </div>
-      </div>
+      <TreasuryForecastSection clientId={clientId} />
 
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <div className="flex items-center justify-between mb-4">

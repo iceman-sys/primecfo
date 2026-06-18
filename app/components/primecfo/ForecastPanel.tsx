@@ -43,8 +43,6 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
 
   const todayPoint = series.find((p) => p.dayOffset === 0);
   const horizonPoint = series.length ? series[series.length - 1] : undefined;
-  const arApDays = forecast.components.arApWindowDays;
-  const collectionPct = Math.round((components.collectionRate ?? 0.85) * 100);
 
   const intermediatePoints = horizonPoint
     ? series.filter((p) => p.dayOffset !== 0 && p.dayOffset !== horizonPoint.dayOffset)
@@ -105,8 +103,9 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
           </div>
           {horizonDays > 30 ? (
             <p className="text-[11px] text-slate-600 mt-2 leading-snug">
-              Each 30-day step adds trailing monthly net (revenue − expenses) plus AR/AP due in that
-              window. Day {horizonDays} shows the full {horizonDays}-day projection.
+              Each 30-day step compounds trailing net cash from your Cash Flow Statement (includes
+              owner draws, loan payments, and COGS). Day {horizonDays} shows the full {horizonDays}
+              -day projection.
             </p>
           ) : null}
         </div>
@@ -114,23 +113,25 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
 
       <div className="text-xs text-slate-500 space-y-1 border-t border-slate-700/40 pt-4">
         <p>
-          Weighted inflows ({collectionPct}% default on open invoices due on or before your{" "}
-          {arApDays}-day horizon):{" "}
-          <span className="text-slate-300">{formatFullCurrency(forecast.components.expectedInflowsWeighted)}</span>
-        </p>
-        <p>
-          Bills due in the same window:{" "}
-          <span className="text-slate-300">{formatFullCurrency(forecast.components.expectedOutflowsBills)}</span>
-        </p>
-        <p>
-          Recurring / operating estimate (trailing avg monthly net):{" "}
+          Recurring monthly net (
+          {components.recurringBasis === 'cash_flow_statement'
+            ? 'trailing avg from Cash Flow Statement'
+            : 'trailing P&L net income fallback'}
+          ):{" "}
           <span className="text-slate-300">
             {formatFullCurrency(forecast.components.estimatedRecurringMonthly)}
           </span>
         </p>
         <p className="text-[11px] text-slate-600 leading-snug">
-          Month 1 adds weighted open AR/AP due in each 30-day window; months 2–3 add recurring net plus
-          AR/AP due in that window. Best / Expected / Worst vary collection rate and expense assumptions.
+          Projection compounds this net cash each month from today&apos;s bank balance. Open AR/AP are
+          not added separately — they are already reflected in historical net cash movement.
+          {capabilities.scenarios
+            ? ' Best / Expected / Worst apply ±15% / −25% to the recurring net.'
+            : ''}
+        </p>
+        <p className="text-[11px] text-slate-600">
+          Open AR (reference): {formatFullCurrency(forecast.components.expectedInflowsWeighted)} ·
+          open AP (reference): {formatFullCurrency(forecast.components.expectedOutflowsBills)}
         </p>
         <p className="pt-1 text-slate-600">
           Trailing revenue {formatFullCurrency(summary.avgMonthlyRevenue)} · expense{" "}

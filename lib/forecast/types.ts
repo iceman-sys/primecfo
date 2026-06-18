@@ -17,14 +17,16 @@ export type CashFlowForecastResult = {
     expectedInflowsWeighted: number;
     expectedOutflowsBills: number;
     estimatedRecurringMonthly: number;
+    /** Primary source for estimatedRecurringMonthly. */
+    recurringBasis: 'cash_flow_statement' | 'pnl_net_income_fallback';
     collectionRate: number;
-    /** Open AR/AP due-date window end = asOf + this many days (tier horizon). */
     arApWindowDays: number;
-    /** Act tier: cash subtotal from Balance Sheet report vs sum of Bank accounts from QBO query. */
     balanceSheetCash: number | null;
     bankVsStatementDelta: number | null;
-    /** Act tier: avg monthly net operating cash from Cash Flow report when parsed. */
+    /** Trailing avg net cash increase from Cash Flow Statement when available. */
     avgMonthlyOperatingCashNet: number | null;
+    /** Open AR/AP are shown for context but not added to the projection (Option A). */
+    includesOpenArApInProjection: boolean;
   };
   horizonDays: 30 | 60 | 90;
   /** Ending cash at horizon (expected) */
