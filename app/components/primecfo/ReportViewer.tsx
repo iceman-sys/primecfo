@@ -141,13 +141,8 @@ const ReportViewer: React.FC = () => {
   const { range: globalRange, setRange: setGlobalRange } = useReportRange();
 
   const [activeReport, setActiveReport] = useState<ActiveReport>("pnl");
-  const urlRange = searchParams.get("range");
-  const urlReport = searchParams.get("report");
-  const initialRange: ReportRange =
-    urlRange && VALID_RANGES.includes(urlRange as ReportRange)
-      ? (urlRange as ReportRange)
-      : globalRange;
-  const [datePreset, setDatePreset] = useState<ReportRange>(initialRange);
+  /** Holds user selection until the URL ?range= param catches up (prevents highlight flicker). */
+  const [pendingRange, setPendingRange] = useState<ReportRange | null>(null);
 
   const reportFromUrl = (value: string | null): ActiveReport | null => {
     if (value === "pnl" || value === "profit-loss" || value === "profit_and_loss") return "pnl";
@@ -156,17 +151,32 @@ const ReportViewer: React.FC = () => {
     return null;
   };
 
+  const urlRangeParam = searchParams.get("range");
+  const urlRange: ReportRange | null =
+    urlRangeParam && VALID_RANGES.includes(urlRangeParam as ReportRange)
+      ? (urlRangeParam as ReportRange)
+      : null;
+
+  const datePreset: ReportRange = pendingRange ?? urlRange ?? globalRange;
+
+  // External navigation (back/forward, deep link) → sync global context
   useEffect(() => {
-    const r = searchParams.get("range");
-    if (r && VALID_RANGES.includes(r as ReportRange)) {
-      setDatePreset(r as ReportRange);
-      setGlobalRange(r as ReportRange);
-    } else if (!r) {
-      setDatePreset(globalRange);
+    if (urlRange && urlRange !== globalRange) {
+      setGlobalRange(urlRange);
     }
+  }, [urlRange, globalRange, setGlobalRange]);
+
+  // Clear optimistic selection once URL reflects the click
+  useEffect(() => {
+    if (pendingRange && urlRange === pendingRange) {
+      setPendingRange(null);
+    }
+  }, [urlRange, pendingRange]);
+
+  useEffect(() => {
     const report = reportFromUrl(searchParams.get("report"));
     if (report) setActiveReport(report);
-  }, [searchParams, globalRange, setGlobalRange]);
+  }, [searchParams]);
 
   const periodType: PeriodType = datePreset === "4q" ? "quarter" : "month";
   const [collapsedAi, setCollapsedAi] = useState(false);
@@ -230,13 +240,15 @@ const ReportViewer: React.FC = () => {
 
   const onPresetChange = useCallback(
     (r: ReportRange) => {
-      setDatePreset(r);
+      setPendingRange(r);
       setGlobalRange(r);
       const params = new URLSearchParams(searchParams.toString());
       params.set("range", r);
       params.set("tab", "reports");
       params.set("report", activeReport);
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      const nextUrl = `${pathname}?${params.toString()}`;
+      window.history.replaceState(null, "", nextUrl);
+      router.replace(nextUrl, { scroll: false });
     },
     [pathname, router, searchParams, activeReport, setGlobalRange]
   );
