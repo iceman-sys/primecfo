@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useReportRange } from "@/contexts/ReportRangeContext";
 import ReportViewer from "@/app/components/primecfo/ReportViewer";
 import TreasuryTab from "@/app/components/primecfo/reports/TreasuryTab";
 import AnalyticsTab from "@/app/components/primecfo/reports/AnalyticsTab";
@@ -23,16 +24,26 @@ function parseTabParam(value: string | null): ReportsTabId {
 
 export default function ReportsPage() {
   const searchParams = useSearchParams();
+  const { range } = useReportRange();
   const [activeTab, setActiveTab] = useState<ReportsTabId>(() => parseTabParam(searchParams.get("tab")));
 
   useEffect(() => {
     setActiveTab(parseTabParam(searchParams.get("tab")));
   }, [searchParams]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (!params.get("range")) {
+      params.set("range", range);
+      window.history.replaceState(null, "", `/reports?${params.toString()}`);
+    }
+  }, [searchParams, range]);
+
   const selectTab = (tab: ReportsTabId) => {
     setActiveTab(tab);
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", tab);
+    params.set("range", params.get("range") ?? range);
     if (tab !== "reports") params.delete("report");
     window.history.replaceState(null, "", `/reports?${params.toString()}`);
   };

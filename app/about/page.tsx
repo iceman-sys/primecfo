@@ -71,8 +71,8 @@ export default function AboutPage() {
   const stats = [
     { value: "100%", label: "QuickBooks-native data" },
     { value: "<60s", label: "From connect to first insight" },
-    { value: "3", label: "Plans $114–$551/mo (save 15% annually)" },
-    { value: "14-day", label: "Free trial, no card required" },
+    { value: "3", label: "Plans from $119/mo (save ~17% annually)" },
+    { value: "14-day", label: "Free trial · card required" },
   ];
 
   return (

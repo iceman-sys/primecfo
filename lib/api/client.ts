@@ -302,6 +302,14 @@ export type BillingStatusResponse = {
     cancel_at_period_end: boolean;
   } | null;
   currentPlan: { id: string; tierWordmark: string; name: string } | null;
+  entitlements?: {
+    tier: string;
+    forecastHorizonDays: number;
+    aiSummaryCadence: 'monthly' | 'weekly';
+    customAlerts: boolean;
+    forecastScenarios: boolean;
+    advisoryMeeting: 'none' | 'quarterly' | 'monthly';
+  } | null;
 };
 
 export async function getBillingStatus(): Promise<BillingStatusResponse | null> {

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClientContext } from "@/contexts/ClientContext";
+import { useReportRange } from "@/contexts/ReportRangeContext";
 import AIInsights from "@/app/components/primecfo/AIInsights";
 import RiskPosture from "@/app/components/primecfo/RiskPosture";
 import { Select } from "@/app/components/ui/select";
@@ -21,7 +21,7 @@ const RANGE_OPTIONS = [
 export default function InsightsPage() {
   const queryClient = useQueryClient();
   const { selectedClient } = useClientContext();
-  const [range, setRange] = useState<ReportRange>("3m");
+  const { range, setRange } = useReportRange();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["insights", selectedClient?.id, range],

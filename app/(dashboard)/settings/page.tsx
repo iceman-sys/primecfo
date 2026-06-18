@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CreditCard, ExternalLink, Loader2 } from "lucide-react";
+import { CreditCard, ExternalLink, Loader2, Calendar } from "lucide-react";
 import ContactHelpBlock from "@/app/components/primecfo/ContactHelpBlock";
+import { CALENDAR_URL } from "@/app/lib/pricing-plans";
 
 type BillingStatus = {
   hasSubscription: boolean;
@@ -17,6 +18,9 @@ type BillingStatus = {
     current_period_end: string | null;
     trial_end: string | null;
     cancel_at_period_end: boolean;
+  } | null;
+  entitlements?: {
+    advisoryMeeting: "none" | "quarterly" | "monthly";
   } | null;
 };
 
@@ -139,9 +143,35 @@ export default function SettingsPage() {
             {billing.subscription.trial_end &&
               new Date(billing.subscription.trial_end).getTime() > Date.now() && (
                 <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 px-4 py-3 text-sm text-teal-300">
-                  Free trial ends {formatDate(billing.subscription.trial_end)}.
+                  Free trial ends {formatDate(billing.subscription.trial_end)}. Your card will be
+                  charged on that date unless you cancel before then.
                 </div>
               )}
+
+            {billing.entitlements?.advisoryMeeting &&
+            billing.entitlements.advisoryMeeting !== "none" ? (
+              <div className="rounded-lg border border-slate-600/50 bg-slate-900/40 px-4 py-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-white">Advisory meeting</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Your plan includes a 1-hour{" "}
+                      {billing.entitlements.advisoryMeeting === "monthly" ? "monthly" : "quarterly"}{" "}
+                      advisory session with our team.
+                    </p>
+                  </div>
+                  <a
+                    href={CALENDAR_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-teal-500/40 text-teal-300 hover:bg-teal-500/10 text-sm font-medium transition-colors"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Schedule meeting
+                  </a>
+                </div>
+              </div>
+            ) : null}
 
             <button
               type="button"

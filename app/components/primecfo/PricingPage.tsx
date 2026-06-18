@@ -185,7 +185,7 @@ const PricingPage: React.FC<PricingPageProps> = ({
                 className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
                 style={{ color: ACCENT, background: ACCENT_GLOW }}
               >
-                Save 15%
+                Save ~17%
               </span>
             </button>
           </div>
@@ -519,7 +519,7 @@ const PricingPage: React.FC<PricingPageProps> = ({
           Ready to see your numbers clearly?
         </h2>
         <p className="mb-8 text-base" style={{ color: TEXT_MUTED }}>
-          Every plan includes a 14-day free trial. Pick the tier that fits you above.
+          Every plan includes a 14-day free trial with card required. Billing starts on day 15 unless you cancel during the trial.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <button

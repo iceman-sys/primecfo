@@ -5,6 +5,7 @@ import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { FileText, Download, Loader2, ChevronDown } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClientContext } from "@/contexts/ClientContext";
+import { useReportRange } from "@/contexts/ReportRangeContext";
 import {
   getReports,
   syncReports,
@@ -136,12 +137,15 @@ const ReportViewer: React.FC = () => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { selectedClient, isLoading: clientsLoading } = useClientContext();
+  const { range: globalRange, setRange: setGlobalRange } = useReportRange();
 
   const [activeReport, setActiveReport] = useState<ActiveReport>("pnl");
   const urlRange = searchParams.get("range");
   const urlReport = searchParams.get("report");
   const initialRange: ReportRange =
-    urlRange && VALID_RANGES.includes(urlRange as ReportRange) ? (urlRange as ReportRange) : "3m";
+    urlRange && VALID_RANGES.includes(urlRange as ReportRange)
+      ? (urlRange as ReportRange)
+      : globalRange;
   const [datePreset, setDatePreset] = useState<ReportRange>(initialRange);
 
   const reportFromUrl = (value: string | null): ActiveReport | null => {
@@ -153,10 +157,15 @@ const ReportViewer: React.FC = () => {
 
   useEffect(() => {
     const r = searchParams.get("range");
-    if (r && VALID_RANGES.includes(r as ReportRange)) setDatePreset(r as ReportRange);
+    if (r && VALID_RANGES.includes(r as ReportRange)) {
+      setDatePreset(r as ReportRange);
+      setGlobalRange(r as ReportRange);
+    } else if (!r) {
+      setDatePreset(globalRange);
+    }
     const report = reportFromUrl(searchParams.get("report"));
     if (report) setActiveReport(report);
-  }, [searchParams]);
+  }, [searchParams, globalRange, setGlobalRange]);
 
   const periodType: PeriodType = datePreset === "4q" ? "quarter" : "month";
   const [collapsedAi, setCollapsedAi] = useState(false);
@@ -220,13 +229,14 @@ const ReportViewer: React.FC = () => {
   const onPresetChange = useCallback(
     (r: ReportRange) => {
       setDatePreset(r);
+      setGlobalRange(r);
       const params = new URLSearchParams(searchParams.toString());
       params.set("range", r);
       params.set("tab", "reports");
       params.set("report", activeReport);
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
-    [pathname, router, searchParams, activeReport]
+    [pathname, router, searchParams, activeReport, setGlobalRange]
   );
 
   const onReportChange = useCallback(
@@ -236,9 +246,10 @@ const ReportViewer: React.FC = () => {
       params.set("tab", "reports");
       params.set("report", report);
       if (!params.get("range")) params.set("range", datePreset);
+      setGlobalRange(datePreset);
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
-    [pathname, router, searchParams, datePreset]
+    [pathname, router, searchParams, datePreset, setGlobalRange]
   );
 
   const handleDownloadPdf = useCallback(() => {

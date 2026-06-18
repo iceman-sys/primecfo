@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
       customer: customerId,
       client_reference_id: user.id,
       line_items: [{ price: priceId, quantity: 1 }],
+      payment_method_collection: 'always',
       allow_promotion_codes: true,
       billing_address_collection: 'auto',
       subscription_data: {

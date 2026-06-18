@@ -4,32 +4,103 @@ import { parseEntityBalance } from '@/lib/qbo/qbParseMoney';
 import type { ForecastInputs } from './inputs';
 import type { CashFlowForecastResult, ForecastDayPoint } from './types';
 
-const DEFAULT_COLLECTION_RATE = 0.85;
+export type ScenarioParams = {
+  collectionRate: number;
+  expenseMultiplier: number;
+};
 
-function lastOrAvg(arr: number[], avg: number): number {
-  if (arr.length === 0) return avg;
-  return arr[arr.length - 1] ?? avg;
+export const SCENARIO_EXPECTED: ScenarioParams = {
+  collectionRate: 0.85,
+  expenseMultiplier: 1.0,
+};
+
+export const SCENARIO_OPTIMISTIC: ScenarioParams = {
+  collectionRate: 0.95,
+  expenseMultiplier: 0.95,
+};
+
+export const SCENARIO_CONSERVATIVE: ScenarioParams = {
+  collectionRate: 0.65,
+  expenseMultiplier: 1.1,
+};
+
+function bucketDueAmount(
+  entities: ForecastInputs['openInvoices'],
+  asOfYmd: string,
+  minDays: number,
+  maxDays: number
+): number {
+  const asOf = new Date(`${asOfYmd}T12:00:00`);
+  let sum = 0;
+  for (const entity of entities) {
+    const dueStr = entity.DueDate;
+    const due = dueStr ? new Date(`${dueStr}T12:00:00`) : asOf;
+    const daysUntil = Math.ceil((due.getTime() - asOf.getTime()) / 86_400_000);
+    if (daysUntil <= maxDays && (minDays <= 0 || daysUntil > minDays)) {
+      sum += parseEntityBalance(entity);
+    }
+  }
+  return sum;
+}
+
+function projectBalance(
+  inputs: ForecastInputs,
+  params: ScenarioParams,
+  horizonDays: 30 | 60 | 90
+): { day30: number; day60: number; day90: number } {
+  const avgRev = inputs.avgMonthlyRevenue;
+  const avgExp = inputs.avgMonthlyExpense * params.expenseMultiplier;
+  let recurringMonthlyNet = avgRev - avgExp;
+
+  if (Math.abs(recurringMonthlyNet) < 1 && inputs.netIncomes.length > 0) {
+    const n = inputs.netIncomes.length;
+    const avgNet = inputs.netIncomes.reduce((a, b) => a + b, 0) / n;
+    recurringMonthlyNet = avgNet * (2 - params.expenseMultiplier);
+  }
+
+  const asOf = inputs.asOf;
+  const ar0_30 = bucketDueAmount(inputs.openInvoices, asOf, -9999, 30);
+  const ar31_60 = bucketDueAmount(inputs.openInvoices, asOf, 30, 60);
+  const ar61_90 = bucketDueAmount(inputs.openInvoices, asOf, 60, 90);
+
+  const ap0_30 = bucketDueAmount(inputs.openBills, asOf, -9999, 30);
+  const ap31_60 = bucketDueAmount(inputs.openBills, asOf, 30, 60);
+  const ap61_90 = bucketDueAmount(inputs.openBills, asOf, 60, 90);
+
+  const netArApMonth1 = ar0_30 * params.collectionRate - ap0_30;
+  const netArApMonth2 = ar31_60 * params.collectionRate - ap31_60;
+  const netArApMonth3 = ar61_90 * params.collectionRate - ap61_90;
+
+  const day30 = inputs.bankBalance + recurringMonthlyNet + netArApMonth1;
+  const day60 = day30 + recurringMonthlyNet + netArApMonth2;
+  const day90 = day60 + recurringMonthlyNet + netArApMonth3;
+
+  return {
+    day30,
+    day60: horizonDays >= 60 ? day60 : day30,
+    day90: horizonDays >= 90 ? day90 : horizonDays >= 60 ? day60 : day30,
+  };
 }
 
 /**
- * PrimeCFO technical spec: 30d = bank + weighted inflows − bills due − recurring estimate;
- * 60/90 extend with P&L trailing growth on revenue minus average expenses; Act tier with a parsed
- * Cash Flow statement uses average monthly net operating cash plus incremental revenue vs prior month.
+ * Cash forecast: month-by-month recurring net from trailing P&L, AR/AP bucketed by due window.
  */
 export function computeCashForecast(
   inputs: ForecastInputs,
   caps: TierCapabilities
 ): CashFlowForecastResult {
-  const g = inputs.monthlyGrowthRate;
-  const collectionRate = DEFAULT_COLLECTION_RATE;
+  const horizon = caps.forecastDays;
 
-  const expectedInflowsWeighted = inputs.openInvoices.reduce(
-    (s, inv) => s + parseEntityBalance(inv) * collectionRate,
+  const expected = projectBalance(inputs, SCENARIO_EXPECTED, horizon);
+  const optimistic = projectBalance(inputs, SCENARIO_OPTIMISTIC, horizon);
+  const conservative = projectBalance(inputs, SCENARIO_CONSERVATIVE, horizon);
+
+  const weightedInflowsExpected = inputs.openInvoices.reduce(
+    (s, inv) => s + parseEntityBalance(inv) * SCENARIO_EXPECTED.collectionRate,
     0
   );
-  const expectedOutflowsBills = inputs.openBills.reduce((s, b) => s + parseEntityBalance(b), 0);
-  /** Recurring operating outflows approximated by trailing average monthly expense (spec: historical patterns). */
-  const estimatedRecurringMonthly = Math.max(0, inputs.avgMonthlyExpense);
+  const outflowsBills = inputs.openBills.reduce((s, b) => s + parseEntityBalance(b), 0);
+  const recurringMonthlyNet = inputs.avgMonthlyRevenue - inputs.avgMonthlyExpense;
 
   let balanceSheetCash: number | null = null;
   let bankVsStatementDelta: number | null = null;
@@ -42,72 +113,43 @@ export function computeCashForecast(
     }
   }
 
-  const cash30 =
-    inputs.bankBalance +
-    expectedInflowsWeighted -
-    expectedOutflowsBills -
-    estimatedRecurringMonthly;
-
-  const lastRev = lastOrAvg(inputs.revenues, inputs.avgMonthlyRevenue);
-  const avgExp = inputs.avgMonthlyExpense;
-  const useActOperatingCash =
-    caps.includeBalanceSheetCf && inputs.avgMonthlyOperatingCashNet != null;
-  const oc = inputs.avgMonthlyOperatingCashNet ?? 0;
-  const projRev2 = lastRev * (1 + g);
-
   const series: ForecastDayPoint[] = [{ dayOffset: 0, expected: inputs.bankBalance }];
 
-  const pushPoint = (offset: number, expected: number, og?: number, con?: number) => {
+  const push = (offset: 30 | 60 | 90, exp: number, opt: number, con: number) => {
     series.push({
       dayOffset: offset,
-      expected,
-      ...(og != null ? { optimistic: og } : {}),
-      ...(con != null ? { conservative: con } : {}),
+      expected: exp,
+      optimistic: caps.scenarios ? opt : undefined,
+      conservative: caps.scenarios ? con : undefined,
     });
   };
 
-  pushPoint(30, cash30);
-
-  let ending = cash30;
-  const horizon = caps.forecastDays;
-
+  push(30, expected.day30, optimistic.day30, conservative.day30);
   if (horizon >= 60) {
-    const end60 = useActOperatingCash
-      ? cash30 + oc + (projRev2 - lastRev)
-      : cash30 + projRev2 - avgExp;
-    pushPoint(60, end60);
-    ending = end60;
+    push(60, expected.day60, optimistic.day60, conservative.day60);
+  }
+  if (horizon >= 90) {
+    push(90, expected.day90, optimistic.day90, conservative.day90);
   }
 
-  if (horizon >= 90) {
-    const rev3 = inputs.avgMonthlyRevenue * (1 + g);
-    const rev3Opt = inputs.avgMonthlyRevenue * (1 + g * 1.5);
-    const rev3Con = inputs.avgMonthlyRevenue * (1 + g * 0.5);
-    const end90 = ending + (useActOperatingCash ? oc + (rev3 - projRev2) : rev3 - avgExp);
-    const end90Opt =
-      ending + (useActOperatingCash ? oc + (rev3Opt - projRev2) : rev3Opt - avgExp);
-    const end90Con =
-      ending + (useActOperatingCash ? oc + (rev3Con - projRev2) : rev3Con - avgExp);
-    pushPoint(90, end90, end90Opt, end90Con);
-    ending = end90;
-  }
+  const last = series[series.length - 1];
 
   return {
     asOf: inputs.asOf,
     tier: caps.tier,
     bankBalance: inputs.bankBalance,
     components: {
-      expectedInflowsWeighted,
-      expectedOutflowsBills,
-      estimatedRecurringMonthly,
-      collectionRate,
+      expectedInflowsWeighted: weightedInflowsExpected,
+      expectedOutflowsBills: outflowsBills,
+      estimatedRecurringMonthly: recurringMonthlyNet,
+      collectionRate: SCENARIO_EXPECTED.collectionRate,
       arApWindowDays: inputs.arApWindowDays,
       balanceSheetCash,
       bankVsStatementDelta,
       avgMonthlyOperatingCashNet: inputs.avgMonthlyOperatingCashNet,
     },
     horizonDays: horizon,
-    endingCashExpected: series[series.length - 1]?.expected ?? cash30,
+    endingCashExpected: last?.expected ?? expected.day30,
     series,
   };
 }

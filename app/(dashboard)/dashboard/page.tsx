@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useClientContext } from "@/contexts/ClientContext";
+import { useReportRange } from "@/contexts/ReportRangeContext";
 import DashboardView from "@/app/components/primecfo/DashboardView";
 import ForecastPanel from "@/app/components/primecfo/ForecastPanel";
 import { getDashboardData, getInsights, syncReports, getForecast, syncCheckoutSession, BILLING_UPDATED_EVENT, SyncError, type DashboardDataResponse, type ReportRange } from "@/lib/api/client";
@@ -180,7 +181,7 @@ export default function DashboardPage() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { selectedClient } = useClientContext();
-  const [range, setRange] = useState<ReportRange>("3m");
+  const { range, setRange } = useReportRange();
   const [syncWarningDismissed, setSyncWarningDismissed] = useState(false);
 
   useEffect(() => {

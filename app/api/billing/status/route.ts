@@ -3,6 +3,7 @@ import { createClient as createSupabaseServerClient } from '@/lib/supabase/serve
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import { PLANS } from '@/app/lib/pricing-plans';
 import { planIdToTier, type ProductTier } from '@/lib/tiers';
+import { getPlanEntitlements, type PlanEntitlements } from '@/lib/billing/entitlements';
 
 const TIER_WORDMARK: Record<ProductTier, string> = {
   see: 'SEE',
@@ -62,11 +63,15 @@ export async function GET() {
     ['active', 'trialing', 'past_due'].includes(String(data.status ?? ''));
 
   const currentPlan = isActive ? currentPlanFromRow(data.plan_id as string | null) : null;
+  const entitlements: PlanEntitlements | null = isActive && data.plan_id
+    ? getPlanEntitlements(data.plan_id as string)
+    : null;
 
   return NextResponse.json({
     hasSubscription: !!data,
     isActive,
     subscription: data ?? null,
     currentPlan,
+    entitlements,
   });
 }

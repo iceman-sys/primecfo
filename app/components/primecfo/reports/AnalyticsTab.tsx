@@ -11,6 +11,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { useClientContext } from "@/contexts/ClientContext";
+import { useReportRange } from "@/contexts/ReportRangeContext";
 import { getAnalytics } from "@/lib/api/client";
 
 const formatCurrency = (n: number) =>
@@ -22,11 +23,12 @@ const formatRatio = (n: number | null) => (n == null ? "N/A" : n.toFixed(2));
 
 export default function AnalyticsTab() {
   const { selectedClient } = useClientContext();
+  const { range } = useReportRange();
   const clientId = selectedClient?.id;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["analytics", clientId, "3m"],
-    queryFn: () => getAnalytics(clientId!, "3m"),
+    queryKey: ["analytics", clientId, range],
+    queryFn: () => getAnalytics(clientId!, range),
     enabled: !!clientId,
   });
 
@@ -173,7 +175,7 @@ export default function AnalyticsTab() {
         <h3 className="text-lg font-semibold text-white mb-4">Financial Reports</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link
-            href="/reports?tab=reports&report=pnl"
+            href={`/reports?tab=reports&report=pnl&range=${range}`}
             className="p-4 border border-slate-600 rounded-xl hover:border-teal-500/40 hover:bg-slate-700/30 hover:-translate-y-0.5 text-left transition-all cursor-pointer"
           >
             <FileSpreadsheet className="w-6 h-6 text-blue-400 mb-2" />
@@ -181,7 +183,7 @@ export default function AnalyticsTab() {
             <p className="text-sm text-slate-500">Income statement for the period</p>
           </Link>
           <Link
-            href="/reports?tab=reports&report=balance_sheet"
+            href={`/reports?tab=reports&report=balance_sheet&range=${range}`}
             className="p-4 border border-slate-600 rounded-xl hover:border-teal-500/40 hover:bg-slate-700/30 hover:-translate-y-0.5 text-left transition-all cursor-pointer"
           >
             <BarChart3 className="w-6 h-6 text-emerald-400 mb-2" />
@@ -189,7 +191,7 @@ export default function AnalyticsTab() {
             <p className="text-sm text-slate-500">Financial position snapshot</p>
           </Link>
           <Link
-            href="/reports?tab=reports&report=cash_flow"
+            href={`/reports?tab=reports&report=cash_flow&range=${range}`}
             className="p-4 border border-slate-600 rounded-xl hover:border-teal-500/40 hover:bg-slate-700/30 hover:-translate-y-0.5 text-left transition-all cursor-pointer"
           >
             <TrendingUp className="w-6 h-6 text-violet-400 mb-2" />

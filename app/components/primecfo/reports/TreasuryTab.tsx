@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Wallet, ArrowRightLeft, Calendar, TrendingUp, Loader2, AlertTriangle } from "lucide-react";
 import { useClientContext } from "@/contexts/ClientContext";
+import { useReportRange } from "@/contexts/ReportRangeContext";
 import { getTreasury } from "@/lib/api/client";
 
 const formatCurrency = (n: number) =>
@@ -11,11 +12,12 @@ const formatCurrency = (n: number) =>
 
 export default function TreasuryTab() {
   const { selectedClient } = useClientContext();
+  const { range } = useReportRange();
   const clientId = selectedClient?.id;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["treasury", clientId],
-    queryFn: () => getTreasury(clientId!),
+    queryKey: ["treasury", clientId, range],
+    queryFn: () => getTreasury(clientId!, range),
     enabled: !!clientId,
   });
 

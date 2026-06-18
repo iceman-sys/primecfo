@@ -105,10 +105,8 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
           </div>
           {horizonDays > 30 ? (
             <p className="text-[11px] text-slate-600 mt-2 leading-snug">
-              Day 30 reflects the same near-term model (collections weighting and one month of trailing
-              expense). Longer horizons add monthly steps from your trailing P&amp;L
-              {capabilities.scenarios ? " (Act tier may blend in statement operating cash)" : ""}. Open
-              AR/AP uses your full {arApDays}-day tier window.
+              Each 30-day step adds trailing monthly net (revenue − expenses) plus AR/AP due in that
+              window. Day {horizonDays} shows the full {horizonDays}-day projection.
             </p>
           ) : null}
         </div>
@@ -125,10 +123,14 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
           <span className="text-slate-300">{formatFullCurrency(forecast.components.expectedOutflowsBills)}</span>
         </p>
         <p>
-          Recurring / operating estimate (trailing avg expense):{" "}
+          Recurring / operating estimate (trailing avg monthly net):{" "}
           <span className="text-slate-300">
             {formatFullCurrency(forecast.components.estimatedRecurringMonthly)}
           </span>
+        </p>
+        <p className="text-[11px] text-slate-600 leading-snug">
+          Month 1 adds weighted open AR/AP due in each 30-day window; months 2–3 add recurring net plus
+          AR/AP due in that window. Best / Expected / Worst vary collection rate and expense assumptions.
         </p>
         <p className="pt-1 text-slate-600">
           Trailing revenue {formatFullCurrency(summary.avgMonthlyRevenue)} · expense{" "}

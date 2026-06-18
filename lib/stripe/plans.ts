@@ -62,6 +62,27 @@ function productIdFor(planId: string): string {
   return `primecfo_${planId.replace(/-/g, '_')}`;
 }
 
+function productDisplayName(plan: Plan): string {
+  const names: Record<string, string> = {
+    'self-service': 'PrimeCFO — See',
+    starter: 'PrimeCFO — Understand',
+    growth: 'PrimeCFO — Act',
+  };
+  return names[plan.id] ?? `PrimeCFO.ai ${plan.name}`;
+}
+
+function productDescription(plan: Plan): string {
+  const descriptions: Record<string, string> = {
+    'self-service':
+      'Your numbers, finally clear. 5 key metrics, monthly AI summary, 30-day forecast.',
+    starter:
+      'AI insights. Human guidance. Weekly summaries, 60-day forecast, quarterly advisory.',
+    growth:
+      'A finance team in your corner. 90-day scenarios, custom alerts, monthly advisory.',
+  };
+  return descriptions[plan.id] ?? plan.headline;
+}
+
 async function findOrCreateProduct(plan: Plan): Promise<string> {
   const productId = productIdFor(plan.id);
   try {
@@ -83,10 +104,11 @@ async function findOrCreateProduct(plan: Plan): Promise<string> {
 
   const product = await stripe().products.create({
     id: productId,
-    name: `PrimeCFO.ai ${plan.name}`,
-    description: plan.target,
+    name: productDisplayName(plan),
+    description: productDescription(plan),
     metadata: {
       primecfo_plan_id: plan.id,
+      primecfo_tier: plan.tierWordmark,
     },
   });
   return product.id;

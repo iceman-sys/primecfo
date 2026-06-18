@@ -8,6 +8,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getClients, mapApiClientToClient, type Client } from "@/lib/api/client";
 import { AppProvider, useAppContext } from "@/contexts/AppContext";
 import { ClientProvider } from "@/contexts/ClientContext";
+import { ReportRangeProvider } from "@/contexts/ReportRangeContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import Navbar from "@/app/components/primecfo/Navbar";
 import Sidebar from "@/app/components/primecfo/Sidebar";
@@ -179,7 +180,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <QueryClientProvider client={queryClient}>
       <AppProvider>
-        <DashboardShell>{children}</DashboardShell>
+        <ReportRangeProvider>
+          <DashboardShell>{children}</DashboardShell>
+        </ReportRangeProvider>
       </AppProvider>
     </QueryClientProvider>
   );

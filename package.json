@@ -6,7 +6,8 @@
     "dev": "next dev --webpack -p 3000",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "stripe:provision": "node --env-file=.env.local scripts/stripe-provision.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

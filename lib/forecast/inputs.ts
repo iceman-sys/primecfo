@@ -6,7 +6,7 @@ import {
   type QboMoneyEntity,
 } from '@/lib/qbo/queryRunner';
 import { fetchProfitLossByMonth, fetchArAgingSummary } from '@/lib/qbo/forecastReports';
-import { monthlyGrowthRateFromSix, parseMonthlyPnLSeries } from '@/lib/reporting/parseMonthlyPnL';
+import { monthlyGrowthRateFromSix, parseMonthlyPnLSeries, trailingMonthlyAverages } from '@/lib/reporting/parseMonthlyPnL';
 import { parseArAgingBuckets } from '@/lib/reporting/parseArAging';
 import { fetchReportFromQuickBooks } from '@/lib/qbo/reports';
 import { averageMonthlyOperatingNetCash } from '@/lib/forecast/parseCashFlowForForecast';
@@ -59,21 +59,29 @@ export async function loadForecastInputs(
   startAnchor.setDate(1);
   const startStr = ymd(startAnchor);
 
-  const [bankBalance, openInvoices, openBills, pnlResolved, arRaw] = await Promise.all([
+  const [bankBalance, openInvoices, openBills, pnlAccrual, pnlCash, arRaw] = await Promise.all([
     sumBankAccountBalances(clientId),
     fetchOpenInvoicesDueBy(clientId, horizonEnd),
     fetchOpenBillsDueBy(clientId, horizonEnd),
-    fetchProfitLossByMonth(clientId, startStr, asOf, 'Cash').catch(() =>
-      fetchProfitLossByMonth(clientId, startStr, asOf, 'Accrual')
-    ),
+    fetchProfitLossByMonth(clientId, startStr, asOf, 'Accrual').catch(() => null),
+    fetchProfitLossByMonth(clientId, startStr, asOf, 'Cash').catch(() => null),
     fetchArAgingSummary(clientId, asOf, 'Accrual').catch(() => null),
   ]);
 
+  const pnlResolved = pnlAccrual ?? pnlCash;
   const parsed = parseMonthlyPnLSeries(pnlResolved);
-  const growth = monthlyGrowthRateFromSix(parsed.revenues.slice(-6));
-  const n = parsed.revenues.length || 1;
-  const avgRev = parsed.revenues.reduce((a, b) => a + b, 0) / n;
-  const avgExp = parsed.expenses.reduce((a, b) => a + b, 0) / n;
+  const parsedFallback =
+    parsed.revenues.every((v) => v === 0) && parsed.expenses.every((v) => v === 0) && pnlCash
+      ? parseMonthlyPnLSeries(pnlCash)
+      : parsed;
+
+  const series =
+    parsedFallback.revenues.some((v) => v > 0) || parsedFallback.expenses.some((v) => v > 0)
+      ? parsedFallback
+      : parsed;
+
+  const growth = monthlyGrowthRateFromSix(series.revenues.slice(-6));
+  const { avgRevenue: avgRev, avgExpense: avgExp } = trailingMonthlyAverages(series);
 
   let balanceSheetSnapshot: unknown | null = null;
   let cashFlow12m: unknown | null = null;
@@ -97,10 +105,10 @@ export async function loadForecastInputs(
     openInvoices,
     openBills,
     arApWindowDays,
-    monthlyLabels: parsed.monthLabels,
-    revenues: parsed.revenues,
-    expenses: parsed.expenses,
-    netIncomes: parsed.netIncomes,
+    monthlyLabels: series.monthLabels,
+    revenues: series.revenues,
+    expenses: series.expenses,
+    netIncomes: series.netIncomes.length ? series.netIncomes : series.revenues.map((r, i) => r - (series.expenses[i] ?? 0)),
     monthlyGrowthRate: Number.isFinite(growth) ? growth : 0,
     avgMonthlyRevenue: avgRev,
     avgMonthlyExpense: avgExp,

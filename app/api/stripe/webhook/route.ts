@@ -9,10 +9,91 @@ import {
 } from '@/lib/stripe/repo';
 import { sendNewSubscriberAlert } from '@/lib/alerts/subscriberAlert';
 import { getPlanById } from '@/lib/stripe/plans';
+import {
+  resolveCustomerEmail,
+  sendPaymentFailedEmail,
+  sendTrialEndingEmail,
+} from '@/lib/billing/stripeEmail';
 
 // Stripe webhook route: MUST run on Node.js runtime (needs raw body + node crypto).
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+function subscriptionPriceDetails(sub: Stripe.Subscription): {
+  amountInCents: number;
+  currency: string;
+  interval: 'month' | 'year';
+} | null {
+  const item = sub.items?.data?.[0];
+  const price = item?.price;
+  if (!price || typeof price.unit_amount !== 'number' || !price.currency) return null;
+  const interval = price.recurring?.interval;
+  if (interval !== 'month' && interval !== 'year') return null;
+  return { amountInCents: price.unit_amount, currency: price.currency, interval };
+}
+
+async function handleTrialWillEnd(sub: Stripe.Subscription): Promise<void> {
+  await upsertSubscription(sub);
+
+  if (!sub.trial_end) return;
+
+  const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+  const customerEmail = await resolveCustomerEmail(stripe(), customerId);
+  if (!customerEmail) return;
+
+  const planId =
+    (typeof sub.metadata?.plan_id === 'string' && sub.metadata.plan_id) || null;
+  const planName = planId ? getPlanById(planId)?.name ?? planId : 'PrimeCFO.ai';
+  const priceDetails = subscriptionPriceDetails(sub);
+  if (!priceDetails) return;
+
+  await sendTrialEndingEmail({
+    customerEmail,
+    planName,
+    trialEndUnix: sub.trial_end,
+    amountInCents: priceDetails.amountInCents,
+    currency: priceDetails.currency,
+    interval: priceDetails.interval,
+  });
+}
+
+async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
+  const subscriptionId =
+    typeof invoice.parent?.subscription_details?.subscription === 'string'
+      ? invoice.parent.subscription_details.subscription
+      : typeof (invoice as Stripe.Invoice & { subscription?: string | null }).subscription === 'string'
+        ? (invoice as Stripe.Invoice & { subscription: string }).subscription
+        : null;
+  if (!subscriptionId) return;
+
+  const sub = await stripe().subscriptions.retrieve(subscriptionId, {
+    expand: ['items.data.price'],
+  });
+  await upsertSubscription(sub);
+
+  const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
+  const customerEmail =
+    invoice.customer_email ?? (await resolveCustomerEmail(stripe(), customerId));
+  if (!customerEmail) return;
+
+  const planId =
+    (typeof sub.metadata?.plan_id === 'string' && sub.metadata.plan_id) || null;
+  const planName = planId ? getPlanById(planId)?.name ?? planId : 'PrimeCFO.ai';
+  const amountInCents =
+    typeof invoice.amount_due === 'number'
+      ? invoice.amount_due
+      : subscriptionPriceDetails(sub)?.amountInCents ?? 0;
+  const currency = invoice.currency ?? subscriptionPriceDetails(sub)?.currency ?? 'usd';
+
+  if (amountInCents > 0) {
+    await sendPaymentFailedEmail({
+      customerEmail,
+      planName,
+      amountInCents,
+      currency,
+    });
+  }
+}
 
 async function handleEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
@@ -29,9 +110,6 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
       });
       await upsertSubscription(sub);
 
-      // Notify the operator about a brand-new subscriber. Idempotency is already
-      // guaranteed by the outer markEventProcessed gate, so this only fires once
-      // per Stripe event id even if Stripe retries.
       const planId =
         (typeof session.metadata?.plan_id === 'string' && session.metadata.plan_id) ||
         (typeof sub.metadata?.plan_id === 'string' && sub.metadata.plan_id) ||
@@ -52,20 +130,32 @@ async function handleEvent(event: Stripe.Event): Promise<void> {
 
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
-    case 'customer.subscription.deleted':
-    case 'customer.subscription.trial_will_end': {
+    case 'customer.subscription.deleted': {
       const sub = event.data.object as Stripe.Subscription;
       await upsertSubscription(sub);
       return;
     }
 
+    case 'customer.subscription.trial_will_end': {
+      const sub = event.data.object as Stripe.Subscription;
+      await handleTrialWillEnd(sub);
+      return;
+    }
+
     case 'invoice.paid':
     case 'invoice.payment_failed': {
-      const invoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription };
+      const invoice = event.data.object as Stripe.Invoice;
+      if (event.type === 'invoice.payment_failed') {
+        await handlePaymentFailed(invoice);
+        return;
+      }
       const subscriptionId =
-        typeof invoice.subscription === 'string'
-          ? invoice.subscription
-          : invoice.subscription?.id;
+        typeof invoice.parent?.subscription_details?.subscription === 'string'
+          ? invoice.parent.subscription_details.subscription
+          : typeof (invoice as Stripe.Invoice & { subscription?: string | null }).subscription ===
+              'string'
+            ? (invoice as Stripe.Invoice & { subscription: string }).subscription
+            : null;
       if (!subscriptionId) return;
       const sub = await stripe().subscriptions.retrieve(subscriptionId);
       await upsertSubscription(sub);
