@@ -9,6 +9,7 @@ import type { FinancialContext } from './getFinancialContext';
 import type { AIInsight, RiskPosture, InsightSeverity, Recommendation } from '@/lib/financialData';
 import { applyInsightSeverityRules } from '@/lib/ai/severityRules';
 import { applyTrendAwareInsightRules } from '@/lib/ai/trendAwareInsights';
+import { formatBalanceSheetForPrompt } from '@/lib/ai/balanceSheetContext';
 
 /* ───────────────────────────── Types ───────────────────────────── */
 
@@ -140,6 +141,17 @@ function buildPrompt(context: FinancialContext): string {
     );
   }
 
+  if (context.balanceSheetContext) {
+    lines.push(...formatBalanceSheetForPrompt(context.balanceSheetContext));
+    lines.push(
+      'Balance sheet leverage, debt service, and liquidity insights are computed separately — do NOT duplicate them. ' +
+        'Use debt-to-assets (not debt-to-equity) when equity is negative due to shareholder draws. ' +
+        'Do NOT label negative equity as insolvency when draws explain the deficit.'
+    );
+  } else {
+    lines.push('Balance Sheet: NOT AVAILABLE — do not invent leverage or liquidity metrics.');
+  }
+
   return lines.join('\n');
 }
 
@@ -245,6 +257,12 @@ limited — note what's missing and flag it.
 7. GROWTH CAPACITY — Capacity utilization, bottlenecks, scalability, investment
    readiness.
 
+Also consider BALANCE SHEET context when provided: leverage (debt-to-assets),
+debt service coverage, liquidity (quick vs current ratio), and equity structure.
+Negative equity from shareholder draws is a distribution pattern — not automatic
+insolvency. Profitable P&L with high leverage still warrants warning-level balance
+sheet insights even when cash flow is positive.
+
 After analyzing all seven domains, apply the FOUR DIAGNOSTIC QUESTIONS:
 - What's working?
 - What's fragile?
@@ -269,7 +287,7 @@ CRITICAL — Immediate Attention Required
 
 WARNING — Monitor Closely
   Triggers: Declining RECURRING revenue (not seasonal one-time dips), rising
-  expense ratios, thinning margins, growing receivables.
+  expense ratios, thinning margins, growing receivables, debt-to-assets > 1.5x.
   Do NOT flag total revenue declines as sustainability risks when recurring
   revenue is stable — label those as seasonal/info instead.
 

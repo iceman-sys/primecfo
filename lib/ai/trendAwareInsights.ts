@@ -4,6 +4,7 @@ import { evaluateCashRunway } from '@/lib/ai/cashRunwayInsight';
 import { evaluateRevenueTrend } from '@/lib/ai/recurringRevenue';
 import { applyInsightSeverityRules, type SeverityContext } from '@/lib/ai/severityRules';
 import { applyInsightDataValidation } from '@/lib/ai/insightValidation';
+import { applyBalanceSheetInsights } from '@/lib/ai/balanceSheetInsights';
 import { SEVERITY_ORDER } from '@/lib/ai/generateInsights';
 
 function isRunwayInsight(insight: Pick<AIInsight, 'title' | 'category' | 'metric'>): boolean {
@@ -149,5 +150,6 @@ export function applyTrendAwareInsightRules(
   });
 
   reconciled.sort((a, b) => (SEVERITY_ORDER[a.urgency] ?? 4) - (SEVERITY_ORDER[b.urgency] ?? 4));
-  return applyInsightDataValidation(reconciled, context);
+  const withBalanceSheet = applyBalanceSheetInsights(reconciled, context.balanceSheet);
+  return applyInsightDataValidation(withBalanceSheet, context);
 }

@@ -5,6 +5,7 @@
 
 import type { ReportRange } from '@/lib/qbo/reports';
 import { loadClientMetrics } from '@/lib/metrics/loadClientMetrics';
+import { computeAnalyticsKpis } from '@/lib/metrics/ratios';
 import { loadIntegratedReportRaw } from '@/lib/metrics/loadIntegratedReport';
 import { loadTrailingNetCashFlow } from '@/lib/metrics/cashFlowMetrics';
 import {
@@ -12,6 +13,16 @@ import {
   extractPriorColumnRevenueLineItems,
   mergeOwnerCompensation,
 } from '@/lib/ai/extractPnlExtras';
+import { extractBalanceSheetSnapshot } from '@/lib/ai/extractBalanceSheet';
+import {
+  buildBalanceSheetInsightInput,
+  type BalanceSheetContext,
+} from '@/lib/ai/balanceSheetContext';
+import type { BalanceSheetInsightInput } from '@/lib/ai/balanceSheetInsights';
+import {
+  extractInterestExpense,
+  extractFinancingPrincipalPayments,
+} from '@/lib/ai/extractReportExtras';
 import { pctChange, sumRevenueByKind } from '@/lib/ai/recurringRevenue';
 
 export type RevenueLineItem = { label: string; amount: number };
@@ -68,6 +79,8 @@ export type FinancialContext = {
     recurringRevenueChangePct: number | null;
     dataError: boolean;
   };
+  balanceSheet: BalanceSheetInsightInput | null;
+  balanceSheetContext: BalanceSheetContext | null;
 };
 
 const RANGE_LABELS: Record<ReportRange, string> = {
@@ -131,8 +144,10 @@ export async function getFinancialContext(
       ? summary.profit_margin_pct - previousSummary.profit_margin_pct
       : null;
 
-  const [integratedPnlRaw, trailingNetCashFlow] = await Promise.all([
+  const [integratedPnlRaw, integratedBsRaw, integratedCfRaw, trailingNetCashFlow] = await Promise.all([
     loadIntegratedReportRaw(clientId, range, 'pnl'),
+    loadIntegratedReportRaw(clientId, range, 'balance_sheet'),
+    loadIntegratedReportRaw(clientId, range, 'cash_flow'),
     loadTrailingNetCashFlow(clientId, range, 3),
   ]);
 
@@ -178,6 +193,41 @@ export async function getFinancialContext(
   const recurringPrev = sumRevenueByKind(previousRevenueLineItems, 'recurring');
   const recurringRevenueChangePct = pctChange(recurringPrev, recurringNow);
 
+  const bsSnapshot = integratedBsRaw ? extractBalanceSheetSnapshot(integratedBsRaw) : null;
+  if (bsSnapshot) {
+    const kpis = computeAnalyticsKpis(bundle.summary, trends, bundle.runway.runwayMonths, range);
+    if (bsSnapshot.currentRatio == null) bsSnapshot.currentRatio = kpis.currentRatio;
+    if (bsSnapshot.quickRatio == null) bsSnapshot.quickRatio = kpis.quickRatio;
+  }
+  const interestExpenseTotal = integratedPnlRaw ? extractInterestExpense(integratedPnlRaw) : null;
+  const financingPrincipalTotal = integratedCfRaw
+    ? extractFinancingPrincipalPayments(integratedCfRaw)
+    : null;
+
+  const periodMonths = range === '3m' ? 3 : range === '6m' ? 6 : 12;
+  const monthlyOperatingCash =
+    trailingNetCashFlow ??
+    (summary.net_income !== 0 ? summary.net_income / periodMonths : null);
+
+  const balanceSheet = buildBalanceSheetInsightInput(
+    range,
+    bsSnapshot,
+    interestExpenseTotal,
+    financingPrincipalTotal,
+    monthlyOperatingCash
+  );
+
+  const balanceSheetContext: BalanceSheetContext | null =
+    bsSnapshot && balanceSheet
+      ? {
+          snapshot: bsSnapshot,
+          periodMonths,
+          interestExpenseTotal,
+          financingPrincipalTotal,
+          monthlyOperatingCash,
+        }
+      : null;
+
   return {
     periodLabel: RANGE_LABELS[range],
     reportRange: range,
@@ -201,5 +251,7 @@ export async function getFinancialContext(
       recurringRevenueChangePct,
       dataError: summary.data_error ?? false,
     },
+    balanceSheet,
+    balanceSheetContext,
   };
 }
