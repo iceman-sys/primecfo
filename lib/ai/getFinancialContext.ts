@@ -18,6 +18,7 @@ import {
   buildBalanceSheetInsightInput,
   type BalanceSheetContext,
 } from '@/lib/ai/balanceSheetContext';
+import { computeDebtServiceCoverage } from '@/lib/ai/balanceSheetInsights';
 import type { BalanceSheetInsightInput } from '@/lib/ai/balanceSheetInsights';
 import {
   extractInterestExpense,
@@ -77,6 +78,9 @@ export type FinancialContext = {
     revenueLineItems: RevenueLineItem[];
     previousRevenueLineItems: RevenueLineItem[];
     recurringRevenueChangePct: number | null;
+    debtToEbitda: number | null;
+    debtServiceCoverage: number | null;
+    incrementalMarginPct: number | null;
     dataError: boolean;
   };
   balanceSheet: BalanceSheetInsightInput | null;
@@ -209,13 +213,26 @@ export async function getFinancialContext(
     trailingNetCashFlow ??
     (summary.net_income !== 0 ? summary.net_income / periodMonths : null);
 
+  const periodEbitda =
+    summary.net_income + (interestExpenseTotal ?? 0) + (extras?.taxExpense ?? 0);
+  const annualizedEbitda =
+    periodEbitda > 0 ? (periodEbitda / periodMonths) * 12 : null;
+
   const balanceSheet = buildBalanceSheetInsightInput(
     range,
     bsSnapshot,
     interestExpenseTotal,
     financingPrincipalTotal,
-    monthlyOperatingCash
+    monthlyOperatingCash,
+    annualizedEbitda
   );
+
+  const debtServiceCoverage = balanceSheet ? computeDebtServiceCoverage(balanceSheet) : null;
+
+  const deltaRev = previousSummary ? summary.revenue - previousSummary.revenue : 0;
+  const deltaNi = previousSummary ? summary.net_income - previousSummary.net_income : 0;
+  const incrementalMarginPct =
+    previousSummary && Math.abs(deltaRev) >= 1 ? (deltaNi / deltaRev) * 100 : null;
 
   const balanceSheetContext: BalanceSheetContext | null =
     bsSnapshot && balanceSheet
@@ -225,6 +242,8 @@ export async function getFinancialContext(
           interestExpenseTotal,
           financingPrincipalTotal,
           monthlyOperatingCash,
+          annualizedEbitda,
+          debtToEbitda: balanceSheet.debtToEbitda,
         }
       : null;
 
@@ -249,6 +268,9 @@ export async function getFinancialContext(
       revenueLineItems,
       previousRevenueLineItems,
       recurringRevenueChangePct,
+      debtToEbitda: balanceSheet?.debtToEbitda ?? null,
+      debtServiceCoverage,
+      incrementalMarginPct,
       dataError: summary.data_error ?? false,
     },
     balanceSheet,

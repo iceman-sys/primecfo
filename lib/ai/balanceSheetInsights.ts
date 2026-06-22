@@ -8,6 +8,8 @@ export type BalanceSheetInsightInput = {
   interestExpenseTotal: number | null;
   financingPrincipalTotal: number | null;
   monthlyOperatingCash: number | null;
+  annualizedEbitda: number | null;
+  debtToEbitda: number | null;
 };
 
 export type BalanceSheetEvaluation = {
@@ -37,101 +39,136 @@ function isDrawDrivenNegativeEquity(bs: BalanceSheetSnapshot): boolean {
   );
 }
 
-/** Insight 4: Negative equity with shareholder-draw context — not naive insolvency alarm. */
+/** Insight 4: Retained earnings — performance measure independent of draw pattern. */
 export function evaluateEquityStructure(input: BalanceSheetInsightInput): BalanceSheetEvaluation | null {
   const { balanceSheet: bs } = input;
-  if (bs.totalEquity == null) return null;
+  const retained = bs.retainedEarnings;
+  if (retained == null && bs.totalEquity == null) return null;
+
+  const headline = retained != null ? retained : bs.totalEquity!;
+  const metricLabel = retained != null ? 'Retained Earnings' : 'Total Equity';
 
   if (isDrawDrivenNegativeEquity(bs)) {
     return {
       severity: 'info',
       category: 'Equity Structure',
-      title: 'Negative Equity — Distribution Pattern',
-      metric: 'Total Equity',
-      metricValue: fmtMoney(bs.totalEquity),
+      title: 'Retained Earnings Reflect Operating Performance',
+      metric: metricLabel,
+      metricValue: fmtMoney(headline),
       message:
-        `Reported equity is ${fmtMoney(bs.totalEquity)}, but accumulated shareholder draws ` +
-        `(${fmtMoney(bs.shareholderDraws!)}) exceed the equity deficit. This reflects how the owner ` +
-        `takes compensation (distributions vs. W-2 salary), not necessarily insolvency. ` +
-        `Evaluate leverage via debt-to-assets and debt service coverage instead of raw negative equity.`,
+        `Retained earnings are ${fmtMoney(retained ?? headline)} — this reflects cumulative business performance. ` +
+        `Total equity (${fmtMoney(bs.totalEquity!)}) is negative because accumulated shareholder draws ` +
+        `(${fmtMoney(bs.shareholderDraws!)}) exceed contributed capital — a compensation/distribution choice, ` +
+        `not an operating loss. Evaluate solvency via debt-to-EBITDA and debt service coverage.`,
     };
   }
 
-  if (bs.totalEquity < 0) {
+  if (retained != null && retained < 0) {
     return {
-      severity: 'watch',
+      severity: 'info',
       category: 'Equity Structure',
-      title: 'Negative Book Equity',
-      metric: 'Total Equity',
-      metricValue: fmtMoney(bs.totalEquity),
+      title: 'Negative Retained Earnings',
+      metric: 'Retained Earnings',
+      metricValue: fmtMoney(retained),
       message:
-        `Total equity is ${fmtMoney(bs.totalEquity)}. Review whether this stems from accumulated distributions ` +
-        `or genuine losses — debt-to-assets and operating cash flow provide the clearer solvency picture.`,
+        `Retained earnings are ${fmtMoney(retained)} — cumulative operating results are in deficit. ` +
+        `Review profitability trends alongside leverage and cash flow.`,
+    };
+  }
+
+  if (retained != null && retained >= 0) {
+    return {
+      severity: 'positive',
+      category: 'Equity Structure',
+      title: 'Positive Retained Earnings',
+      metric: 'Retained Earnings',
+      metricValue: fmtMoney(retained),
+      message: `Retained earnings of ${fmtMoney(retained)} reflect cumulative profits retained in the business.`,
     };
   }
 
   return null;
 }
 
-/** Insight 1: Leverage / solvency — debt-to-assets, not debt-to-equity when equity is negative. */
+/** Insight 1: Leverage — Debt-to-EBITDA (lender standard; no loan schedule required). */
 export function evaluateLeverage(input: BalanceSheetInsightInput): BalanceSheetEvaluation | null {
-  const { balanceSheet: bs } = input;
-  if (bs.debtToAssets == null || bs.totalLiabilities == null || bs.totalAssets == null) return null;
+  const { balanceSheet: bs, debtToEbitda } = input;
+  if (debtToEbitda == null || bs.totalDebt == null) {
+    if (bs.debtToAssets == null || bs.totalLiabilities == null || bs.totalAssets == null) return null;
+    return evaluateLeverageDebtToAssets(input);
+  }
 
   const equityNote = isDrawDrivenNegativeEquity(bs)
-    ? ' Negative equity is primarily a distribution pattern, not a going-concern signal on its own.'
+    ? ' Negative book equity reflects owner draws, not operating distress.'
     : '';
   const ltd = bs.longTermDebt ?? 0;
   const cc = bs.creditCardBalances ?? 0;
 
-  if (bs.debtToAssets > 1.5) {
-    return {
-      severity: 'warning',
-      category: 'Leverage',
-      title: 'High Leverage Position',
-      metric: 'Debt-to-Assets',
-      metricValue: `${bs.debtToAssets.toFixed(2)}x`,
-      message:
-        `Total liabilities (${fmtMoney(bs.totalLiabilities)}) are ${bs.debtToAssets.toFixed(1)}x ` +
-        `total assets (${fmtMoney(bs.totalAssets)}). The business carries significant debt` +
-        (ltd > 0 || cc > 0
-          ? ` — primarily ${ltd > 0 ? `${fmtMoney(ltd)} in long-term loans` : ''}` +
-            `${ltd > 0 && cc > 0 ? ' and ' : ''}` +
-            `${cc > 0 ? `${fmtMoney(cc)} in revolving credit` : ''}.`
-          : '.') +
-        ` A deleveraging plan should be part of financial strategy.${equityNote}`,
-      recommendations: [
-        'Prioritize paydown of high-interest revolving credit card balances.',
-        'Evaluate refinancing options on higher-rate loans.',
-        'Build debt paydown into the cash flow plan given positive operating cash.',
-      ],
-    };
+  let severity: InsightSeverity;
+  let title: string;
+  if (debtToEbitda > 5.0) {
+    severity = 'warning';
+    title = 'High Leverage (Debt-to-EBITDA)';
+  } else if (debtToEbitda > 4.0) {
+    severity = 'watch';
+    title = 'Elevated Leverage (Debt-to-EBITDA)';
+  } else if (debtToEbitda > 2.0) {
+    severity = 'info';
+    title = 'Moderate Leverage (Debt-to-EBITDA)';
+  } else {
+    severity = 'positive';
+    title = 'Healthy Leverage (Debt-to-EBITDA)';
   }
 
-  if (bs.debtToAssets > 1.0) {
-    return {
-      severity: 'watch',
-      category: 'Leverage',
-      title: 'Elevated Leverage',
-      metric: 'Debt-to-Assets',
-      metricValue: `${bs.debtToAssets.toFixed(2)}x`,
-      message:
-        `Liabilities exceed assets at ${bs.debtToAssets.toFixed(2)}x debt-to-assets. ` +
-        `Monitor debt service coverage and liquidity as revenue seasons.${equityNote}`,
-    };
-  }
+  const debtDetail =
+    ltd > 0 || cc > 0
+      ? ` Total debt of ${fmtMoney(bs.totalDebt)}` +
+        (ltd > 0 ? ` includes ${fmtMoney(ltd)} long-term loans` : '') +
+        (cc > 0 ? `${ltd > 0 ? ' and' : ' includes'} ${fmtMoney(cc)} revolving credit` : '') +
+        '.'
+      : '';
 
   return {
-    severity: 'positive',
+    severity,
     category: 'Leverage',
-    title: 'Balanced Leverage',
-    metric: 'Debt-to-Assets',
-    metricValue: `${bs.debtToAssets.toFixed(2)}x`,
-    message: `Debt-to-assets is ${bs.debtToAssets.toFixed(2)}x — liabilities are proportionate to the asset base.`,
+    title,
+    metric: 'Debt-to-EBITDA',
+    metricValue: `${debtToEbitda.toFixed(2)}x`,
+    message:
+      `Debt-to-EBITDA is ${debtToEbitda.toFixed(2)}x` +
+      (debtDetail ? ` —${debtDetail}` : '.') +
+      (debtToEbitda > 4.0
+        ? ' A deleveraging plan should be part of financial strategy.'
+        : debtToEbitda <= 2.0
+          ? ' Leverage is within a healthy range for most lenders.'
+          : '') +
+      equityNote,
+    recommendations:
+      debtToEbitda > 4.0
+        ? [
+            'Prioritize paydown of high-interest revolving credit card balances.',
+            'Evaluate refinancing options on higher-rate loans.',
+            'Build debt paydown into the cash flow plan given positive operating cash.',
+          ]
+        : undefined,
   };
 }
 
-/** Insight 2: Debt service coverage — operating cash vs principal + interest. */
+function evaluateLeverageDebtToAssets(input: BalanceSheetInsightInput): BalanceSheetEvaluation | null {
+  const { balanceSheet: bs } = input;
+  if (bs.debtToAssets == null) return null;
+  const severity: InsightSeverity = bs.debtToAssets > 1.5 ? 'warning' : bs.debtToAssets > 1.0 ? 'watch' : 'positive';
+  return {
+    severity,
+    category: 'Leverage',
+    title: 'Leverage Position',
+    metric: 'Debt-to-Assets',
+    metricValue: `${bs.debtToAssets.toFixed(2)}x`,
+    message: `Debt-to-assets is ${bs.debtToAssets.toFixed(2)}x (EBITDA unavailable for debt-to-EBITDA).`,
+  };
+}
+
+/** Insight 2: Debt service — actual P&L interest + CF principal only (never guessed amortization). */
 export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceSheetEvaluation | null {
   const { periodMonths, interestExpenseTotal, financingPrincipalTotal, monthlyOperatingCash } = input;
 
@@ -139,25 +176,29 @@ export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceShe
 
   const months = Math.max(periodMonths, 1);
   const monthlyInterest = (interestExpenseTotal ?? 0) / months;
-  const monthlyPrincipal = (financingPrincipalTotal ?? 0) / months;
+  const monthlyPrincipal =
+    financingPrincipalTotal != null && financingPrincipalTotal > 0
+      ? financingPrincipalTotal / months
+      : 0;
+
+  if (monthlyInterest <= 0) return null;
+
+  const hasActualPrincipal = monthlyPrincipal > 0;
   const monthlyDebtService = monthlyInterest + monthlyPrincipal;
 
-  if (monthlyDebtService <= 0) {
-    if (monthlyInterest > 0) {
-      const coverage = monthlyOperatingCash / monthlyInterest;
-      return {
-        severity: coverage >= 1.25 ? 'positive' : 'watch',
-        category: 'Debt Service',
-        title: coverage >= 1.25 ? 'Adequate Interest Coverage' : 'Tight Interest Coverage',
-        metric: 'Interest Coverage',
-        metricValue: `${coverage.toFixed(2)}x`,
-        message:
-          `Operating cash flow (~${fmtMoney(monthlyOperatingCash)}/mo) covers interest expense ` +
-          `(~${fmtMoney(monthlyInterest)}/mo) at ${coverage.toFixed(2)}x. ` +
-          `Principal payment detail was not available in the Cash Flow Statement.`,
-      };
-    }
-    return null;
+  if (!hasActualPrincipal) {
+    const coverage = monthlyOperatingCash / monthlyInterest;
+    return {
+      severity: coverage >= 1.25 ? 'positive' : coverage >= 1.0 ? 'watch' : 'critical',
+      category: 'Debt Service',
+      title: coverage >= 1.25 ? 'Adequate Interest Coverage' : 'Tight Interest Coverage',
+      metric: 'Interest Coverage',
+      metricValue: `${coverage.toFixed(2)}x`,
+      message:
+        `Operating cash flow (~${fmtMoney(monthlyOperatingCash)}/mo) covers actual interest expense ` +
+        `(~${fmtMoney(monthlyInterest)}/mo) at ${coverage.toFixed(2)}x. ` +
+        `Principal payments were not itemized in the Cash Flow Statement — coverage uses actual interest only.`,
+    };
   }
 
   const coverage = monthlyOperatingCash / monthlyDebtService;
@@ -170,9 +211,9 @@ export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceShe
       metric: 'Debt Service Coverage',
       metricValue: `${coverage.toFixed(2)}x`,
       message:
-        `Operating cash flow (~${fmtMoney(monthlyOperatingCash)}/mo) does not fully cover ` +
-        `estimated debt service (~${fmtMoney(monthlyDebtService)}/mo including interest and principal). ` +
-        `This is a genuine cash-flow risk — review loan terms and payment timing.`,
+        `Operating cash flow (~${fmtMoney(monthlyOperatingCash)}/mo) does not cover actual debt service ` +
+        `(~${fmtMoney(monthlyDebtService)}/mo: ${fmtMoney(monthlyInterest)} interest + ` +
+        `${fmtMoney(monthlyPrincipal)} principal from Cash Flow Statement).`,
       recommendations: [
         'Map all loan payment due dates against cash collection cycles.',
         'Prioritize high-interest revolving balances for paydown.',
@@ -189,9 +230,9 @@ export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceShe
       metric: 'Debt Service Coverage',
       metricValue: `${coverage.toFixed(2)}x`,
       message:
-        `Operating cash flow covers debt service ${coverage.toFixed(2)}x ` +
-        `(~${fmtMoney(monthlyOperatingCash)}/mo vs ~${fmtMoney(monthlyDebtService)}/mo). ` +
-        `This is positive but leaves limited cushion. Monitor closely if revenue softens.`,
+        `Operating cash flow covers actual debt service ${coverage.toFixed(2)}x ` +
+        `(~${fmtMoney(monthlyOperatingCash)}/mo vs ~${fmtMoney(monthlyDebtService)}/mo from actual payments). ` +
+        `Positive but limited cushion — monitor if revenue softens.`,
     };
   }
 
@@ -202,8 +243,8 @@ export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceShe
     metric: 'Debt Service Coverage',
     metricValue: `${coverage.toFixed(2)}x`,
     message:
-      `Operating cash flow comfortably covers debt service at ${coverage.toFixed(2)}x ` +
-      `(~${fmtMoney(monthlyOperatingCash)}/mo vs ~${fmtMoney(monthlyDebtService)}/mo).`,
+      `Operating cash flow comfortably covers actual debt service at ${coverage.toFixed(2)}x ` +
+      `(~${fmtMoney(monthlyOperatingCash)}/mo vs ~${fmtMoney(monthlyDebtService)}/mo from P&L interest + CF principal).`,
   };
 }
 
@@ -282,6 +323,20 @@ function isBalanceSheetCategory(category: string): boolean {
     c.includes('equity structure') ||
     c.includes('balance sheet')
   );
+}
+
+export function computeDebtServiceCoverage(input: BalanceSheetInsightInput): number | null {
+  const { periodMonths, interestExpenseTotal, financingPrincipalTotal, monthlyOperatingCash } = input;
+  if (monthlyOperatingCash == null) return null;
+  const months = Math.max(periodMonths, 1);
+  const monthlyInterest = (interestExpenseTotal ?? 0) / months;
+  if (monthlyInterest <= 0) return null;
+  const monthlyPrincipal =
+    financingPrincipalTotal != null && financingPrincipalTotal > 0
+      ? financingPrincipalTotal / months
+      : 0;
+  const service = monthlyInterest + monthlyPrincipal;
+  return service > 0 ? monthlyOperatingCash / service : monthlyOperatingCash / monthlyInterest;
 }
 
 /** Build deterministic balance-sheet insights and merge with LLM output. */

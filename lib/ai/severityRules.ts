@@ -144,6 +144,10 @@ export function applyInsightSeverityRules(
   if (revPct != null && (category.includes('revenue') || metric.includes('revenue'))) {
     if (isRecurringRevenue && titleLower.includes('seasonal')) {
       severity = pickMoreSevere(severity, 'info');
+    } else if (revPct > 0 && !isRecurringRevenue) {
+      severity = getRevenueGrowthSeverity(revPct);
+    } else if (revPct > 0) {
+      severity = getRevenueGrowthSeverity(revPct);
     } else {
       severity = pickMoreSevere(severity, getRevenueGrowthSeverity(revPct));
     }
@@ -168,6 +172,14 @@ export function applyInsightSeverityRules(
   }
   if (isRecurringRevenue && titleLower.includes('seasonal') && (severity === 'critical' || severity === 'warning')) {
     severity = 'info';
+  }
+
+  const isRevenueGrowth =
+    (category.includes('revenue') || metric.includes('revenue') || titleLower.includes('revenue growth')) &&
+    !isRecurringRevenue;
+  const growthPct = context.revenueGrowthPct ?? parsePercent(insight.metricValue);
+  if (isRevenueGrowth && growthPct != null && growthPct > 0) {
+    severity = 'positive';
   }
 
   return severity;

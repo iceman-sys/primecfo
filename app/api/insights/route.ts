@@ -3,6 +3,7 @@ import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import { getFinancialContext } from '@/lib/ai/getFinancialContext';
 import { applyTrendAwareInsightRules } from '@/lib/ai/trendAwareInsights';
+import { computeRiskPosture } from '@/lib/ai/computeRiskPosture';
 import type { ReportRange } from '@/lib/qbo/reports';
 import type { AIInsight, Recommendation, RiskPosture } from '@/lib/financialData';
 
@@ -75,22 +76,25 @@ export async function GET(request: NextRequest) {
     ? applyTrendAwareInsightRules(storedInsights, context)
     : storedInsights;
 
-  // Fetch risk posture
-  const { data: rpData } = await sb
-    .from('ai_risk_posture')
-    .select('rating, summary, top_action')
-    .eq('client_id', clientId)
-    .eq('report_range', range)
-    .maybeSingle();
-
+  // Recompute risk posture from corrected signals (stored LLM posture may be stale/wrong)
   let riskPosture: RiskPosture | null = null;
-  if (rpData) {
-    const rp = rpData as RiskPostureRow;
-    riskPosture = {
-      rating: rp.rating as RiskPosture['rating'],
-      summary: rp.summary,
-      topAction: rp.top_action ?? '',
-    };
+  if (context) {
+    riskPosture = computeRiskPosture(context, insights);
+  } else {
+    const { data: rpData } = await sb
+      .from('ai_risk_posture')
+      .select('rating, summary, top_action')
+      .eq('client_id', clientId)
+      .eq('report_range', range)
+      .maybeSingle();
+    if (rpData) {
+      const rp = rpData as RiskPostureRow;
+      riskPosture = {
+        rating: rp.rating as RiskPosture['rating'],
+        summary: rp.summary,
+        topAction: rp.top_action ?? '',
+      };
+    }
   }
 
   return NextResponse.json({ insights, riskPosture });

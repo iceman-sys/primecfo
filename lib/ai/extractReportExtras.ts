@@ -27,20 +27,37 @@ function rowAmount(row: FlatMultiPeriodRow, colIdx: number): number {
   return parseVal(raw);
 }
 
-function sumMatchingRows(
-  rows: FlatMultiPeriodRow[],
-  colIdx: number,
-  patterns: string[],
-  exclude: string[] = []
-): number {
-  let sum = 0;
-  for (const row of rows) {
-    const norm = normalize(row.account);
-    if (exclude.some((e) => norm.includes(e))) continue;
-    if (!patterns.some((p) => norm.includes(p))) continue;
-    sum += Math.abs(rowAmount(row, colIdx));
-  }
-  return sum;
+const PRINCIPAL_PAYMENT_PATTERNS = [
+  'loan payment',
+  'principal payment',
+  'repayment of loan',
+  'debt repayment',
+  'payments on loan',
+  'payment of loan',
+  'repayment of debt',
+  'principal paid',
+];
+
+const FINANCING_EXCLUDE_PATTERNS = [
+  'shareholder',
+  'owner draw',
+  "owner's draw",
+  'distribution',
+  'dividend',
+  'contribution',
+  'capital contribution',
+  'proceeds from',
+  'new loan',
+  'loan proceeds',
+  'borrowing',
+];
+
+function isPrincipalPaymentRow(norm: string): boolean {
+  return PRINCIPAL_PAYMENT_PATTERNS.some((p) => norm.includes(p));
+}
+
+function isExcludedFinancingRow(norm: string): boolean {
+  return FINANCING_EXCLUDE_PATTERNS.some((p) => norm.includes(p));
 }
 
 export function extractInterestExpense(rawJson: unknown): number | null {
@@ -48,15 +65,24 @@ export function extractInterestExpense(rawJson: unknown): number | null {
   const { rows } = flattenReportRowsMulti(doc);
   if (rows.length === 0) return null;
   const colIdx = pickTotalColumnIndex(rows);
-  const total = sumMatchingRows(
-    rows,
-    colIdx,
-    ['interest expense', 'interest paid', 'finance charge', 'loan interest'],
-    ['income', 'revenue']
-  );
-  return total > 0 ? total : null;
+
+  let sum = 0;
+  for (const row of rows) {
+    const norm = normalize(row.account);
+    if (norm.includes('income') || norm.includes('revenue')) continue;
+    if (
+      norm.includes('interest expense') ||
+      norm.includes('interest paid') ||
+      norm.includes('finance charge') ||
+      norm.includes('loan interest')
+    ) {
+      sum += Math.abs(rowAmount(row, colIdx));
+    }
+  }
+  return sum > 0 ? sum : null;
 }
 
+/** Actual principal paid — financing section only, explicit loan payment rows (no draws/distributions). */
 export function extractFinancingPrincipalPayments(rawJson: unknown): number | null {
   const doc = rawJson as Record<string, unknown>;
   const { rows } = flattenReportRowsMulti(doc);
@@ -81,25 +107,10 @@ export function extractFinancingPrincipalPayments(rawJson: unknown): number | nu
       break;
     }
     if (!inFinancing) continue;
+    if (isExcludedFinancingRow(norm)) continue;
+    if (!isPrincipalPaymentRow(norm)) continue;
 
-    const amt = rowAmount(row, colIdx);
-    if (amt < 0) sum += Math.abs(amt);
-    if (
-      norm.includes('loan payment') ||
-      norm.includes('principal') ||
-      norm.includes('debt repayment') ||
-      norm.includes('repayment of')
-    ) {
-      sum += Math.abs(amt);
-    }
-  }
-
-  if (sum === 0) {
-    sum = sumMatchingRows(
-      rows,
-      colIdx,
-      ['loan payment', 'principal payment', 'repayment of loan', 'debt repayment', 'payments on loan']
-    );
+    sum += Math.abs(rowAmount(row, colIdx));
   }
 
   return sum > 0 ? sum : null;

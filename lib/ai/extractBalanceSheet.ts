@@ -12,6 +12,8 @@ export type BalanceSheetSnapshot = {
   longTermDebt: number | null;
   creditCardBalances: number | null;
   shareholderDraws: number | null;
+  retainedEarnings: number | null;
+  totalDebt: number | null;
   currentRatio: number | null;
   quickRatio: number | null;
   debtToAssets: number | null;
@@ -128,6 +130,14 @@ export function extractBalanceSheetSnapshot(rawJson: unknown): BalanceSheetSnaps
     ['shareholder draw', 'owner draw', "owner's draw", 'member draw', 'distribution']
   );
 
+  const retainedEarnings =
+    findTotalAmount(rows, colIdx, ['retained earnings']) ??
+    findTotalAmount(rows, colIdx, ['accumulated earnings']);
+
+  const ltd = longTermDebt ?? 0;
+  const cc = creditCardBalances ?? 0;
+  const totalDebt = ltd + cc > 0 ? ltd + cc : null;
+
   const currentRatio =
     currentAssets != null && currentLiabilities != null && currentLiabilities !== 0
       ? Math.round((currentAssets / Math.abs(currentLiabilities)) * 100) / 100
@@ -155,6 +165,8 @@ export function extractBalanceSheetSnapshot(rawJson: unknown): BalanceSheetSnaps
     longTermDebt: longTermDebt || null,
     creditCardBalances: creditCardBalances || null,
     shareholderDraws: shareholderDraws || null,
+    retainedEarnings,
+    totalDebt,
     currentRatio,
     quickRatio,
     debtToAssets,

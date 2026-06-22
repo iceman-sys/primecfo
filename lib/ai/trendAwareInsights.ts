@@ -4,6 +4,7 @@ import { evaluateCashRunway } from '@/lib/ai/cashRunwayInsight';
 import { evaluateRevenueTrend } from '@/lib/ai/recurringRevenue';
 import { applyInsightSeverityRules, type SeverityContext } from '@/lib/ai/severityRules';
 import { applyInsightDataValidation } from '@/lib/ai/insightValidation';
+import { evaluateIncrementalMargin } from '@/lib/ai/growthCapacityInsight';
 import { applyBalanceSheetInsights } from '@/lib/ai/balanceSheetInsights';
 import { SEVERITY_ORDER } from '@/lib/ai/generateInsights';
 
@@ -111,15 +112,89 @@ function buildRevenueTrendInsight(context: FinancialContext): AIInsight {
   );
 }
 
+function isMisleadingRevenueGrowthInsight(
+  insight: Pick<AIInsight, 'title' | 'category' | 'metric' | 'description'>,
+  context: FinancialContext
+): boolean {
+  const revPct = context.derived.revenueGrowthPct;
+  if (revPct == null || revPct <= 0) return false;
+
+  const hay = `${insight.title} ${insight.category} ${insight.metric ?? ''}`.toLowerCase();
+  if (!hay.includes('revenue')) return false;
+  if (hay.includes('recurring') || hay.includes('seasonal')) return false;
+
+  return (
+    hay.includes('growth') ||
+    hay.includes('increase') ||
+    hay.includes('realized') ||
+    (insight.metric ?? '').toLowerCase().includes('revenue growth')
+  );
+}
+
+function isGrowthCapacityLlmInsight(insight: Pick<AIInsight, 'category' | 'title'>): boolean {
+  const hay = `${insight.category} ${insight.title}`.toLowerCase();
+  return hay.includes('growth capacity') || hay.includes('capacity constraint');
+}
+
+function buildTotalRevenueGrowthInsight(context: FinancialContext): AIInsight | null {
+  const revPct = context.derived.revenueGrowthPct;
+  if (revPct == null || revPct <= 0) return null;
+
+  return toInsight(
+    {
+      title: 'Revenue Growth',
+      description: `Total revenue grew ${revPct.toFixed(1)}% period-over-period — a positive trend for the top line.`,
+      urgency: 'positive',
+      category: 'Revenue',
+      metric: 'Revenue Growth',
+      metricValue: `+${revPct.toFixed(1)}%`,
+    },
+    'rev-growth'
+  );
+}
+
+function buildGrowthCapacityInsight(context: FinancialContext): AIInsight | null {
+  if (!context.previousSummary) return null;
+
+  const evalResult = evaluateIncrementalMargin({
+    revenueCurrent: context.summary.revenue,
+    revenuePrevious: context.previousSummary.revenue,
+    netIncomeCurrent: context.summary.net_income,
+    netIncomePrevious: context.previousSummary.net_income,
+  });
+  if (!evalResult) return null;
+
+  return toInsight(
+    {
+      title: evalResult.title,
+      description: evalResult.message,
+      urgency: evalResult.severity,
+      category: 'Growth Capacity',
+      metric: 'Incremental Margin',
+      metricValue: evalResult.metricValue,
+    },
+    'growth'
+  );
+}
+
 /** Replace misleading threshold-based runway / revenue alerts with CFO-style judgments. */
 export function applyTrendAwareInsightRules(
   insights: AIInsight[],
   context: FinancialContext
 ): AIInsight[] {
-  const deterministic = [buildCashRunwayInsight(context), buildRevenueTrendInsight(context)];
+  const deterministic = [
+    buildCashRunwayInsight(context),
+    buildRevenueTrendInsight(context),
+    buildTotalRevenueGrowthInsight(context),
+    buildGrowthCapacityInsight(context),
+  ].filter((i): i is AIInsight => i != null);
 
   const filtered = insights.filter(
-    (i) => !isRunwayInsight(i) && !isTotalRevenueDeclineInsight(i, context)
+    (i) =>
+      !isRunwayInsight(i) &&
+      !isTotalRevenueDeclineInsight(i, context) &&
+      !isMisleadingRevenueGrowthInsight(i, context) &&
+      !isGrowthCapacityLlmInsight(i)
   );
 
   const severityContext: SeverityContext = {

@@ -44,6 +44,11 @@ function isGenericBoilerplateTax(insight: Pick<AIInsight, 'description'>): boole
   );
 }
 
+function isGrowthCapacityInsight(insight: Pick<AIInsight, 'category' | 'title'>): boolean {
+  const hay = `${insight.category} ${insight.title}`.toLowerCase();
+  return hay.includes('growth capacity') || hay.includes('capacity constraint') || hay.includes('capacity utilization');
+}
+
 export function shouldSuppressInsight(
   insight: AIInsight,
   context?: FinancialContext
@@ -62,6 +67,18 @@ export function shouldSuppressInsight(
     if (context?.derived.ownerCompensation == null) return true;
     if (isMissingMetric(insight.metricValue)) return true;
     if (describesMissingData(combined)) return true;
+  }
+
+  if (isGrowthCapacityInsight(insight)) {
+    if (isMissingMetric(insight.metricValue)) return true;
+    if (describesMissingData(combined)) return true;
+    if (
+      combined.toLowerCase().includes('capacity utilization') ||
+      combined.toLowerCase().includes('not directly provided') ||
+      combined.toLowerCase().includes('not available')
+    ) {
+      return true;
+    }
   }
 
   if (isMissingMetric(insight.metricValue) && ALARM_SEVERITIES.has(insight.urgency)) {

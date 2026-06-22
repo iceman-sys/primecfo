@@ -9,6 +9,7 @@ import type { FinancialContext } from './getFinancialContext';
 import type { AIInsight, RiskPosture, InsightSeverity, Recommendation } from '@/lib/financialData';
 import { applyInsightSeverityRules } from '@/lib/ai/severityRules';
 import { applyTrendAwareInsightRules } from '@/lib/ai/trendAwareInsights';
+import { computeRiskPosture } from '@/lib/ai/computeRiskPosture';
 import { formatBalanceSheetForPrompt } from '@/lib/ai/balanceSheetContext';
 
 /* ───────────────────────────── Types ───────────────────────────── */
@@ -384,17 +385,7 @@ export async function generateInsightsFromContext(context: FinancialContext): Pr
     return { insights: [], riskPosture: { rating: 'MODERATE', summary: 'Unable to parse AI response.', topAction: 'Retry insight generation.' } };
   }
 
-  // Parse risk posture
-  const rp = parsed.riskPosture;
-  const riskPosture: RiskPosture = {
-    rating: rp && typeof rp.rating === 'string' && isValidRating(rp.rating.toUpperCase())
-      ? rp.rating.toUpperCase() as RiskPosture['rating']
-      : 'MODERATE',
-    summary: rp && typeof rp.summary === 'string' && rp.summary.trim() ? rp.summary.trim() : 'Risk posture could not be determined from available data.',
-    topAction: rp && typeof rp.topAction === 'string' && rp.topAction.trim() ? rp.topAction.trim() : '',
-  };
-
-  // Parse insights
+  // Parse insights (risk posture computed from composite signals after reconciliation)
   const list = Array.isArray(parsed.insights) ? parsed.insights : [];
   const now = new Date().toISOString();
 
@@ -454,6 +445,8 @@ export async function generateInsightsFromContext(context: FinancialContext): Pr
   insights.sort((a, b) => (SEVERITY_ORDER[a.urgency] ?? 4) - (SEVERITY_ORDER[b.urgency] ?? 4));
 
   const trendAwareInsights = applyTrendAwareInsightRules(insights, context);
+
+  const riskPosture = computeRiskPosture(context, trendAwareInsights);
 
   return { insights: trendAwareInsights, riskPosture };
 }
