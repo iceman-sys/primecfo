@@ -9,6 +9,9 @@ export type CashRunwayEvaluation = {
   metricValue: string;
 };
 
+const BREAKEVEN_PCT = 0.02;
+const RUNWAY_HORIZON_CAP = 36;
+
 function formatMoney(n: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -18,15 +21,16 @@ function formatMoney(n: number): string {
 }
 
 /**
- * Runway is only alarm-worthy when net cash flow is negative.
+ * Runway is only meaningful when net burn is material relative to revenue.
  * Uses trailing net cash from the Cash Flow Statement (not gross burn).
  */
 export function evaluateCashRunway(input: {
   trailingNetCashFlow: number | null;
   cashBalance: number;
   grossRunwayMonths: number | null;
+  monthlyRevenue: number;
 }): CashRunwayEvaluation {
-  const { trailingNetCashFlow, cashBalance, grossRunwayMonths } = input;
+  const { trailingNetCashFlow, cashBalance, monthlyRevenue } = input;
 
   if (trailingNetCashFlow == null) {
     return {
@@ -40,13 +44,29 @@ export function evaluateCashRunway(input: {
     };
   }
 
-  if (trailingNetCashFlow >= 0) {
+  const breakevenThreshold =
+    monthlyRevenue > 0 ? monthlyRevenue * BREAKEVEN_PCT : Math.abs(trailingNetCashFlow) + 1;
+
+  if (trailingNetCashFlow >= breakevenThreshold) {
     return {
       severity: 'positive',
       title: 'Cash Flow Positive',
       message: `Operations are self-sustaining. Net cash flow is positive at ~${formatMoney(
         trailingNetCashFlow
-      )}/mo over the trailing period. Cash position is stable — runway countdown is not applicable for a cash-flow-positive business.`,
+      )}/mo. Cash position is stable.`,
+      showRunway: false,
+      runwayMonths: null,
+      metricValue: `${formatMoney(trailingNetCashFlow)}/mo`,
+    };
+  }
+
+  if (Math.abs(trailingNetCashFlow) < breakevenThreshold) {
+    return {
+      severity: 'info',
+      title: 'Operating Near Breakeven',
+      message: `The business is operating near breakeven — net cash flow is roughly flat (~${formatMoney(
+        trailingNetCashFlow
+      )}/mo relative to ~${formatMoney(monthlyRevenue)}/mo revenue). Cash position is stable. Runway is not a meaningful metric at this level of net cash flow.`,
       showRunway: false,
       runwayMonths: null,
       metricValue: `${formatMoney(trailingNetCashFlow)}/mo`,
@@ -55,6 +75,17 @@ export function evaluateCashRunway(input: {
 
   const netMonthlyBurn = Math.abs(trailingNetCashFlow);
   const runwayMonths = cashBalance > 0 ? cashBalance / netMonthlyBurn : 0;
+
+  if (runwayMonths > RUNWAY_HORIZON_CAP) {
+    return {
+      severity: 'info',
+      title: 'Cash Position Stable',
+      message: `Cash flow is modestly negative (~${formatMoney(netMonthlyBurn)}/mo) but cash reserves comfortably cover well beyond the planning horizon. No near-term liquidity concern.`,
+      showRunway: false,
+      runwayMonths: null,
+      metricValue: `${formatMoney(netMonthlyBurn)}/mo burn`,
+    };
+  }
 
   let severity: InsightSeverity;
   if (runwayMonths <= 3) severity = 'critical';

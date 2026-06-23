@@ -81,6 +81,13 @@ export function shouldSuppressInsight(
     }
   }
 
+  if (
+    combined.toLowerCase().includes('revenue overview') ||
+    (insight.title.toLowerCase().includes('revenue') && isMissingMetric(insight.metricValue))
+  ) {
+    if (describesMissingData(combined) || isMissingMetric(insight.metricValue)) return true;
+  }
+
   if (isMissingMetric(insight.metricValue) && ALARM_SEVERITIES.has(insight.urgency)) {
     return true;
   }
@@ -90,6 +97,10 @@ export function shouldSuppressInsight(
     describesMissingData(combined) &&
     category !== 'cash runway'
   ) {
+    return true;
+  }
+
+  if (insight.title.toLowerCase() === 'revenue overview' && isMissingMetric(insight.metricValue)) {
     return true;
   }
 

@@ -1,16 +1,46 @@
 import type { AIInsight, InsightSeverity } from '@/lib/financialData';
 import type { FinancialContext } from '@/lib/ai/getFinancialContext';
 import { evaluateCashRunway } from '@/lib/ai/cashRunwayInsight';
-import { evaluateRevenueTrend } from '@/lib/ai/recurringRevenue';
+import { evaluateRevenueInsight } from '@/lib/ai/recurringRevenue';
 import { applyInsightSeverityRules, type SeverityContext } from '@/lib/ai/severityRules';
 import { applyInsightDataValidation } from '@/lib/ai/insightValidation';
+import { dedupeInsights } from '@/lib/ai/dedupeInsights';
 import { evaluateIncrementalMargin } from '@/lib/ai/growthCapacityInsight';
 import { applyBalanceSheetInsights } from '@/lib/ai/balanceSheetInsights';
 import { SEVERITY_ORDER } from '@/lib/ai/generateInsights';
 
+function periodMonthsForRange(range: FinancialContext['reportRange']): number {
+  if (range === '3m') return 3;
+  if (range === '6m') return 6;
+  return 12;
+}
+
 function isRunwayInsight(insight: Pick<AIInsight, 'title' | 'category' | 'metric'>): boolean {
   const hay = `${insight.title} ${insight.category} ${insight.metric ?? ''}`.toLowerCase();
-  return hay.includes('runway') || hay.includes('cash runway');
+  return hay.includes('runway') || hay.includes('cash runway') || hay.includes('breakeven');
+}
+
+function isRevenueDeterministicTitle(title: string): boolean {
+  const t = title.toLowerCase();
+  return (
+    t.includes('recurring revenue') ||
+    t.includes('seasonal revenue') ||
+    t.includes('revenue composition') ||
+    t.includes('revenue concentration') ||
+    t.includes('revenue overview') ||
+    t === 'revenue growth' ||
+    t === 'revenue change'
+  );
+}
+
+function isDuplicateRevenueInsight(insight: Pick<AIInsight, 'title' | 'category' | 'metricValue' | 'description'>): boolean {
+  const hay = `${insight.category} ${insight.title}`.toLowerCase();
+  if (!hay.includes('revenue')) return false;
+  if (isRevenueDeterministicTitle(insight.title)) return true;
+  const mv = (insight.metricValue ?? '').trim().toLowerCase();
+  if (mv === 'n/a' || mv === 'na') return true;
+  if (insight.description.toLowerCase().includes('insufficient prior-period')) return true;
+  return false;
 }
 
 function isTotalRevenueDeclineInsight(
@@ -19,7 +49,9 @@ function isTotalRevenueDeclineInsight(
 ): boolean {
   const hay = `${insight.title} ${insight.category} ${insight.metric ?? ''}`.toLowerCase();
   if (!hay.includes('revenue')) return false;
-  if (hay.includes('recurring') || hay.includes('seasonal')) return false;
+  if (hay.includes('recurring') || hay.includes('seasonal') || hay.includes('composition') || hay.includes('concentration')) {
+    return false;
+  }
 
   const revPct = context.derived.revenueGrowthPct;
   if (revPct == null || revPct >= -5) return false;
@@ -48,7 +80,7 @@ function toInsight(
   idSuffix: string
 ): AIInsight {
   return {
-    id: `trend-aware-${idSuffix}-${Date.now()}`,
+    id: `trend-aware-${idSuffix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     title: partial.title,
     description: partial.description,
     urgency: partial.urgency,
@@ -68,10 +100,14 @@ function toInsight(
 }
 
 function buildCashRunwayInsight(context: FinancialContext): AIInsight {
+  const months = periodMonthsForRange(context.reportRange);
+  const monthlyRevenue = context.summary.revenue > 0 ? context.summary.revenue / months : 0;
+
   const evalResult = evaluateCashRunway({
     trailingNetCashFlow: context.derived.trailingNetCashFlow,
     cashBalance: context.summary.cash,
     grossRunwayMonths: context.derived.runwayMonths,
+    monthlyRevenue,
   });
 
   return toInsight(
@@ -91,13 +127,20 @@ function buildCashRunwayInsight(context: FinancialContext): AIInsight {
   );
 }
 
-function buildRevenueTrendInsight(context: FinancialContext): AIInsight {
-  const evalResult = evaluateRevenueTrend({
+function buildRevenueTrendInsight(context: FinancialContext): AIInsight | null {
+  const evalResult = evaluateRevenueInsight({
     currentItems: context.derived.revenueLineItems,
     previousItems: context.derived.previousRevenueLineItems,
     totalRevenueCurrent: context.summary.revenue,
     totalRevenuePrevious: context.previousSummary?.revenue ?? 0,
   });
+
+  if (!evalResult || evalResult.suppress) return null;
+
+  const metricLabel =
+    evalResult.title.includes('Composition') || evalResult.title.includes('Concentration')
+      ? 'Revenue Mix'
+      : 'Recurring Revenue Trend';
 
   return toInsight(
     {
@@ -105,7 +148,7 @@ function buildRevenueTrendInsight(context: FinancialContext): AIInsight {
       description: evalResult.message,
       urgency: evalResult.severity,
       category: 'Revenue',
-      metric: 'Recurring Revenue Trend',
+      metric: metricLabel,
       metricValue: evalResult.metricValue,
     },
     'revenue'
@@ -121,7 +164,7 @@ function isMisleadingRevenueGrowthInsight(
 
   const hay = `${insight.title} ${insight.category} ${insight.metric ?? ''}`.toLowerCase();
   if (!hay.includes('revenue')) return false;
-  if (hay.includes('recurring') || hay.includes('seasonal')) return false;
+  if (hay.includes('recurring') || hay.includes('seasonal') || hay.includes('composition')) return false;
 
   return (
     hay.includes('growth') ||
@@ -182,16 +225,20 @@ export function applyTrendAwareInsightRules(
   insights: AIInsight[],
   context: FinancialContext
 ): AIInsight[] {
+  const revenueInsight = buildRevenueTrendInsight(context);
+  const totalGrowthInsight = buildTotalRevenueGrowthInsight(context);
+
   const deterministic = [
     buildCashRunwayInsight(context),
-    buildRevenueTrendInsight(context),
-    buildTotalRevenueGrowthInsight(context),
+    revenueInsight,
+    totalGrowthInsight && revenueInsight?.title !== 'Revenue Growth' ? totalGrowthInsight : null,
     buildGrowthCapacityInsight(context),
   ].filter((i): i is AIInsight => i != null);
 
   const filtered = insights.filter(
     (i) =>
       !isRunwayInsight(i) &&
+      !isDuplicateRevenueInsight(i) &&
       !isTotalRevenueDeclineInsight(i, context) &&
       !isMisleadingRevenueGrowthInsight(i, context) &&
       !isGrowthCapacityLlmInsight(i)
@@ -207,7 +254,7 @@ export function applyTrendAwareInsightRules(
   };
 
   const reconciled = [...deterministic, ...filtered].map((insight) => {
-    if (insight.id.startsWith('trend-aware-')) return insight;
+    if (insight.id.startsWith('trend-aware-') || insight.id.startsWith('bs-insight-')) return insight;
     return {
       ...insight,
       urgency: applyInsightSeverityRules(
@@ -226,5 +273,6 @@ export function applyTrendAwareInsightRules(
 
   reconciled.sort((a, b) => (SEVERITY_ORDER[a.urgency] ?? 4) - (SEVERITY_ORDER[b.urgency] ?? 4));
   const withBalanceSheet = applyBalanceSheetInsights(reconciled, context.balanceSheet);
-  return applyInsightDataValidation(withBalanceSheet, context);
+  const validated = applyInsightDataValidation(withBalanceSheet, context);
+  return dedupeInsights(validated);
 }
