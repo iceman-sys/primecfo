@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 
 interface AdminAuthProps {
   children: React.ReactNode;
@@ -19,38 +18,30 @@ export default function AdminAuth({ children }: AdminAuthProps) {
   const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      if (error?.code === 'refresh_token_not_found') {
-        supabase.auth.signOut();
-      }
-      if (!session) {
-        const next =
-          typeof window !== 'undefined' ? encodeURIComponent(window.location.pathname) : '';
-        router.replace(next ? `/login?next=${next}` : '/login');
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const res = await fetch('/api/me', { cache: 'no-store' });
+    fetch('/api/me', { cache: 'no-store' })
+      .then(async (res) => {
         if (!res.ok) {
-          router.replace('/login?next=' + encodeURIComponent(window.location.pathname));
+          const next =
+            typeof window !== 'undefined' ? encodeURIComponent(window.location.pathname) : '';
+          router.replace(next ? `/login?next=${next}` : '/login');
+          setIsLoading(false);
           return;
         }
+
         const me = (await res.json()) as MeResponse;
         const isAdmin = !!(me.isAdmin ?? me.isOperator);
         if (!isAdmin) {
           router.replace('/dashboard');
+          setIsLoading(false);
           return;
         }
         setAllowed(true);
-      } catch {
-        router.replace('/dashboard');
-      } finally {
         setIsLoading(false);
-      }
-    });
+      })
+      .catch(() => {
+        router.replace('/dashboard');
+        setIsLoading(false);
+      });
   }, [router]);
 
   if (isLoading) {

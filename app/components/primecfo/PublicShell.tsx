@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import Navbar from "@/app/components/primecfo/Navbar";
 import Footer from "@/app/components/primecfo/Footer";
 
@@ -18,25 +17,24 @@ export default function PublicShell({ currentView = "", children }: PublicShellP
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(async ({ data: { session: s }, error }) => {
-      if (error?.code === "refresh_token_not_found") {
-        supabase.auth.signOut();
-      }
-      setSession(s);
-      if (s) {
-        try {
-          const res = await fetch("/api/me", { cache: "no-store" });
-          if (res.ok) {
-            const me = (await res.json()) as { isOperator?: boolean };
-            setIsOperator(!!me.isOperator);
-          }
-        } catch {
+    fetch("/api/me", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) {
+          setSession(null);
           setIsOperator(false);
+          setLoading(false);
+          return;
         }
-      }
-      setLoading(false);
-    });
+        const me = (await res.json()) as { email?: string | null; isOperator?: boolean };
+        setSession({ user: { email: me.email ?? undefined } });
+        setIsOperator(!!me.isOperator);
+        setLoading(false);
+      })
+      .catch(() => {
+        setSession(null);
+        setIsOperator(false);
+        setLoading(false);
+      });
   }, []);
 
   const handleNavigate = (view: string) => {
@@ -53,8 +51,7 @@ export default function PublicShell({ currentView = "", children }: PublicShellP
 
   const handleLogin = async () => {
     if (session) {
-      const supabase = createClient();
-      await supabase.auth.signOut();
+      await fetch('/api/auth/signout', { method: 'POST' });
       setSession(null);
       router.push("/");
     } else {

@@ -1,10 +1,11 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { getSupabasePublicConfig } from '@/lib/env';
+import { secureAuthCookieOptions } from '@/lib/supabase/cookieDefaults';
 
 /**
  * Supabase client for Server Components, Server Actions, and Route Handlers.
- * Uses cookies for session; middleware refreshes tokens on each request.
+ * Session cookies are HttpOnly — not readable via document.cookie.
  */
 export async function createClient() {
   const cookieStore = await cookies();
@@ -18,7 +19,7 @@ export async function createClient() {
       setAll(cookiesToSet) {
         try {
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
+            cookieStore.set(name, value, secureAuthCookieOptions(options))
           );
         } catch {
           // setAll from a Server Component: ignore when middleware is refreshing sessions

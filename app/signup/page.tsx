@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Lock, Mail } from 'lucide-react';
+import { MIN_PASSWORD_LENGTH } from '@/lib/auth/passwordPolicy';
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -23,32 +23,34 @@ export default function SignUpPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
       return;
     }
 
     setLoading(true);
     try {
-      const supabase = createClient();
-
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        needsEmailConfirmation?: boolean;
+      };
 
-      if (signUpError) {
-        setError(signUpError.message);
+      if (!res.ok) {
+        setError(data.error ?? 'Sign up failed');
         return;
       }
 
-      if (data.session) {
+      if (!data.needsEmailConfirmation) {
         router.push('/dashboard');
         router.refresh();
         return;
       }
 
-      // Fallback when Supabase still requires email confirmation (no session yet).
       router.push('/login?signup=success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -117,9 +119,9 @@ export default function SignUpPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={MIN_PASSWORD_LENGTH}
                   className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
-                  placeholder="At least 6 characters"
+                  placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
                 />
               </div>
             </div>
@@ -136,7 +138,7 @@ export default function SignUpPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={MIN_PASSWORD_LENGTH}
                   className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
                   placeholder="Repeat password"
                 />
@@ -157,6 +159,12 @@ export default function SignUpPage() {
               {loading ? 'Creating account…' : 'Create account'}
             </button>
           </form>
+
+          <p className="mt-4 text-xs text-white/45 text-center leading-relaxed">
+            Use a unique password of at least {MIN_PASSWORD_LENGTH} characters. We check against
+            known breach lists. Enable multi-factor authentication in your account settings when
+            available.
+          </p>
 
           <p className="mt-6 text-xs text-white/40 text-center">
             By creating an account, you agree to our{' '}

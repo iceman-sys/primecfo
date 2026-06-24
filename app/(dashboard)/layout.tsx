@@ -2,7 +2,6 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getClients, mapApiClientToClient, type Client } from "@/lib/api/client";
@@ -66,27 +65,31 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   }, [clients, selectedClient]);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(async ({ data: { session: s }, error }) => {
-      if (error?.code === "refresh_token_not_found") {
-        supabase.auth.signOut();
-      }
-      setSession(s);
-      if (s) {
-        try {
-          const res = await fetch("/api/me", { cache: "no-store" });
-          if (res.ok) {
-            const me = (await res.json()) as { isOperator?: boolean };
-            setIsOperator(!!me.isOperator);
-          }
-        } catch {
+    let cancelled = false;
+    fetch('/api/me', { cache: 'no-store' })
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.ok) {
+          setSession(null);
           setIsOperator(false);
+          setAuthLoading(false);
+          return;
         }
-      } else {
-        setIsOperator(false);
-      }
-      setAuthLoading(false);
-    });
+        const me = (await res.json()) as { email?: string | null; isOperator?: boolean };
+        setSession({ user: { email: me.email ?? undefined } });
+        setIsOperator(!!me.isOperator);
+        setAuthLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSession(null);
+          setIsOperator(false);
+          setAuthLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -106,8 +109,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
   };
 
   const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await fetch('/api/auth/signout', { method: 'POST' });
     setSession(null);
     router.push("/");
   };

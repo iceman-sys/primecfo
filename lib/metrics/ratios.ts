@@ -71,8 +71,8 @@ export function computeAnalyticsKpis(
 
   const currentRatio = ratioValue(summary.current_assets, summary.current_liabilities);
 
-  // Quick ratio = liquid assets only (bank/cash + AR), not total current assets
-  const quickAssets = summary.quick_assets ?? summary.cash + summary.accounts_receivable;
+  // Quick ratio = (cash + AR) / current liabilities — same balance-sheet cash basis as current ratio
+  const quickAssets = summary.cash + summary.accounts_receivable;
   const quickRatio = ratioValue(quickAssets, summary.current_liabilities);
 
   const days = periodDays(range);

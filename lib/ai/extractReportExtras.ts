@@ -60,6 +60,88 @@ function isExcludedFinancingRow(norm: string): boolean {
   return FINANCING_EXCLUDE_PATTERNS.some((p) => norm.includes(p));
 }
 
+function findTotalRowAmount(
+  rows: FlatMultiPeriodRow[],
+  colIdx: number,
+  patterns: string[],
+  exclude: string[] = []
+): number | null {
+  for (const row of rows) {
+    const norm = normalize(row.account);
+    if (exclude.some((e) => norm.includes(e))) continue;
+    if (!patterns.some((p) => norm.includes(p))) continue;
+    const amt = rowAmount(row, colIdx);
+    if (amt !== 0) return amt;
+  }
+  return null;
+}
+
+function sumDetailRows(
+  rows: FlatMultiPeriodRow[],
+  colIdx: number,
+  patterns: string[],
+  exclude: string[] = []
+): number {
+  let sum = 0;
+  for (const row of rows) {
+    if (row.rowKind === 'sectionHeader' || row.rowKind === 'grandTotal') continue;
+    const norm = normalize(row.account);
+    if (norm.startsWith('total ')) continue;
+    if (exclude.some((e) => norm.includes(e))) continue;
+    if (!patterns.some((p) => norm.includes(p))) continue;
+    sum += Math.abs(rowAmount(row, colIdx));
+  }
+  return sum;
+}
+
+/** Net operating income from P&L (before interest, taxes, other below-the-line items). */
+export function extractNetOperatingIncome(rawJson: unknown): number | null {
+  const doc = rawJson as Record<string, unknown>;
+  const { rows } = flattenReportRowsMulti(doc);
+  if (rows.length === 0) return null;
+  const colIdx = pickTotalColumnIndex(rows);
+
+  const noi =
+    findTotalRowAmount(rows, colIdx, ['net operating income']) ??
+    findTotalRowAmount(rows, colIdx, ['operating income'], ['net operating', 'other']);
+
+  return noi != null && noi !== 0 ? noi : null;
+}
+
+/** P&L depreciation & amortization expense lines (not accumulated depreciation on BS). */
+export function extractDepreciationAmortization(rawJson: unknown): number | null {
+  const doc = rawJson as Record<string, unknown>;
+  const { rows } = flattenReportRowsMulti(doc);
+  if (rows.length === 0) return null;
+  const colIdx = pickTotalColumnIndex(rows);
+
+  const sum = sumDetailRows(
+    rows,
+    colIdx,
+    ['depreciation', 'amortization', 'depletion'],
+    ['accumulated', 'accum']
+  );
+
+  return sum > 0 ? sum : null;
+}
+
+/** Income-type taxes only (city/income tax expense) — excludes payroll taxes in COGS. */
+export function extractIncomeTaxExpense(rawJson: unknown): number | null {
+  const doc = rawJson as Record<string, unknown>;
+  const { rows } = flattenReportRowsMulti(doc);
+  if (rows.length === 0) return null;
+  const colIdx = pickTotalColumnIndex(rows);
+
+  const sum = sumDetailRows(
+    rows,
+    colIdx,
+    ['income tax', 'taxes-city', 'taxes city', 'provision for income', 'federal income tax', 'state income tax'],
+    ['payroll', 'sales tax', 'property tax']
+  );
+
+  return sum > 0 ? sum : null;
+}
+
 export function extractInterestExpense(rawJson: unknown): number | null {
   const doc = rawJson as Record<string, unknown>;
   const { rows } = flattenReportRowsMulti(doc);

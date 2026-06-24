@@ -292,7 +292,7 @@ export default function ConnectPage() {
                 "Access tokens are encrypted at rest using AES-256",
                 "Automatic token refresh ensures uninterrupted access",
                 "You can disconnect at any time to revoke access",
-                "Read-only access — we never modify your QuickBooks data",
+                "We only read financial reports via the API — PrimeCFO does not create or change transactions in QuickBooks",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-2 text-sm text-slate-400">
                   <CheckCircle className="w-4 h-4 text-teal-500 flex-shrink-0 mt-0.5" />

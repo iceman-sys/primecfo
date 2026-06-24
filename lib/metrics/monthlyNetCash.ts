@@ -1,25 +1,42 @@
+import { extractNetCashIncreaseTotal } from '@/lib/ai/extractReportExtras';
 import { extractCashFlowNetByPeriod } from '@/lib/metrics/parseQboReport';
+import { periodMonthsForRange } from '@/lib/metrics/periodMonths';
+import type { ReportRange } from '@/lib/qbo/reports';
 
 export type MonthlyNetCashBasis = 'cash_flow_statement' | 'pnl_net_income_fallback';
 
 /**
- * Single source of truth: trailing average monthly net cash increase from a Cash Flow Statement.
- * Uses the bottom-line "Net cash increase for period" (operating + investing + financing:
- * COGS, owner draws, loan principal, etc.).
+ * Single source of truth: average monthly net cash change for a report window.
+ * Uses CF statement "Net cash increase for period" (operating + investing + financing).
+ * Prefers the report total column divided by period months; falls back to summing period columns.
  */
 export function getMonthlyNetCashFromReport(
   cashFlowReportRaw: unknown,
-  trailingMonths = 3
+  periodMonths: number
 ): number | null {
+  if (periodMonths <= 0) return null;
+
+  const totalNet = extractNetCashIncreaseTotal(cashFlowReportRaw);
+  if (totalNet != null && Number.isFinite(totalNet)) {
+    return totalNet / periodMonths;
+  }
+
   const netByPeriod = extractCashFlowNetByPeriod(cashFlowReportRaw);
   if (netByPeriod.length === 0) return null;
 
   const withoutCurrent = netByPeriod.length > 1 ? netByPeriod.slice(0, -1) : netByPeriod;
-  const meaningful = withoutCurrent.filter((v) => Number.isFinite(v));
-  const trailing = (meaningful.length > 0 ? meaningful : withoutCurrent).slice(-trailingMonths);
-  if (trailing.length === 0) return null;
+  const periods = withoutCurrent.filter((v) => Number.isFinite(v));
+  if (periods.length === 0) return null;
 
-  return trailing.reduce((a, b) => a + b, 0) / trailing.length;
+  const totalFromColumns = periods.reduce((a, b) => a + b, 0);
+  return totalFromColumns / periodMonths;
+}
+
+export function getMonthlyNetCashForRange(
+  cashFlowReportRaw: unknown,
+  range: ReportRange
+): number | null {
+  return getMonthlyNetCashFromReport(cashFlowReportRaw, periodMonthsForRange(range));
 }
 
 /** Dev-only guard when two screens compute the same metric differently. */

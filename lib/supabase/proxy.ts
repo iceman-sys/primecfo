@@ -2,11 +2,12 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isAdminEmail } from '@/lib/auth/admin';
 import { isAllowedAdminPath } from '@/lib/auth/adminRoutes';
+import { applySecurityHeaders } from '@/lib/security/headers';
+import { secureAuthCookieOptions } from '@/lib/supabase/cookieDefaults';
 
 /**
- * Refreshes the Supabase auth session and updates cookies.
+ * Refreshes the Supabase auth session and updates HttpOnly cookies.
  * Used by root proxy.ts on every request so tokens stay in sync.
- * Protects /admin routes by redirecting unauthenticated users to /login.
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -17,7 +18,7 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !key) {
-    return supabaseResponse;
+    return applySecurityHeaders(supabaseResponse);
   }
 
   const supabase = createServerClient(url, key, {
@@ -29,7 +30,7 @@ export async function updateSession(request: NextRequest) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         supabaseResponse = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) =>
-          supabaseResponse.cookies.set(name, value, options)
+          supabaseResponse.cookies.set(name, value, secureAuthCookieOptions(options))
         );
       },
     },
@@ -50,20 +51,24 @@ export async function updateSession(request: NextRequest) {
     // Stale or invalid session cookie — treat as logged out.
   }
 
+  if (user && pathname === '/signup') {
+    return applySecurityHeaders(NextResponse.redirect(new URL('/dashboard', request.url)));
+  }
+
   if (isAdminRoute && !isAuthRoute) {
     if (!user) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('next', pathname);
-      return NextResponse.redirect(loginUrl);
+      return applySecurityHeaders(NextResponse.redirect(loginUrl));
     }
     if (!isAdminEmail(user.email)) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      return applySecurityHeaders(NextResponse.redirect(new URL('/dashboard', request.url)));
     }
     if (!isAllowedAdminPath(pathname)) {
-      return NextResponse.redirect(new URL('/admin/subscribers', request.url));
+      return applySecurityHeaders(NextResponse.redirect(new URL('/admin/subscribers', request.url)));
     }
   }
 
   supabaseResponse.headers.set('x-pathname', pathname);
-  return supabaseResponse;
+  return applySecurityHeaders(supabaseResponse);
 }

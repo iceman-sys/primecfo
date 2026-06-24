@@ -3,7 +3,6 @@
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Lock, Mail } from 'lucide-react';
 
 const ERROR_MESSAGES: Record<string, string> = {
@@ -32,11 +31,15 @@ function LoginContent() {
     setError('');
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
 
-      if (signInError) {
-        setError(signInError.message);
+      if (!res.ok) {
+        setError(data.error ?? 'Sign in failed');
         setLoading(false);
         return;
       }

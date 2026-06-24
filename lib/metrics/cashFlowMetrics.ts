@@ -1,25 +1,25 @@
 import { getMonthlyNetCashFromReport } from '@/lib/metrics/monthlyNetCash';
+import { periodMonthsForRange } from '@/lib/metrics/periodMonths';
 import { loadIntegratedReportRaw, loadLatestReportRaw } from '@/lib/metrics/loadIntegratedReport';
 import type { ReportRange } from '@/lib/qbo/reports';
 
-/** @deprecated Prefer getMonthlyNetCashFromReport — kept for existing imports. */
+export { getMonthlyNetCashFromReport, getMonthlyNetCashForRange } from '@/lib/metrics/monthlyNetCash';
+
+/** @deprecated Use getMonthlyNetCashFromReport — kept for existing imports. */
 export function trailingAverageNetCashFromReport(
   raw: unknown,
-  trailingMonths = 3
+  periodMonths = 3
 ): number | null {
-  return getMonthlyNetCashFromReport(raw, trailingMonths);
+  return getMonthlyNetCashFromReport(raw, periodMonths);
 }
 
-/** Same trailing CF net used by breakeven insight and cash forecast. */
-export { getMonthlyNetCashFromReport };
-
+/** Monthly net cash from integrated CF statement — same source as forecast and breakeven insight. */
 export async function loadTrailingNetCashFlow(
   clientId: string,
-  range: ReportRange,
-  trailingMonths = 3
+  range: ReportRange
 ): Promise<number | null> {
   let cfRaw = await loadIntegratedReportRaw(clientId, range, 'cash_flow');
   if (!cfRaw) cfRaw = await loadLatestReportRaw(clientId, 'cash_flow');
   if (!cfRaw) return null;
-  return trailingAverageNetCashFromReport(cfRaw, trailingMonths);
+  return getMonthlyNetCashFromReport(cfRaw, periodMonthsForRange(range));
 }

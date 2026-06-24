@@ -31,6 +31,8 @@ import { fetchReportFromQuickBooks } from '@/lib/qbo/reports';
 import { loadIntegratedReportRaw, loadLatestReportRaw } from '@/lib/metrics/loadIntegratedReport';
 
 import { getMonthlyNetCashFromReport } from '@/lib/metrics/monthlyNetCash';
+import { periodMonthsForRange } from '@/lib/metrics/periodMonths';
+import type { ReportRange } from '@/lib/qbo/reports';
 
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 
@@ -144,7 +146,9 @@ export async function loadForecastInputs(
 
   clientId: string,
 
-  caps: TierCapabilities
+  caps: TierCapabilities,
+
+  range: ReportRange = '3m'
 
 ): Promise<ForecastInputs> {
 
@@ -197,14 +201,15 @@ export async function loadForecastInputs(
     cashFlowMonthly = await loadSyncedMonthlyCashFlow(clientId, months);
   }
 
-  // Prefer integrated synced CF (same source as breakeven insight / insights pipeline).
+  // Prefer integrated synced CF for the active dashboard range (same source as insights).
+  const periodMonths = periodMonthsForRange(range);
   const integratedCf =
-    (await loadIntegratedReportRaw(clientId, '3m', 'cash_flow')) ??
+    (await loadIntegratedReportRaw(clientId, range, 'cash_flow')) ??
     (await loadLatestReportRaw(clientId, 'cash_flow'));
   const cfForMonthlyNet = integratedCf ?? cashFlowMonthly;
 
   const avgMonthlyNetCashIncrease = cfForMonthlyNet
-    ? getMonthlyNetCashFromReport(cfForMonthlyNet, 3)
+    ? getMonthlyNetCashFromReport(cfForMonthlyNet, periodMonths)
     : null;
 
 

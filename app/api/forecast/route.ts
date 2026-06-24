@@ -6,12 +6,15 @@ import { loadForecastInputs } from '@/lib/forecast/inputs';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import type { CashFlowForecastResult } from '@/lib/forecast/types';
 
+import type { ReportRange } from '@/lib/qbo/reports';
+
 /**
- * GET /api/forecast?clientId=
+ * GET /api/forecast?clientId=&range=3m|6m|12m|4q
  * Computes tier-gated cash flow forecast from live QuickBooks data (authenticated user).
  */
 export async function GET(request: NextRequest) {
   const clientId = request.nextUrl.searchParams.get('clientId');
+  const range = (request.nextUrl.searchParams.get('range') ?? '3m') as ReportRange;
   const persist = request.nextUrl.searchParams.get('persist') === '1';
 
   const access = await guardClientAccess(clientId);
@@ -23,7 +26,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const inputs = await loadForecastInputs(access.clientId, session.capabilities);
+    const inputs = await loadForecastInputs(access.clientId, session.capabilities, range);
     const forecast = computeCashForecast(inputs, session.capabilities);
 
     if (persist) {

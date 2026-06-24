@@ -38,9 +38,9 @@ export function parseMonthlyNetCashIncrease(raw: unknown): MonthlyNetCashSeries 
  */
 export function trailingAverageNetCashIncrease(
   raw: unknown,
-  trailingMonths = 3
+  periodMonths = 3
 ): number | null {
-  return getMonthlyNetCashFromReport(raw, trailingMonths);
+  return getMonthlyNetCashFromReport(raw, periodMonths);
 }
 
 /** @deprecated Use trailingAverageNetCashIncrease — operating-only net misses financing outflows. */

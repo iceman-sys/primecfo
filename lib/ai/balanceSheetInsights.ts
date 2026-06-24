@@ -8,6 +8,7 @@ export type BalanceSheetInsightInput = {
   interestExpenseTotal: number | null;
   financingPrincipalTotal: number | null;
   monthlyOperatingCash: number | null;
+  periodEbitda: number | null;
   annualizedEbitda: number | null;
   debtToEbitda: number | null;
 };
@@ -92,7 +93,7 @@ export function evaluateEquityStructure(input: BalanceSheetInsightInput): Balanc
 
 /** Insight 1: Leverage — Debt-to-EBITDA (lender standard; no loan schedule required). */
 export function evaluateLeverage(input: BalanceSheetInsightInput): BalanceSheetEvaluation | null {
-  const { balanceSheet: bs, debtToEbitda } = input;
+  const { balanceSheet: bs, debtToEbitda, periodEbitda } = input;
   if (debtToEbitda == null || bs.totalDebt == null) {
     if (bs.debtToAssets == null || bs.totalLiabilities == null || bs.totalAssets == null) return null;
     return evaluateLeverageDebtToAssets(input);
@@ -102,6 +103,7 @@ export function evaluateLeverage(input: BalanceSheetInsightInput): BalanceSheetE
     ? ' Negative book equity reflects owner draws, not operating distress.'
     : '';
   const ltd = bs.longTermDebt ?? 0;
+  const loc = bs.lineOfCredit ?? 0;
   const cc = bs.creditCardBalances ?? 0;
 
   let severity: InsightSeverity;
@@ -120,13 +122,17 @@ export function evaluateLeverage(input: BalanceSheetInsightInput): BalanceSheetE
     title = 'Healthy Leverage (Debt-to-EBITDA)';
   }
 
+  const debtParts: string[] = [];
+  if (ltd > 0) debtParts.push(`${fmtMoney(ltd)} long-term loans`);
+  if (loc > 0) debtParts.push(`${fmtMoney(loc)} lines of credit`);
+  if (cc > 0) debtParts.push(`${fmtMoney(cc)} credit cards`);
   const debtDetail =
-    ltd > 0 || cc > 0
-      ? ` Total debt of ${fmtMoney(bs.totalDebt)}` +
-        (ltd > 0 ? ` includes ${fmtMoney(ltd)} long-term loans` : '') +
-        (cc > 0 ? `${ltd > 0 ? ' and' : ' includes'} ${fmtMoney(cc)} revolving credit` : '') +
-        '.'
+    debtParts.length > 0
+      ? ` Total debt of ${fmtMoney(bs.totalDebt)} includes ${debtParts.join(', ')}.`
       : '';
+
+  const ebitdaNote =
+    periodEbitda != null ? ` EBITDA ${fmtMoney(periodEbitda)},` : '';
 
   return {
     severity,
@@ -135,8 +141,8 @@ export function evaluateLeverage(input: BalanceSheetInsightInput): BalanceSheetE
     metric: 'Debt-to-EBITDA',
     metricValue: `${debtToEbitda.toFixed(2)}x`,
     message:
-      `Debt-to-EBITDA is ${debtToEbitda.toFixed(2)}x` +
-      (debtDetail ? ` —${debtDetail}` : '.') +
+      `Debt-to-EBITDA is ${debtToEbitda.toFixed(1)}x —${ebitdaNote} total debt ${fmtMoney(bs.totalDebt)}.` +
+      (debtDetail ? debtDetail : '') +
       (debtToEbitda > 4.0
         ? ' A deleveraging plan should be part of financial strategy.'
         : debtToEbitda <= 2.0

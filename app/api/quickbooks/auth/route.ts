@@ -2,20 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import OAuthClient from 'intuit-oauth';
 import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { getQboOAuthConfig } from '@/lib/qbo/env';
+import { generateOAuthStateNonce } from '@/lib/qbo/oauthState';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
-
-const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/quickbooks/auth
  *
- * Production-ready OAuth Connect Flow: starts Intuit OAuth when the user clicks
- * "Connect QuickBooks". Stores state in qbo_oauth_state for callback verification,
- * then redirects to Intuit's authorize URL.
- *
- * Query:
- *   - clientId (required): PrimeCFO client UUID to associate with this QBO connection
- *   - returnTo (optional): "add" | "dashboard" | "connect" — where to redirect after callback
+ * Starts Intuit OAuth. Stores an opaque random state in qbo_oauth_state for callback verification.
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -25,13 +19,21 @@ export async function GET(request: NextRequest) {
   const access = await guardClientAccess(clientId);
   if (!access.ok) return access.response;
 
-  const stateData = JSON.stringify({ clientId: access.clientId, returnTo });
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const stateNonce = generateOAuthStateNonce();
 
   const sb = supabaseAdmin();
   await sb.from('qbo_oauth_state').delete().eq('client_id', access.clientId);
 
   const { error: insertError } = await sb.from('qbo_oauth_state').insert({
-    state: stateData,
+    state: stateNonce,
     client_id: access.clientId,
     return_to: returnTo,
   });
@@ -48,7 +50,7 @@ export async function GET(request: NextRequest) {
   const oauthClient = new OAuthClient(config);
   const authUri = oauthClient.authorizeUri({
     scope: [OAuthClient.scopes.Accounting],
-    state: stateData,
+    state: stateNonce,
   });
 
   return NextResponse.redirect(authUri);

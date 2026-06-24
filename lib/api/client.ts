@@ -281,8 +281,12 @@ export type ForecastApiResponse = {
   };
 };
 
-export async function getForecast(clientId: string, persist = false): Promise<ForecastApiResponse> {
-  const params = new URLSearchParams({ clientId });
+export async function getForecast(
+  clientId: string,
+  range: ReportRange = '3m',
+  persist = false
+): Promise<ForecastApiResponse> {
+  const params = new URLSearchParams({ clientId, range });
   if (persist) params.set('persist', '1');
   const res = await fetch(`/api/forecast?${params}`);
   const data = await res.json().catch(() => ({})) as { error?: string } & Partial<ForecastApiResponse>;

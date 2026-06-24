@@ -10,6 +10,7 @@ export type BalanceSheetSnapshot = {
   accountsReceivable: number | null;
   liquidAssets: number | null;
   longTermDebt: number | null;
+  lineOfCredit: number | null;
   creditCardBalances: number | null;
   shareholderDraws: number | null;
   retainedEarnings: number | null;
@@ -100,14 +101,14 @@ export function extractBalanceSheetSnapshot(rawJson: unknown): BalanceSheetSnaps
   const currentLiabilities = findTotalAmount(rows, colIdx, ['total current liabilities']);
 
   const cash =
-    sumDetailRows(rows, colIdx, ['bank accounts', 'checking', 'savings', 'undeposited funds']) ||
-    findTotalAmount(rows, colIdx, ['total bank accounts']) ||
-    0;
+    findTotalAmount(rows, colIdx, ['total bank accounts', 'cash and cash equivalents', 'cash and due from banks']) ??
+    (sumDetailRows(rows, colIdx, ['bank accounts', 'checking', 'savings', 'undeposited funds']) || 0);
 
   const accountsReceivable =
-    sumDetailRows(rows, colIdx, ['accounts receivable'], ['payable']) ||
-    findTotalAmount(rows, colIdx, ['accounts receivable']) ||
-    0;
+    findTotalAmount(rows, colIdx, ['total accounts receivable']) ??
+    (sumDetailRows(rows, colIdx, ['accounts receivable'], ['payable']) ||
+      findTotalAmount(rows, colIdx, ['accounts receivable']) ||
+      0);
 
   const liquidAssets = cash + accountsReceivable;
 
@@ -115,13 +116,21 @@ export function extractBalanceSheetSnapshot(rawJson: unknown): BalanceSheetSnaps
     rows,
     colIdx,
     ['eidl', 'sba', 'commercial loan', 'term loan', 'notes payable', 'long-term', 'long term', 'mortgage'],
-    ['credit card', 'line of credit', 'payable']
+    ['credit card', 'line of credit', 'payable', 'loc ']
+  );
+
+  const lineOfCredit = sumDetailRows(
+    rows,
+    colIdx,
+    ['line of credit', 'loc ', 'credit line', 'revolving line'],
+    ['credit card']
   );
 
   const creditCardBalances = sumDetailRows(
     rows,
     colIdx,
-    ['credit card', 'visa', 'mastercard', 'amex', 'discover', 'revolving']
+    ['credit card', 'visa', 'mastercard', 'amex', 'discover'],
+    ['line of credit', 'loc ', 'credit line']
   );
 
   const shareholderDraws = sumDetailRows(
@@ -135,8 +144,9 @@ export function extractBalanceSheetSnapshot(rawJson: unknown): BalanceSheetSnaps
     findTotalAmount(rows, colIdx, ['accumulated earnings']);
 
   const ltd = longTermDebt ?? 0;
+  const loc = lineOfCredit ?? 0;
   const cc = creditCardBalances ?? 0;
-  const totalDebt = ltd + cc > 0 ? ltd + cc : null;
+  const totalDebt = ltd + loc + cc > 0 ? ltd + loc + cc : null;
 
   const currentRatio =
     currentAssets != null && currentLiabilities != null && currentLiabilities !== 0
@@ -163,6 +173,7 @@ export function extractBalanceSheetSnapshot(rawJson: unknown): BalanceSheetSnaps
     accountsReceivable: accountsReceivable || null,
     liquidAssets: liquidAssets || null,
     longTermDebt: longTermDebt || null,
+    lineOfCredit: lineOfCredit || null,
     creditCardBalances: creditCardBalances || null,
     shareholderDraws: shareholderDraws || null,
     retainedEarnings,

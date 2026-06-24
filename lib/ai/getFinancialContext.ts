@@ -8,6 +8,11 @@ import { loadClientMetrics } from '@/lib/metrics/loadClientMetrics';
 import { computeAnalyticsKpis } from '@/lib/metrics/ratios';
 import { loadIntegratedReportRaw } from '@/lib/metrics/loadIntegratedReport';
 import { loadTrailingNetCashFlow } from '@/lib/metrics/cashFlowMetrics';
+import { periodMonthsForRange } from '@/lib/metrics/periodMonths';
+import {
+  annualizeEbitda,
+  computePeriodEbitda,
+} from '@/lib/metrics/ebitda';
 import {
   extractPnlExtrasFromRaw,
   extractPriorColumnRevenueLineItems,
@@ -23,6 +28,9 @@ import type { BalanceSheetInsightInput } from '@/lib/ai/balanceSheetInsights';
 import {
   extractInterestExpense,
   extractFinancingPrincipalPayments,
+  extractNetOperatingIncome,
+  extractDepreciationAmortization,
+  extractIncomeTaxExpense,
 } from '@/lib/ai/extractReportExtras';
 import { pctChange, sumRevenueByKind } from '@/lib/ai/recurringRevenue';
 
@@ -152,7 +160,7 @@ export async function getFinancialContext(
     loadIntegratedReportRaw(clientId, range, 'pnl'),
     loadIntegratedReportRaw(clientId, range, 'balance_sheet'),
     loadIntegratedReportRaw(clientId, range, 'cash_flow'),
-    loadTrailingNetCashFlow(clientId, range, 3),
+    loadTrailingNetCashFlow(clientId, range),
   ]);
 
   const pnlExtract = integratedPnlRaw ? extractPnlExtrasFromRaw(integratedPnlRaw) : null;
@@ -201,22 +209,45 @@ export async function getFinancialContext(
   if (bsSnapshot) {
     const kpis = computeAnalyticsKpis(bundle.summary, trends, bundle.runway.runwayMonths, range);
     if (bsSnapshot.currentRatio == null) bsSnapshot.currentRatio = kpis.currentRatio;
-    if (bsSnapshot.quickRatio == null) bsSnapshot.quickRatio = kpis.quickRatio;
+    if (
+      bsSnapshot.quickRatio == null &&
+      bsSnapshot.cash != null &&
+      bsSnapshot.accountsReceivable != null &&
+      bsSnapshot.currentLiabilities != null &&
+      bsSnapshot.currentLiabilities !== 0
+    ) {
+      bsSnapshot.quickRatio =
+        Math.round(
+          ((bsSnapshot.cash + bsSnapshot.accountsReceivable) /
+            Math.abs(bsSnapshot.currentLiabilities)) *
+            100
+        ) / 100;
+    } else if (bsSnapshot.quickRatio == null) {
+      bsSnapshot.quickRatio = kpis.quickRatio;
+    }
   }
   const interestExpenseTotal = integratedPnlRaw ? extractInterestExpense(integratedPnlRaw) : null;
+  const netOperatingIncome = integratedPnlRaw ? extractNetOperatingIncome(integratedPnlRaw) : null;
+  const depreciationAmortization = integratedPnlRaw
+    ? extractDepreciationAmortization(integratedPnlRaw)
+    : null;
+  const incomeTaxExpense = integratedPnlRaw ? extractIncomeTaxExpense(integratedPnlRaw) : null;
   const financingPrincipalTotal = integratedCfRaw
     ? extractFinancingPrincipalPayments(integratedCfRaw)
     : null;
 
-  const periodMonths = range === '3m' ? 3 : range === '6m' ? 6 : 12;
+  const periodMonths = periodMonthsForRange(range);
   const monthlyOperatingCash =
     trailingNetCashFlow ??
     (summary.net_income !== 0 ? summary.net_income / periodMonths : null);
 
-  const periodEbitda =
-    summary.net_income + (interestExpenseTotal ?? 0) + (extras?.taxExpense ?? 0);
-  const annualizedEbitda =
-    periodEbitda > 0 ? (periodEbitda / periodMonths) * 12 : null;
+  const periodEbitda = computePeriodEbitda({
+    netOperatingIncome,
+    interestExpense: interestExpenseTotal,
+    depreciationAmortization,
+    incomeTaxExpense,
+  });
+  const annualizedEbitda = periodEbitda != null ? annualizeEbitda(periodEbitda, periodMonths) : null;
 
   const balanceSheet = buildBalanceSheetInsightInput(
     range,
@@ -224,6 +255,7 @@ export async function getFinancialContext(
     interestExpenseTotal,
     financingPrincipalTotal,
     monthlyOperatingCash,
+    periodEbitda,
     annualizedEbitda
   );
 
@@ -242,6 +274,7 @@ export async function getFinancialContext(
           interestExpenseTotal,
           financingPrincipalTotal,
           monthlyOperatingCash,
+          periodEbitda,
           annualizedEbitda,
           debtToEbitda: balanceSheet.debtToEbitda,
         }

@@ -239,8 +239,8 @@ export default function DashboardPage() {
   });
 
   const { data: forecastData, isLoading: forecastLoading, error: forecastError } = useQuery({
-    queryKey: ["forecast", selectedClient?.id],
-    queryFn: () => getForecast(selectedClient!.id),
+    queryKey: ["forecast", selectedClient?.id, range],
+    queryFn: () => getForecast(selectedClient!.id, range),
     enabled: !!(selectedClient?.id && selectedClient.qbStatus === "connected"),
     staleTime: 120_000,
     refetchOnMount: "always",
