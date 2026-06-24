@@ -10,6 +10,8 @@ export type BalanceSheetContext = {
   interestExpenseTotal: number | null;
   financingPrincipalTotal: number | null;
   monthlyOperatingCash: number | null;
+  netOperatingIncome: number | null;
+  operatingCashFlow: number | null;
   periodEbitda: number | null;
   annualizedEbitda: number | null;
   debtToEbitda: number | null;
@@ -22,7 +24,9 @@ export function buildBalanceSheetInsightInput(
   financingPrincipalTotal: number | null,
   monthlyOperatingCash: number | null,
   periodEbitda: number | null,
-  annualizedEbitda: number | null
+  annualizedEbitda: number | null,
+  netOperatingIncome: number | null,
+  operatingCashFlow: number | null
 ): BalanceSheetInsightInput | null {
   if (!snapshot) return null;
 
@@ -34,6 +38,8 @@ export function buildBalanceSheetInsightInput(
     interestExpenseTotal,
     financingPrincipalTotal,
     monthlyOperatingCash,
+    netOperatingIncome,
+    operatingCashFlow,
     periodEbitda,
     annualizedEbitda,
     debtToEbitda,
@@ -63,12 +69,17 @@ export function formatBalanceSheetForPrompt(ctx: BalanceSheetContext): string[] 
   if (ctx.interestExpenseTotal != null) {
     lines.push(`  Interest Expense (${ctx.periodMonths} mo): $${ctx.interestExpenseTotal.toFixed(0)}`);
   }
+  if (ctx.operatingCashFlow != null) {
+    lines.push(`  Operating Cash Flow (${ctx.periodMonths} mo, before draws): $${ctx.operatingCashFlow.toFixed(0)}`);
+  }
   if (ctx.monthlyOperatingCash != null) {
-    lines.push(`  Est. Monthly Operating Cash: $${ctx.monthlyOperatingCash.toFixed(0)}`);
+    lines.push(`  Net Change in Cash (after owner draws): $${ctx.monthlyOperatingCash.toFixed(0)}/mo`);
   }
 
   lines.push(
-    '  Judgment: Use debt-to-EBITDA (not debt-to-equity) when equity is negative due to shareholder draws. Lead with retained earnings, not total equity.'
+    '  Judgment: Use debt-to-EBITDA (not debt-to-equity) when equity is negative due to shareholder draws. ' +
+      'Interest/debt-service coverage uses EBIT/EBITDA/operating cash flow — never net change in cash after draws. ' +
+      'Lead with retained earnings, not total equity.'
   );
 
   return lines;

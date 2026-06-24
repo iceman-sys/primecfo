@@ -18,8 +18,37 @@ import type { SummaryMetrics } from '@/lib/metrics/loadClientMetrics';
 import {
   extractInterestExpense,
   extractNetOperatingIncome,
+  extractOperatingCashFlow,
 } from '@/lib/ai/extractReportExtras';
 import { extractBalanceSheetSnapshot } from '@/lib/ai/extractBalanceSheet';
+import {
+  evaluateDebtService,
+  type BalanceSheetInsightInput,
+} from '@/lib/ai/balanceSheetInsights';
+
+/** Cash Flow Statement: operating +$297,449, financing −$308,408 (incl. draws), net −$10,959. */
+const CF_RAW = {
+  Columns: { Column: [{ ColTitle: { value: '' } }, { ColTitle: { value: 'Total' } }] },
+  Rows: {
+    Row: [
+      {
+        Header: { ColData: [{ value: 'Operating Activities' }, { value: '' }] },
+        Rows: { Row: [{ type: 'Data', ColData: [{ value: 'Net Income' }, { value: '250256' }] }] },
+        Summary: {
+          ColData: [{ value: 'Net cash provided by operating activities' }, { value: '297449' }],
+        },
+      },
+      {
+        Header: { ColData: [{ value: 'Financing Activities' }, { value: '' }] },
+        Rows: { Row: [{ type: 'Data', ColData: [{ value: 'Owner Draws' }, { value: '-308408' }] }] },
+        Summary: {
+          ColData: [{ value: 'Net cash provided by financing activities' }, { value: '-308408' }],
+        },
+      },
+      { type: 'Data', ColData: [{ value: 'Net change in cash' }, { value: '-10959' }] },
+    ],
+  },
+};
 
 /** Minimal single-column P&L with the exact account labels QBO returns for this client. */
 const PNL_RAW = {
@@ -185,6 +214,35 @@ describe('Prime Accounting regression fixtures', () => {
     const ratio = computeDebtToEbitda(bs?.totalDebt ?? null, ebitda);
     assert.ok(ratio != null);
     assert.ok(Math.abs(ratio - 3.0) < 0.05, `expected ~3.0x, got ${ratio}x`);
+  });
+
+  it('extracts true operating cash flow (before draws) = +$297,449', () => {
+    const ocf = extractOperatingCashFlow(CF_RAW);
+    assert.equal(ocf, 297_449);
+    assert.ok(ocf != null && ocf > 0);
+  });
+
+  it('interest coverage is ~4x on EBIT, never negative from net-change-in-cash', () => {
+    const input = {
+      balanceSheet: {} as BalanceSheetInsightInput['balanceSheet'],
+      periodMonths: 12,
+      interestExpenseTotal: 60_207,
+      financingPrincipalTotal: null,
+      monthlyOperatingCash: -913, // net change in cash after draws — must NOT be used
+      netOperatingIncome: 247_054,
+      operatingCashFlow: 297_449,
+      periodEbitda: 307_261,
+      annualizedEbitda: 307_261,
+      debtToEbitda: 2.99,
+    } satisfies BalanceSheetInsightInput;
+
+    const result = evaluateDebtService(input);
+    assert.ok(result != null);
+    assert.equal(result.severity, 'positive');
+    assert.equal(result.metricValue, '4.1x');
+    assert.match(result.title, /Healthy Interest Coverage/);
+    assert.ok(!result.message.includes('-913'));
+    assert.ok(!result.metricValue.startsWith('-'));
   });
 
   it('debt-to-EBITDA ≈ 2.84x (not 3.48x from net income)', () => {

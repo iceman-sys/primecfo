@@ -31,6 +31,7 @@ import {
   extractNetOperatingIncome,
   extractDepreciationAmortization,
   extractIncomeTaxExpense,
+  extractOperatingCashFlow,
 } from '@/lib/ai/extractReportExtras';
 import { pctChange, sumRevenueByKind } from '@/lib/ai/recurringRevenue';
 
@@ -235,6 +236,7 @@ export async function getFinancialContext(
   const financingPrincipalTotal = integratedCfRaw
     ? extractFinancingPrincipalPayments(integratedCfRaw)
     : null;
+  const operatingCashFlow = integratedCfRaw ? extractOperatingCashFlow(integratedCfRaw) : null;
 
   const periodMonths = periodMonthsForRange(range);
   const monthlyOperatingCash =
@@ -257,7 +259,9 @@ export async function getFinancialContext(
     financingPrincipalTotal,
     monthlyOperatingCash,
     periodEbitda,
-    annualizedEbitda
+    annualizedEbitda,
+    netOperatingIncome,
+    operatingCashFlow
   );
 
   const debtServiceCoverage = balanceSheet ? computeDebtServiceCoverage(balanceSheet) : null;
@@ -275,6 +279,8 @@ export async function getFinancialContext(
           interestExpenseTotal,
           financingPrincipalTotal,
           monthlyOperatingCash,
+          netOperatingIncome,
+          operatingCashFlow,
           periodEbitda,
           annualizedEbitda,
           debtToEbitda: balanceSheet.debtToEbitda,

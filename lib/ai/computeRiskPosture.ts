@@ -85,7 +85,7 @@ export function computeRiskPosture(
         ? 'The business is operating at a loss. Address profitability and cash flow together.'
         : !signals.cashFlowPositive && !signals.nearBreakeven
           ? 'Net cash flow is negative — operations are not self-sustaining without intervention.'
-          : 'Operating cash flow is not covering actual debt service. Review loan payments and collection timing.';
+          : 'Earnings are not covering total debt service. Review loan payments and collection timing.';
     topAction = insights.find((i) => i.urgency === 'critical')?.recommendations?.[0]?.action
       ?? 'Review cash flow drivers and debt payment schedule with your advisor.';
   } else if (genuineDistress) {

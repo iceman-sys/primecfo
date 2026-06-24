@@ -213,6 +213,33 @@ export function extractFinancingPrincipalPayments(rawJson: unknown): number | nu
   return sum > 0 ? sum : null;
 }
 
+/**
+ * Operating cash flow from the Cash Flow Statement (net cash from operating activities),
+ * BEFORE financing items such as owner draws and loan principal. This is the correct,
+ * draw-free numerator for cash-based coverage ratios.
+ */
+export function extractOperatingCashFlow(rawJson: unknown): number | null {
+  const doc = rawJson as Record<string, unknown>;
+  const { rows } = flattenReportRowsMulti(doc);
+  if (rows.length === 0) return null;
+  const colIdx = pickTotalColumnIndex(rows);
+
+  const total = findTotalRowAmount(
+    rows,
+    colIdx,
+    [
+      'net cash provided by operating',
+      'net cash used in operating',
+      'net cash from operating',
+      'total operating activities',
+      'cash from operating activities',
+    ],
+    ['investing', 'financing']
+  );
+
+  return total != null && total !== 0 ? total : null;
+}
+
 export function extractNetCashIncreaseTotal(rawJson: unknown): number | null {
   const doc = rawJson as Record<string, unknown>;
   const { rows } = flattenReportRowsMulti(doc);

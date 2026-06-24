@@ -7,7 +7,12 @@ export type BalanceSheetInsightInput = {
   periodMonths: number;
   interestExpenseTotal: number | null;
   financingPrincipalTotal: number | null;
+  /** Net change in cash (after owner draws). Display/context only — NEVER a coverage numerator. */
   monthlyOperatingCash: number | null;
+  /** Net operating income (EBIT) for the period — earnings basis for coverage ratios. */
+  netOperatingIncome: number | null;
+  /** True operating cash flow from the CF statement (before financing/draws). */
+  operatingCashFlow: number | null;
   periodEbitda: number | null;
   annualizedEbitda: number | null;
   debtToEbitda: number | null;
@@ -174,40 +179,72 @@ function evaluateLeverageDebtToAssets(input: BalanceSheetInsightInput): BalanceS
   };
 }
 
-/** Insight 2: Debt service — actual P&L interest + CF principal only (never guessed amortization). */
-export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceSheetEvaluation | null {
-  const { periodMonths, interestExpenseTotal, financingPrincipalTotal, monthlyOperatingCash } = input;
+/**
+ * Earnings basis for coverage ratios. Interest coverage = earnings ÷ interest (times interest
+ * earned). Prefers EBIT (net operating income), then EBITDA, then true operating cash flow.
+ * NEVER uses net change in cash / net income after owner draws.
+ */
+function coverageEarnings(
+  input: BalanceSheetInsightInput
+): { annual: number; label: string } | null {
+  if (input.netOperatingIncome != null && input.netOperatingIncome > 0) {
+    return { annual: input.netOperatingIncome, label: 'Operating income (EBIT)' };
+  }
+  if (input.periodEbitda != null && input.periodEbitda > 0) {
+    return { annual: input.periodEbitda, label: 'EBITDA' };
+  }
+  if (input.operatingCashFlow != null && input.operatingCashFlow > 0) {
+    return { annual: input.operatingCashFlow, label: 'Operating cash flow' };
+  }
+  return null;
+}
 
-  if (monthlyOperatingCash == null) return null;
+/**
+ * Insight 2: Debt service — earnings ÷ (P&L interest + CF principal).
+ * Uses an earnings numerator (EBIT/EBITDA/OCF), never owner-draw-inclusive cash.
+ */
+export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceSheetEvaluation | null {
+  const { periodMonths, interestExpenseTotal, financingPrincipalTotal } = input;
+
+  const earnings = coverageEarnings(input);
+  if (earnings == null) return null;
 
   const months = Math.max(periodMonths, 1);
   const monthlyInterest = (interestExpenseTotal ?? 0) / months;
+  if (monthlyInterest <= 0) return null;
+
+  const monthlyEarnings = earnings.annual / months;
   const monthlyPrincipal =
     financingPrincipalTotal != null && financingPrincipalTotal > 0
       ? financingPrincipalTotal / months
       : 0;
-
-  if (monthlyInterest <= 0) return null;
-
   const hasActualPrincipal = monthlyPrincipal > 0;
-  const monthlyDebtService = monthlyInterest + monthlyPrincipal;
+
+  const gradeSeverity = (c: number): InsightSeverity =>
+    c >= 2.0 ? 'positive' : c >= 1.25 ? 'watch' : 'critical';
 
   if (!hasActualPrincipal) {
-    const coverage = monthlyOperatingCash / monthlyInterest;
+    const coverage = monthlyEarnings / monthlyInterest;
     return {
-      severity: coverage >= 1.25 ? 'positive' : coverage >= 1.0 ? 'watch' : 'critical',
+      severity: gradeSeverity(coverage),
       category: 'Debt Service',
-      title: coverage >= 1.25 ? 'Adequate Interest Coverage' : 'Tight Interest Coverage',
+      title:
+        coverage >= 2.0
+          ? 'Healthy Interest Coverage'
+          : coverage >= 1.25
+            ? 'Adequate Interest Coverage'
+            : 'Tight Interest Coverage',
       metric: 'Interest Coverage',
-      metricValue: `${coverage.toFixed(2)}x`,
+      metricValue: `${coverage.toFixed(1)}x`,
       message:
-        `Operating cash flow (~${fmtMoney(monthlyOperatingCash)}/mo) covers actual interest expense ` +
-        `(~${fmtMoney(monthlyInterest)}/mo) at ${coverage.toFixed(2)}x. ` +
-        `Principal payments were not itemized in the Cash Flow Statement — coverage uses actual interest only.`,
+        `${earnings.label} (~${fmtMoney(monthlyEarnings)}/mo) covers interest expense ` +
+        `(~${fmtMoney(monthlyInterest)}/mo) ${coverage.toFixed(1)}x. ` +
+        `Principal was not itemized in the Cash Flow Statement, so this is times-interest-earned on interest only.`,
     };
   }
 
-  const coverage = monthlyOperatingCash / monthlyDebtService;
+  const monthlyDebtService = monthlyInterest + monthlyPrincipal;
+  const coverage = monthlyEarnings / monthlyDebtService;
 
   if (coverage < 1.0) {
     return {
@@ -217,9 +254,9 @@ export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceShe
       metric: 'Debt Service Coverage',
       metricValue: `${coverage.toFixed(2)}x`,
       message:
-        `Operating cash flow (~${fmtMoney(monthlyOperatingCash)}/mo) does not cover actual debt service ` +
+        `${earnings.label} (~${fmtMoney(monthlyEarnings)}/mo) does not cover total debt service ` +
         `(~${fmtMoney(monthlyDebtService)}/mo: ${fmtMoney(monthlyInterest)} interest + ` +
-        `${fmtMoney(monthlyPrincipal)} principal from Cash Flow Statement).`,
+        `${fmtMoney(monthlyPrincipal)} principal from the Cash Flow Statement).`,
       recommendations: [
         'Map all loan payment due dates against cash collection cycles.',
         'Prioritize high-interest revolving balances for paydown.',
@@ -236,8 +273,8 @@ export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceShe
       metric: 'Debt Service Coverage',
       metricValue: `${coverage.toFixed(2)}x`,
       message:
-        `Operating cash flow covers actual debt service ${coverage.toFixed(2)}x ` +
-        `(~${fmtMoney(monthlyOperatingCash)}/mo vs ~${fmtMoney(monthlyDebtService)}/mo from actual payments). ` +
+        `${earnings.label} covers total debt service ${coverage.toFixed(2)}x ` +
+        `(~${fmtMoney(monthlyEarnings)}/mo vs ~${fmtMoney(monthlyDebtService)}/mo). ` +
         `Positive but limited cushion — monitor if revenue softens.`,
     };
   }
@@ -249,8 +286,8 @@ export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceShe
     metric: 'Debt Service Coverage',
     metricValue: `${coverage.toFixed(2)}x`,
     message:
-      `Operating cash flow comfortably covers actual debt service at ${coverage.toFixed(2)}x ` +
-      `(~${fmtMoney(monthlyOperatingCash)}/mo vs ~${fmtMoney(monthlyDebtService)}/mo from P&L interest + CF principal).`,
+      `${earnings.label} comfortably covers total debt service at ${coverage.toFixed(2)}x ` +
+      `(~${fmtMoney(monthlyEarnings)}/mo vs ~${fmtMoney(monthlyDebtService)}/mo from P&L interest + CF principal).`,
   };
 }
 
@@ -332,17 +369,19 @@ function isBalanceSheetCategory(category: string): boolean {
 }
 
 export function computeDebtServiceCoverage(input: BalanceSheetInsightInput): number | null {
-  const { periodMonths, interestExpenseTotal, financingPrincipalTotal, monthlyOperatingCash } = input;
-  if (monthlyOperatingCash == null) return null;
+  const { periodMonths, interestExpenseTotal, financingPrincipalTotal } = input;
+  const earnings = coverageEarnings(input);
+  if (earnings == null) return null;
   const months = Math.max(periodMonths, 1);
   const monthlyInterest = (interestExpenseTotal ?? 0) / months;
   if (monthlyInterest <= 0) return null;
+  const monthlyEarnings = earnings.annual / months;
   const monthlyPrincipal =
     financingPrincipalTotal != null && financingPrincipalTotal > 0
       ? financingPrincipalTotal / months
       : 0;
   const service = monthlyInterest + monthlyPrincipal;
-  return service > 0 ? monthlyOperatingCash / service : monthlyOperatingCash / monthlyInterest;
+  return service > 0 ? monthlyEarnings / service : monthlyEarnings / monthlyInterest;
 }
 
 /** Build deterministic balance-sheet insights and merge with LLM output. */
