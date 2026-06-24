@@ -126,7 +126,7 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
           Projection compounds this net cash each month from today&apos;s bank balance. Open AR/AP are
           not added separately — they are already reflected in historical net cash movement.
           {capabilities.scenarios
-            ? ' Best / Expected / Worst apply ±15% / −25% to the recurring net.'
+            ? ' Best / Expected / Worst vary revenue by +20% / baseline / −30% (expenses and financing outflows held fixed).'
             : ''}
         </p>
         <p className="text-[11px] text-slate-600">

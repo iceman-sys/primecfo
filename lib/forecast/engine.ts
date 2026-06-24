@@ -4,6 +4,8 @@ import { deriveMetricsFromBalanceSheet } from '@/lib/deriveMetrics';
 
 import { parseEntityBalance } from '@/lib/qbo/qbParseMoney';
 
+import { assertMonthlyNetCashConsistency } from '@/lib/metrics/monthlyNetCash';
+
 import type { ForecastInputs } from './inputs';
 
 import type { CashFlowForecastResult, ForecastDayPoint } from './types';
@@ -56,17 +58,26 @@ function resolveRecurringMonthlyNet(inputs: ForecastInputs): {
 }
 
 /**
- * Project cash by compounding monthly net = (revenue × scenario) − fixed expenses.
- * Variance applies to revenue, not net — produces realistic scenario spread.
+ * Project cash by compounding monthly net from the Cash Flow Statement (preferred).
+ * Scenario multipliers adjust revenue only; COGS, draws, and loan principal stay embedded in the CF base.
  */
+function projectMonthlyNet(inputs: ForecastInputs, params: ScenarioParams): number {
+  const resolved = resolveRecurringMonthlyNet(inputs);
+
+  if (resolved.basis === 'cash_flow_statement') {
+    const revenueDelta = inputs.avgMonthlyRevenue * (params.revenueMultiplier - 1);
+    return resolved.value + revenueDelta;
+  }
+
+  return inputs.avgMonthlyRevenue * params.revenueMultiplier - inputs.avgMonthlyExpense;
+}
+
 function projectBalance(
   inputs: ForecastInputs,
   params: ScenarioParams,
   horizonDays: 30 | 60 | 90
 ): { day30: number; day60: number; day90: number } {
-  const monthlyRevenue = inputs.avgMonthlyRevenue * params.revenueMultiplier;
-  const monthlyExpense = inputs.avgMonthlyExpense;
-  const recurringMonthlyNet = monthlyRevenue - monthlyExpense;
+  const recurringMonthlyNet = projectMonthlyNet(inputs, params);
 
   const day30 = inputs.bankBalance + recurringMonthlyNet;
   const day60 = day30 + recurringMonthlyNet;
@@ -99,6 +110,14 @@ export function computeCashForecast(
   const outflowsBills = inputs.openBills.reduce((s, b) => s + parseEntityBalance(b), 0);
 
   const recurring = resolveRecurringMonthlyNet(inputs);
+  const expectedMonthlyNet = projectMonthlyNet(inputs, SCENARIO_EXPECTED);
+
+  assertMonthlyNetCashConsistency(
+    'CF statement monthly net',
+    recurring.basis === 'cash_flow_statement' ? recurring.value : null,
+    'forecast expected monthly step',
+    recurring.basis === 'cash_flow_statement' ? expectedMonthlyNet : null
+  );
 
   let balanceSheetCash: number | null = null;
   let bankVsStatementDelta: number | null = null;

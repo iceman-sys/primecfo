@@ -1,3 +1,4 @@
+import { getMonthlyNetCashFromReport } from '@/lib/metrics/monthlyNetCash';
 import { extractCashFlowNetByPeriod } from '@/lib/metrics/parseQboReport';
 
 export type MonthlyNetCashSeries = {
@@ -39,15 +40,7 @@ export function trailingAverageNetCashIncrease(
   raw: unknown,
   trailingMonths = 3
 ): number | null {
-  const { netCashIncrease } = parseMonthlyNetCashIncrease(raw);
-  if (netCashIncrease.length === 0) return null;
-
-  const withoutCurrent = netCashIncrease.length > 1 ? netCashIncrease.slice(0, -1) : netCashIncrease;
-  const meaningful = withoutCurrent.filter((v) => Number.isFinite(v));
-  const trailing = (meaningful.length > 0 ? meaningful : withoutCurrent).slice(-trailingMonths);
-  if (trailing.length === 0) return null;
-
-  return trailing.reduce((a, b) => a + b, 0) / trailing.length;
+  return getMonthlyNetCashFromReport(raw, trailingMonths);
 }
 
 /** @deprecated Use trailingAverageNetCashIncrease — operating-only net misses financing outflows. */

@@ -28,7 +28,9 @@ import { parseArAgingBuckets } from '@/lib/reporting/parseArAging';
 
 import { fetchReportFromQuickBooks } from '@/lib/qbo/reports';
 
-import { trailingAverageNetCashIncrease } from '@/lib/forecast/parseCashFlowForForecast';
+import { loadIntegratedReportRaw, loadLatestReportRaw } from '@/lib/metrics/loadIntegratedReport';
+
+import { getMonthlyNetCashFromReport } from '@/lib/metrics/monthlyNetCash';
 
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 
@@ -191,19 +193,18 @@ export async function loadForecastInputs(
 
 
   let cashFlowMonthly = cashFlowLive;
-
   if (!cashFlowMonthly) {
-
     cashFlowMonthly = await loadSyncedMonthlyCashFlow(clientId, months);
-
   }
 
+  // Prefer integrated synced CF (same source as breakeven insight / insights pipeline).
+  const integratedCf =
+    (await loadIntegratedReportRaw(clientId, '3m', 'cash_flow')) ??
+    (await loadLatestReportRaw(clientId, 'cash_flow'));
+  const cfForMonthlyNet = integratedCf ?? cashFlowMonthly;
 
-
-  const avgMonthlyNetCashIncrease = cashFlowMonthly
-
-    ? trailingAverageNetCashIncrease(cashFlowMonthly, 3)
-
+  const avgMonthlyNetCashIncrease = cfForMonthlyNet
+    ? getMonthlyNetCashFromReport(cfForMonthlyNet, 3)
     : null;
 
 
