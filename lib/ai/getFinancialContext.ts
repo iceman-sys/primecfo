@@ -246,6 +246,7 @@ export async function getFinancialContext(
     interestExpense: interestExpenseTotal,
     depreciationAmortization,
     incomeTaxExpense,
+    netIncomeFallback: summary.net_income,
   });
   const annualizedEbitda = periodEbitda != null ? annualizeEbitda(periodEbitda, periodMonths) : null;
 

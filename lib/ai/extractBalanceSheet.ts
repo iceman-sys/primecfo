@@ -119,19 +119,29 @@ export function extractBalanceSheetSnapshot(rawJson: unknown): BalanceSheetSnaps
     ['credit card', 'line of credit', 'payable', 'loc ']
   );
 
-  const lineOfCredit = sumDetailRows(
-    rows,
-    colIdx,
-    ['line of credit', 'loc ', 'credit line', 'revolving line'],
-    ['credit card']
-  );
+  const locTotal = findTotalAmount(rows, colIdx, ['total line of credit', 'total lines of credit'], ['credit card']);
+  const lineOfCredit =
+    locTotal != null
+      ? Math.abs(locTotal)
+      : sumDetailRows(
+          rows,
+          colIdx,
+          ['line of credit', 'loc ', 'credit line', 'revolving line'],
+          ['credit card']
+        );
 
-  const creditCardBalances = sumDetailRows(
-    rows,
-    colIdx,
-    ['credit card', 'visa', 'mastercard', 'amex', 'discover'],
-    ['line of credit', 'loc ', 'credit line']
-  );
+  // Prefer the "Total Credit Cards" section total so every card account is captured,
+  // not just those whose names happen to contain card keywords.
+  const ccTotal = findTotalAmount(rows, colIdx, ['total credit cards', 'total credit card']);
+  const creditCardBalances =
+    ccTotal != null
+      ? Math.abs(ccTotal)
+      : sumDetailRows(
+          rows,
+          colIdx,
+          ['credit card', 'visa', 'mastercard', 'amex', 'discover'],
+          ['line of credit', 'loc ', 'credit line']
+        );
 
   const shareholderDraws = sumDetailRows(
     rows,

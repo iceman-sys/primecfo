@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CreditCard, ExternalLink, Loader2, Calendar } from "lucide-react";
 import ContactHelpBlock from "@/app/components/primecfo/ContactHelpBlock";
+import MfaSettings from "@/app/components/primecfo/MfaSettings";
 import { CALENDAR_URL } from "@/app/lib/pricing-plans";
 
 type BillingStatus = {
@@ -202,6 +203,8 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      <MfaSettings />
 
       <ContactHelpBlock
         className="mb-6"

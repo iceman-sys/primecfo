@@ -15,6 +15,56 @@ import type { ForecastInputs } from '@/lib/forecast/inputs';
 import type { TierCapabilities } from '@/lib/tiers';
 import { computeAnalyticsKpis } from '@/lib/metrics/ratios';
 import type { SummaryMetrics } from '@/lib/metrics/loadClientMetrics';
+import {
+  extractInterestExpense,
+  extractNetOperatingIncome,
+} from '@/lib/ai/extractReportExtras';
+import { extractBalanceSheetSnapshot } from '@/lib/ai/extractBalanceSheet';
+
+/** Minimal single-column P&L with the exact account labels QBO returns for this client. */
+const PNL_RAW = {
+  Columns: { Column: [{ ColTitle: { value: '' } }, { ColTitle: { value: 'Total' } }] },
+  Rows: {
+    Row: [
+      { type: 'Data', ColData: [{ value: 'Interest (other than mortgage)' }, { value: '60207' }] },
+      { type: 'Data', ColData: [{ value: 'Net Operating Income' }, { value: '247054' }] },
+      { type: 'Data', ColData: [{ value: 'Net Income' }, { value: '250256' }] },
+    ],
+  },
+};
+
+/**
+ * Balance sheet whose credit-card detail rows don't contain card keywords (named by bank /
+ * card number). Accounts 4943 and 4944 are card sub-accounts inside the Credit Cards section,
+ * already included in the "Total Credit Cards" of $122,379 — so they must NOT be added again.
+ */
+const BS_RAW = {
+  Columns: { Column: [{ ColTitle: { value: '' } }, { ColTitle: { value: 'Total' } }] },
+  Rows: {
+    Row: [
+      {
+        Header: { ColData: [{ value: 'Credit Cards' }, { value: '' }] },
+        Rows: {
+          Row: [
+            { type: 'Data', ColData: [{ value: 'Chase Ink 4943' }, { value: '22500' }] },
+            { type: 'Data', ColData: [{ value: 'Amex 4944' }, { value: '22750' }] },
+            { type: 'Data', ColData: [{ value: 'BofA 9001' }, { value: '77129' }] },
+          ],
+        },
+        Summary: { ColData: [{ value: 'Total Credit Cards' }, { value: '122379' }] },
+      },
+      {
+        Header: { ColData: [{ value: 'Long-Term Liabilities' }, { value: '' }] },
+        Rows: {
+          Row: [
+            { type: 'Data', ColData: [{ value: 'SBA EIDL Loan' }, { value: '795000' }] },
+          ],
+        },
+        Summary: { ColData: [{ value: 'Total Long-Term Liabilities' }, { value: '795000' }] },
+      },
+    ],
+  },
+};
 
 export const PRIME_ACCOUNTING_FIXTURE = {
   totalIncome: 1_093_291,
@@ -75,6 +125,66 @@ describe('Prime Accounting regression fixtures', () => {
 
     const wrongEbitda = PRIME_ACCOUNTING_FIXTURE.netIncome + PRIME_ACCOUNTING_FIXTURE.interestExpense;
     assert.notEqual(periodEbitda, wrongEbitda);
+  });
+
+  it('extracts interest expense from "Interest (other than mortgage)"', () => {
+    const interest = extractInterestExpense(PNL_RAW);
+    assert.equal(interest, 60_207);
+  });
+
+  it('extracts Net Operating Income, not Net Income', () => {
+    const noi = extractNetOperatingIncome(PNL_RAW);
+    assert.equal(noi, 247_054);
+    assert.notEqual(noi, 250_256);
+  });
+
+  it('end-to-end EBITDA from parsed P&L = $307,261 (NOI + interest)', () => {
+    const noi = extractNetOperatingIncome(PNL_RAW);
+    const interest = extractInterestExpense(PNL_RAW);
+    const ebitda = computePeriodEbitda({
+      netOperatingIncome: noi,
+      interestExpense: interest,
+      depreciationAmortization: 0,
+      netIncomeFallback: 250_256,
+    });
+    assert.equal(ebitda, 307_261);
+  });
+
+  it('EBITDA fallback never collapses to bare net income (still adds interest)', () => {
+    const ebitda = computePeriodEbitda({
+      netOperatingIncome: null,
+      interestExpense: 60_207,
+      depreciationAmortization: 0,
+      incomeTaxExpense: 0,
+      netIncomeFallback: 250_256,
+    });
+    assert.ok(ebitda != null && ebitda > 250_256);
+  });
+
+  it('credit-card balance reconciles to the "Total Credit Cards" section ($122,379)', () => {
+    const bs = extractBalanceSheetSnapshot(BS_RAW);
+    assert.ok(bs != null);
+    assert.equal(bs.creditCardBalances, 122_379);
+  });
+
+  it('total debt = term debt + credit cards (no double-counting card sub-accounts)', () => {
+    const bs = extractBalanceSheetSnapshot(BS_RAW);
+    assert.ok(bs != null);
+    // 4943/4944 are inside the Credit Cards total, not separate LOC rows.
+    assert.equal(bs.lineOfCredit, null);
+    assert.equal(bs.totalDebt, 795_000 + 122_379);
+  });
+
+  it('debt-to-EBITDA lands at ~3.0x with reconciled debt + correct EBITDA', () => {
+    const bs = extractBalanceSheetSnapshot(BS_RAW);
+    const ebitda = computePeriodEbitda({
+      netOperatingIncome: 247_054,
+      interestExpense: 60_207,
+      depreciationAmortization: 0,
+    });
+    const ratio = computeDebtToEbitda(bs?.totalDebt ?? null, ebitda);
+    assert.ok(ratio != null);
+    assert.ok(Math.abs(ratio - 3.0) < 0.05, `expected ~3.0x, got ${ratio}x`);
   });
 
   it('debt-to-EBITDA ≈ 2.84x (not 3.48x from net income)', () => {

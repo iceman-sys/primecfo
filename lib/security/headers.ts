@@ -1,16 +1,14 @@
 import type { NextResponse } from 'next/server';
 
-const isProd = process.env.NODE_ENV === 'production';
-
-/** Security headers applied to every document and API response. */
+/** Security headers applied to EVERY document and API response (incl. middleware). */
 export const SECURITY_HEADERS: Record<string, string> = {
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  ...(isProd
-    ? { 'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload' }
-    : {}),
+  // Sent on all responses (browsers ignore HSTS received over plain HTTP, so this is
+  // safe in dev and guarantees the document response is preload-eligible in prod).
+  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
   'Content-Security-Policy': [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",

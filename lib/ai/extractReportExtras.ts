@@ -103,7 +103,8 @@ export function extractNetOperatingIncome(rawJson: unknown): number | null {
 
   const noi =
     findTotalRowAmount(rows, colIdx, ['net operating income']) ??
-    findTotalRowAmount(rows, colIdx, ['operating income'], ['net operating', 'other']);
+    findTotalRowAmount(rows, colIdx, ['net ordinary income']) ??
+    findTotalRowAmount(rows, colIdx, ['operating income'], ['net operating', 'net ordinary', 'other']);
 
   return noi != null && noi !== 0 ? noi : null;
 }
@@ -142,6 +143,18 @@ export function extractIncomeTaxExpense(rawJson: unknown): number | null {
   return sum > 0 ? sum : null;
 }
 
+const INTEREST_INCOME_EXCLUDE = [
+  'interest income',
+  'interest earned',
+  'interest revenue',
+  'dividend',
+];
+
+/**
+ * Total interest EXPENSE from the P&L. Matches any expense line containing "interest"
+ * (e.g. "Interest Expense", "Interest (other than mortgage)", "Loan Interest") plus
+ * finance charges, while excluding interest income and section subtotals.
+ */
 export function extractInterestExpense(rawJson: unknown): number | null {
   const doc = rawJson as Record<string, unknown>;
   const { rows } = flattenReportRowsMulti(doc);
@@ -150,16 +163,18 @@ export function extractInterestExpense(rawJson: unknown): number | null {
 
   let sum = 0;
   for (const row of rows) {
+    if (row.rowKind === 'subtotal' || row.rowKind === 'grandTotal' || row.rowKind === 'sectionHeader') {
+      continue;
+    }
     const norm = normalize(row.account);
     if (norm.includes('income') || norm.includes('revenue')) continue;
-    if (
-      norm.includes('interest expense') ||
-      norm.includes('interest paid') ||
-      norm.includes('finance charge') ||
-      norm.includes('loan interest')
-    ) {
-      sum += Math.abs(rowAmount(row, colIdx));
-    }
+    if (INTEREST_INCOME_EXCLUDE.some((e) => norm.includes(e))) continue;
+    if (norm.startsWith('total ')) continue;
+
+    const isInterest = norm.includes('interest') || norm.includes('finance charge');
+    if (!isInterest) continue;
+
+    sum += Math.abs(rowAmount(row, colIdx));
   }
   return sum > 0 ? sum : null;
 }
