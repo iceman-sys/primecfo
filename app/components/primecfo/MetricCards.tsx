@@ -19,9 +19,13 @@ import {
   formatPercentChange,
   getPercentChange,
 } from "@/lib/financialData";
+import type { DataQualityAdvisory } from "@/lib/dataQuality/types";
+import { DataQualityMetricBadge } from "./DataQualityAdvisory";
 
 interface MetricCardsProps {
   metrics: MetricCard[];
+  dataQualityAdvisory?: DataQualityAdvisory | null;
+  clientId?: string;
 }
 
 const iconMap: Record<string, React.FC<{ className?: string }>> = {
@@ -42,7 +46,7 @@ const colorMap: Record<string, { bg: string; icon: string; border: string }> = {
   amber: { bg: "bg-amber-500/10", icon: "text-amber-400", border: "border-amber-500/20" },
 };
 
-const MetricCards: React.FC<MetricCardsProps> = ({ metrics }) => {
+const MetricCards: React.FC<MetricCardsProps> = ({ metrics, dataQualityAdvisory, clientId }) => {
   const gridCls =
     metrics.length === 5
       ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
@@ -87,7 +91,15 @@ const MetricCards: React.FC<MetricCardsProps> = ({ metrics }) => {
               >
                 <IconComponent className={`w-5 h-5 ${colors.icon}`} />
               </div>
-              {!metric.hideTrendBadge ? (
+              <div className="flex items-center gap-1">
+                {dataQualityAdvisory && clientId ? (
+                  <DataQualityMetricBadge
+                    advisory={dataQualityAdvisory}
+                    metricTitle={metric.title}
+                    clientId={clientId}
+                  />
+                ) : null}
+                {!metric.hideTrendBadge ? (
                 <div
                   className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
                     metric.trendIsGood
@@ -107,6 +119,7 @@ const MetricCards: React.FC<MetricCardsProps> = ({ metrics }) => {
                   {changeStr}
                 </div>
               ) : null}
+              </div>
             </div>
             <p className="text-2xl font-bold text-white mb-1">{displayValue}</p>
             <p className="text-sm text-slate-400">{metric.title}</p>

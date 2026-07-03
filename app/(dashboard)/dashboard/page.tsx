@@ -7,7 +7,7 @@ import { useClientContext } from "@/contexts/ClientContext";
 import { useReportRange } from "@/contexts/ReportRangeContext";
 import DashboardView from "@/app/components/primecfo/DashboardView";
 import ForecastPanel from "@/app/components/primecfo/ForecastPanel";
-import { getDashboardData, getInsights, syncReports, getForecast, syncCheckoutSession, BILLING_UPDATED_EVENT, SyncError, type DashboardDataResponse, type ReportRange } from "@/lib/api/client";
+import { getDashboardData, getInsights, getDataQualityAdvisory, syncReports, getForecast, syncCheckoutSession, BILLING_UPDATED_EVENT, SyncError, type DashboardDataResponse, type ReportRange } from "@/lib/api/client";
 import { toastErrorWithProgress } from "@/app/components/ui/sonner";
 import { toast } from "sonner";
 import type { MetricCard, ChartDataPoint, AIInsight, RiskPosture } from "@/lib/financialData";
@@ -238,6 +238,12 @@ export default function DashboardPage() {
     enabled: !!selectedClient?.id,
   });
 
+  const { data: dataQualityData } = useQuery({
+    queryKey: ["dataQuality", selectedClient?.id, range],
+    queryFn: () => getDataQualityAdvisory(selectedClient!.id, range),
+    enabled: !!selectedClient?.id && !!dashboardData?.summary,
+  });
+
   const { data: forecastData, isLoading: forecastLoading, error: forecastError } = useQuery({
     queryKey: ["forecast", selectedClient?.id, range],
     queryFn: () => getForecast(selectedClient!.id, range),
@@ -252,6 +258,7 @@ export default function DashboardPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard", selectedClient?.id, range] });
       queryClient.invalidateQueries({ queryKey: ["insights", selectedClient?.id, range] });
+      queryClient.invalidateQueries({ queryKey: ["dataQuality", selectedClient?.id, range] });
       queryClient.invalidateQueries({ queryKey: ["forecast"] });
       queryClient.invalidateQueries({ queryKey: ["clients"] });
     },
@@ -300,12 +307,15 @@ export default function DashboardPage() {
     return buildHistoricCashTrail14d(chartData, bank);
   }, [chartData, forecastData?.summary?.bankBalance]);
 
+  const dataQualityAdvisory = dataQualityData?.advisory ?? null;
+
   return (
     <DashboardView
       metrics={metrics}
       insights={insights}
       riskPosture={riskPosture}
       client={selectedClient}
+      dataQualityAdvisory={dataQualityAdvisory}
       forecastPanel={
         selectedClient?.qbStatus === "connected" ? (
           <ForecastPanel

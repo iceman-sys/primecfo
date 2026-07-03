@@ -211,6 +211,25 @@ export async function getDashboardData(
   return res.json();
 }
 
+import type { DataQualityAdvisory } from '@/lib/dataQuality/types';
+
+export type DataQualityAdvisoryResponse = {
+  advisory: DataQualityAdvisory | null;
+};
+
+export async function getDataQualityAdvisory(
+  clientId: string,
+  range: ReportRange = '12m'
+): Promise<DataQualityAdvisoryResponse> {
+  const params = new URLSearchParams({ clientId, range });
+  const res = await fetch(`/api/data-quality/advisory?${params}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? `Failed to load data quality advisory: ${res.status}`);
+  }
+  return res.json();
+}
+
 import type { AIInsight, RiskPosture } from '@/lib/financialData';
 
 export type InsightsResponse = {

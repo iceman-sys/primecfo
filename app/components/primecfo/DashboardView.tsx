@@ -5,8 +5,10 @@ import { RefreshCw, Calendar, ChevronDown, Download, Loader2, AlertTriangle, X, 
 import MetricCards from "./MetricCards";
 import AIInsights from "./AIInsights";
 import RiskPosture from "./RiskPosture";
+import DataQualityAdvisoryPanel from "./DataQualityAdvisory";
 import { MetricCard, AIInsight, Client, timeAgo } from "@/lib/financialData";
 import type { RiskPosture as RiskPostureType } from "@/lib/financialData";
+import type { DataQualityAdvisory } from "@/lib/dataQuality/types";
 
 export type DashboardRange = "3m" | "6m" | "12m" | "4q";
 
@@ -39,6 +41,7 @@ interface DashboardViewProps {
   showSyncConnectionWarning?: boolean;
   onDismissSyncWarning?: () => void;
   onConnectClick?: () => void;
+  dataQualityAdvisory?: DataQualityAdvisory | null;
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({
@@ -60,6 +63,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   showSyncConnectionWarning = false,
   onDismissSyncWarning,
   onConnectClick,
+  dataQualityAdvisory,
 }) => {
   const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
 
@@ -191,8 +195,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       )}
 
+      {dataQualityAdvisory && client?.id ? (
+        <DataQualityAdvisoryPanel
+          advisory={dataQualityAdvisory}
+          clientId={client.id}
+          className="mb-6"
+        />
+      ) : null}
+
       <div className={`mb-6 transition-opacity duration-200 ${isRangeLoading ? "opacity-60 pointer-events-none" : ""}`}>
-        <MetricCards metrics={metrics} />
+        <MetricCards
+          metrics={metrics}
+          dataQualityAdvisory={dataQualityAdvisory}
+          clientId={client?.id}
+        />
       </div>
 
       {forecastPanel ? <div className="mb-6">{forecastPanel}</div> : null}
