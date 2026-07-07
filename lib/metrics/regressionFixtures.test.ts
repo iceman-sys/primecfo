@@ -234,6 +234,8 @@ describe('Prime Accounting regression fixtures', () => {
       periodEbitda: 307_261,
       annualizedEbitda: 307_261,
       debtToEbitda: 2.99,
+      ownerDraws: null,
+      accountsReceivable: null,
     } satisfies BalanceSheetInsightInput;
 
     const result = evaluateDebtService(input);

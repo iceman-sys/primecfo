@@ -258,3 +258,66 @@ export function extractNetCashIncreaseTotal(rawJson: unknown): number | null {
   }
   return null;
 }
+
+export type OwnerDrawsSnapshot = {
+  totalYtd: number;
+  ownerDistributions: number;
+  taxDraws: number;
+};
+
+const OWNER_DISTRIBUTION_PATTERNS = [
+  'shareholder distribution',
+  'shareholder draw',
+  'owner draw',
+  "owner's draw",
+  'member draw',
+  'member distribution',
+  'partner distribution',
+];
+
+const TAX_DRAW_PATTERNS = ['tax draw', 'tax distribution', 'estimated tax', 'income tax payment'];
+
+function isInFinancingSection(rows: FlatMultiPeriodRow[], index: number): boolean {
+  for (let i = index; i >= 0; i--) {
+    const norm = normalize(rows[i].account);
+    if (norm.includes('financing activities') || norm === 'financing') return true;
+    if (norm.includes('investing activities') || norm.includes('operating activities')) return false;
+  }
+  return false;
+}
+
+/** Owner & tax draws from Cash Flow Statement financing activities. */
+export function extractOwnerDrawsFromCashFlow(rawJson: unknown): OwnerDrawsSnapshot | null {
+  const doc = rawJson as Record<string, unknown>;
+  const { rows } = flattenReportRowsMulti(doc);
+  if (rows.length === 0) return null;
+  const colIdx = pickTotalColumnIndex(rows);
+
+  let ownerDistributions = 0;
+  let taxDraws = 0;
+
+  rows.forEach((row, index) => {
+    if (row.rowKind === 'sectionHeader' || row.rowKind === 'grandTotal') return;
+    const norm = normalize(row.account);
+    if (norm.startsWith('total ')) return;
+    if (!isInFinancingSection(rows, index)) return;
+    if (isExcludedFinancingRow(norm)) return;
+    if (isPrincipalPaymentRow(norm)) return;
+
+    const amt = Math.abs(rowAmount(row, colIdx));
+    if (amt <= 0) return;
+
+    if (TAX_DRAW_PATTERNS.some((p) => norm.includes(p))) {
+      taxDraws += amt;
+      return;
+    }
+    if (OWNER_DISTRIBUTION_PATTERNS.some((p) => norm.includes(p))) {
+      ownerDistributions += amt;
+    }
+  });
+
+  const totalYtd = ownerDistributions + taxDraws;
+  if (totalYtd <= 0) return null;
+
+  return { totalYtd, ownerDistributions, taxDraws };
+}

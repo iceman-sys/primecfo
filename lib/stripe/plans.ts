@@ -9,6 +9,10 @@ export type BillingInterval = 'month' | 'year';
  * All public tiers (Self-Service, Starter, Growth) are self-serve Checkout prices.
  */
 const PRICE_ENV_MAP: Record<string, Partial<Record<BillingInterval, string>>> = {
+  entry: {
+    month: 'STRIPE_PRICE_ENTRY_MONTHLY',
+    year: 'STRIPE_PRICE_ENTRY_ANNUAL',
+  },
   'self-service': {
     month: 'STRIPE_PRICE_SELF_SERVICE_MONTHLY',
     year: 'STRIPE_PRICE_SELF_SERVICE_ANNUAL',
@@ -64,6 +68,7 @@ function productIdFor(planId: string): string {
 
 function productDisplayName(plan: Plan): string {
   const names: Record<string, string> = {
+    entry: 'PrimeCFO — Starter',
     'self-service': 'PrimeCFO — See',
     starter: 'PrimeCFO — Understand',
     growth: 'PrimeCFO — Act',
@@ -73,12 +78,14 @@ function productDisplayName(plan: Plan): string {
 
 function productDescription(plan: Plan): string {
   const descriptions: Record<string, string> = {
+    entry:
+      'Essential dashboard, monthly AI summary emailed to you, and 30-day forecast.',
     'self-service':
-      'Your numbers, finally clear. 5 key metrics, monthly AI summary, 30-day forecast.',
+      'Your numbers, finally clear. Dashboard KPIs, monthly AI summary, 30-day forecast.',
     starter:
-      'AI insights. Human guidance. Weekly summaries, 60-day forecast, quarterly advisory.',
+      'AI insights. Human guidance. Weekly summaries, 60-day forecast, quarterly CPA advisory.',
     growth:
-      'A finance team in your corner. 90-day scenarios, custom alerts, monthly advisory.',
+      'A finance team in your corner. 90-day scenarios, custom alerts, monthly CPA advisory.',
   };
   return descriptions[plan.id] ?? plan.headline;
 }

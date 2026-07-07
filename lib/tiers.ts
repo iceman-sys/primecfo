@@ -17,6 +17,7 @@ export type TierCapabilities = {
 };
 
 const PLAN_TO_TIER: Record<string, ProductTier> = {
+  entry: 'see',
   'self-service': 'see',
   starter: 'understand',
   growth: 'act',

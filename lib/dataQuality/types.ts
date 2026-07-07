@@ -11,8 +11,12 @@ export type DataQualityAccount = {
 };
 
 /** Inputs for data-quality detection rules. */
+/** Visual urgency for the stale-books advisory banner. */
+export type DataQualityAdvisorySeverity = 'blue' | 'amber' | 'red';
+
 export type DataQualityInput = {
-  lastReconciledMonthEnd: Date | null;
+  /** Last reconciliation date from QBO (bank/credit-card ReconcileInfo). */
+  lastReconciledDate: Date | null;
   currentMonthTxnCount: number;
   trailingMedianMonthlyTxnCount: number;
   accountsReceivable: number;
@@ -37,4 +41,6 @@ export type DataQualityAdvisory = {
   affectedMetrics: string[];
   message: string;
   headline: string;
+  /** Banner color tone — stale books escalates by gap; other rules default to red. */
+  severity?: DataQualityAdvisorySeverity;
 };

@@ -1,6 +1,7 @@
 import type { ReportRange } from '@/lib/qbo/reports';
 import type { BalanceSheetSnapshot } from '@/lib/ai/extractBalanceSheet';
 import type { BalanceSheetInsightInput } from '@/lib/ai/balanceSheetInsights';
+import type { OwnerDrawsSnapshot } from '@/lib/ai/extractReportExtras';
 import { computeDebtToEbitda } from '@/lib/metrics/ebitda';
 import { periodMonthsForRange } from '@/lib/metrics/periodMonths';
 
@@ -26,7 +27,9 @@ export function buildBalanceSheetInsightInput(
   periodEbitda: number | null,
   annualizedEbitda: number | null,
   netOperatingIncome: number | null,
-  operatingCashFlow: number | null
+  operatingCashFlow: number | null,
+  ownerDraws: OwnerDrawsSnapshot | null = null,
+  accountsReceivable: number | null = null
 ): BalanceSheetInsightInput | null {
   if (!snapshot) return null;
 
@@ -43,6 +46,8 @@ export function buildBalanceSheetInsightInput(
     periodEbitda,
     annualizedEbitda,
     debtToEbitda,
+    ownerDraws,
+    accountsReceivable,
   };
 }
 

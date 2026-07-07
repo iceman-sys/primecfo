@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   Brain,
   AlertTriangle,
@@ -213,6 +214,11 @@ const AIInsights: React.FC<AIInsightsProps> = ({
                   <p className="text-sm text-slate-400 mt-1 line-clamp-2 leading-relaxed">
                     {insight.description}
                   </p>
+                  {insight.reportLink && (
+                    <p className="text-xs text-teal-400/90 mt-1.5 font-medium">
+                      View in → {insight.reportLink.label}
+                    </p>
+                  )}
                 </div>
 
                 {/* Metric badge */}
@@ -248,6 +254,15 @@ const AIInsights: React.FC<AIInsightsProps> = ({
                   <p className="text-base text-slate-300 leading-relaxed">
                     {insight.description}
                   </p>
+
+                  {insight.reportLink && (
+                    <Link
+                      href={insight.reportLink.href}
+                      className="inline-flex items-center text-sm text-teal-400 hover:text-teal-300 font-medium transition-colors"
+                    >
+                      View in → {insight.reportLink.label}
+                    </Link>
+                  )}
 
                   {/* Recommendations */}
                   {hasRecommendations && (

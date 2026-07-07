@@ -2,6 +2,8 @@ import type { AIInsight, InsightSeverity } from '@/lib/financialData';
 import type { BalanceSheetSnapshot } from '@/lib/ai/extractBalanceSheet';
 import { SEVERITY_ORDER } from '@/lib/ai/generateInsights';
 
+import type { OwnerDrawsSnapshot } from '@/lib/ai/extractReportExtras';
+
 export type BalanceSheetInsightInput = {
   balanceSheet: BalanceSheetSnapshot;
   periodMonths: number;
@@ -16,6 +18,8 @@ export type BalanceSheetInsightInput = {
   periodEbitda: number | null;
   annualizedEbitda: number | null;
   debtToEbitda: number | null;
+  ownerDraws: OwnerDrawsSnapshot | null;
+  accountsReceivable: number | null;
 };
 
 export type BalanceSheetEvaluation = {
@@ -45,55 +49,31 @@ function isDrawDrivenNegativeEquity(bs: BalanceSheetSnapshot): boolean {
   );
 }
 
-/** Insight 4: Retained earnings — performance measure independent of draw pattern. */
-export function evaluateEquityStructure(input: BalanceSheetInsightInput): BalanceSheetEvaluation | null {
-  const { balanceSheet: bs } = input;
-  const retained = bs.retainedEarnings;
-  if (retained == null && bs.totalEquity == null) return null;
+/** Owner draws (YTD) from Cash Flow financing activities — actionable for owners. */
+export function evaluateOwnerDraws(input: BalanceSheetInsightInput): BalanceSheetEvaluation | null {
+  const { ownerDraws, periodMonths } = input;
+  if (!ownerDraws || ownerDraws.totalYtd <= 0) return null;
 
-  const headline = retained != null ? retained : bs.totalEquity!;
-  const metricLabel = retained != null ? 'Retained Earnings' : 'Total Equity';
+  const months = Math.max(periodMonths, 1);
+  const annualPace = ownerDraws.totalYtd * (12 / months);
 
-  if (isDrawDrivenNegativeEquity(bs)) {
-    return {
-      severity: 'info',
-      category: 'Equity Structure',
-      title: 'Retained Earnings Reflect Operating Performance',
-      metric: metricLabel,
-      metricValue: fmtMoney(headline),
-      message:
-        `Retained earnings are ${fmtMoney(retained ?? headline)} — this reflects cumulative business performance. ` +
-        `Total equity (${fmtMoney(bs.totalEquity!)}) is negative because accumulated shareholder draws ` +
-        `(${fmtMoney(bs.shareholderDraws!)}) exceed contributed capital — a compensation/distribution choice, ` +
-        `not an operating loss. Evaluate solvency via debt-to-EBITDA and debt service coverage.`,
-    };
+  let detail = '';
+  if (ownerDraws.ownerDistributions > 0 && ownerDraws.taxDraws > 0) {
+    detail = ` (${fmtMoney(ownerDraws.ownerDistributions)} owner distributions + ${fmtMoney(ownerDraws.taxDraws)} tax draws)`;
+  } else if (ownerDraws.ownerDistributions > 0) {
+    detail = ` (${fmtMoney(ownerDraws.ownerDistributions)} in owner distributions)`;
   }
 
-  if (retained != null && retained < 0) {
-    return {
-      severity: 'info',
-      category: 'Equity Structure',
-      title: 'Negative Retained Earnings',
-      metric: 'Retained Earnings',
-      metricValue: fmtMoney(retained),
-      message:
-        `Retained earnings are ${fmtMoney(retained)} — cumulative operating results are in deficit. ` +
-        `Review profitability trends alongside leverage and cash flow.`,
-    };
-  }
-
-  if (retained != null && retained >= 0) {
-    return {
-      severity: 'positive',
-      category: 'Equity Structure',
-      title: 'Positive Retained Earnings',
-      metric: 'Retained Earnings',
-      metricValue: fmtMoney(retained),
-      message: `Retained earnings of ${fmtMoney(retained)} reflect cumulative profits retained in the business.`,
-    };
-  }
-
-  return null;
+  return {
+    severity: 'info',
+    category: 'Owner & Tax Draws',
+    title: 'Owner Draws (YTD)',
+    metric: 'Owner Draws (YTD)',
+    metricValue: fmtMoney(ownerDraws.totalYtd),
+    message:
+      `Owner Draws (YTD): ${fmtMoney(ownerDraws.totalYtd)} drawn year-to-date${detail}. ` +
+      `At this pace, annual draws will reach approximately ${fmtMoney(annualPace)}.`,
+  };
 }
 
 /** Insight 1: Leverage — Debt-to-EBITDA (lender standard; no loan schedule required). */
@@ -293,8 +273,13 @@ export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceShe
 
 /** Insight 3: Liquidity — quick ratio vs current ratio with CFO judgment. */
 export function evaluateLiquidity(input: BalanceSheetInsightInput): BalanceSheetEvaluation | null {
-  const { balanceSheet: bs } = input;
+  const { balanceSheet: bs, accountsReceivable } = input;
   if (bs.quickRatio == null || bs.currentRatio == null) return null;
+
+  const arNote =
+    (accountsReceivable ?? bs.accountsReceivable ?? 0) === 0
+      ? ' Note: Receivables are showing $0 — if your business invoices clients, confirm AR is syncing correctly from QuickBooks. A $0 AR balance is normal for cash-based businesses (retail, subscriptions).'
+      : '';
 
   if (bs.quickRatio < 0.5) {
     return {
@@ -307,7 +292,7 @@ export function evaluateLiquidity(input: BalanceSheetInsightInput): BalanceSheet
         `Your quick ratio is ${bs.quickRatio.toFixed(2)} — about ${(bs.quickRatio * 100).toFixed(0)} cents ` +
         `of liquid assets (cash + receivables) per dollar of current liabilities. ` +
         `The current ratio (${bs.currentRatio.toFixed(2)}) looks healthier because it includes ` +
-        `less-liquid current assets. Worth monitoring payables timing against cash on hand.`,
+        `less-liquid current assets. Worth monitoring payables timing against cash on hand.${arNote}`,
     };
   }
 
@@ -364,6 +349,8 @@ function isBalanceSheetCategory(category: string): boolean {
     c.includes('liquidity') ||
     c.includes('solvency') ||
     c.includes('equity structure') ||
+    c.includes('owner') ||
+    c.includes('draw') ||
     c.includes('balance sheet')
   );
 }
@@ -395,7 +382,7 @@ export function applyBalanceSheetInsights(
     evaluateLeverage,
     evaluateDebtService,
     evaluateLiquidity,
-    evaluateEquityStructure,
+    evaluateOwnerDraws,
   ];
 
   const deterministic = evaluators

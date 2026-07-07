@@ -1,5 +1,5 @@
 import type { DataQualityAdvisory, DataQualityInput } from './types';
-import { daysBetween, fmtMoney, formatAdvisoryDate, pctChange } from './utils';
+import { daysBetween, fmtMoney, formatAdvisoryDate, formatGapSinceReconciliation, pctChange } from './utils';
 
 const HEADLINE = 'Worth a professional look';
 
@@ -13,28 +13,46 @@ const SUSPENSE_PATTERNS = [
 ];
 
 export function detectStaleBooks(data: DataQualityInput, today = new Date()): DataQualityAdvisory | null {
-  const lastReconciled = data.lastReconciledMonthEnd;
+  const lastReconciled = data.lastReconciledDate;
   const daysBehind = lastReconciled ? daysBetween(lastReconciled, today) : 999;
 
   const baseline = data.trailingMedianMonthlyTxnCount;
   const volumeDrop =
     baseline > 0 && data.currentMonthTxnCount < baseline * 0.5;
 
-  if (daysBehind <= 45 && !volumeDrop) return null;
+  // Books current (< 30 days) and no volume drop → no advisory
+  if (daysBehind < 30 && !volumeDrop) return null;
 
-  const dateNote = lastReconciled
-    ? `Your books appear to be reconciled through ${formatAdvisoryDate(lastReconciled)}. `
-    : 'Your books may not be fully current. ';
+  const severity = daysBehind >= 60 ? 'red' : 'amber';
+
+  let message: string;
+  if (lastReconciled) {
+    const gapLabel = formatGapSinceReconciliation(daysBehind);
+    const urgentNote =
+      daysBehind >= 60
+        ? ' Figures may be significantly off until books are brought current.'
+        : ' Recent activity may not be fully captured yet, which can affect the figures shown.';
+    message =
+      `Your books were last reconciled through ${formatAdvisoryDate(lastReconciled)} — ${gapLabel}.` +
+      urgentNote +
+      ' Bringing your books current will sharpen these insights.';
+  } else if (volumeDrop) {
+    message =
+      'Recent activity appears lower than usual, which may mean your books are not fully current. ' +
+      'Bringing your books up to date will sharpen these insights.';
+  } else {
+    message =
+      'We could not confirm your last reconciliation date from QuickBooks. ' +
+      'If your books are more than a month behind, figures shown may not reflect recent activity.';
+  }
 
   return {
     rule: 'stale_books',
     priority: 1,
     affectedMetrics: ['ALL'],
     headline: HEADLINE,
-    message:
-      dateNote +
-      'Recent activity may not be fully recorded yet, which can affect the figures shown. ' +
-      'Bringing your books current will sharpen these insights.',
+    message,
+    severity,
   };
 }
 
@@ -57,6 +75,7 @@ export function detectARIssue(data: DataQualityInput): DataQualityAdvisory | nul
       'Your accounts receivable is unusually high relative to revenue. This can affect ' +
       'liquidity and cash-flow figures. It may reflect uncollected invoices or invoices ' +
       'left open in QuickBooks. A review can clarify your true cash position.',
+    severity: 'red',
   };
 }
 
@@ -84,6 +103,7 @@ export function detectStructuralNegatives(data: DataQualityInput): DataQualityAd
       'Some equity or margin figures appear negative. This often reflects owner ' +
       'distributions or how certain items are categorized in QuickBooks — not ' +
       'necessarily a business loss. A professional review can confirm the true picture.',
+    severity: 'red',
   };
 }
 
@@ -106,6 +126,7 @@ export function detectLargeSwings(data: DataQualityInput): DataQualityAdvisory |
       `Your ${bigSwing.name.toLowerCase()} changed sharply (${bigSwing.pct > 0 ? '+' : ''}${bigSwing.pct.toFixed(0)}%) ` +
       'versus the prior period. Large swings often reflect one-time entries, seasonality, or a categorization issue ' +
       'rather than a lasting trend. Worth a closer look before acting on these figures.',
+    severity: 'amber',
   };
 }
 
@@ -125,6 +146,7 @@ export function detectSuspenseBalances(data: DataQualityInput): DataQualityAdvis
     message:
       `Some transactions are sitting in uncategorized or clearing accounts (about ${fmtMoney(suspenseTotal)}). ` +
       'Until these are classified, some figures are provisional. We can help finalize these for accurate reporting.',
+    severity: 'red',
   };
 }
 

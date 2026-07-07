@@ -36,10 +36,10 @@ type Metric = {
 };
 
 const METRICS: Metric[] = [
-  { label: "Revenue", prefix: "$", value: 184_320, icon: DollarSign, trend: 12.4, positive: true },
-  { label: "Net Profit", prefix: "$", value: 42_870, icon: TrendingUp, trend: 8.1, positive: true },
-  { label: "Cash Position", prefix: "$", value: 127_510, icon: BarChart3, trend: 3.2, positive: true },
-  { label: "Profit Margin", suffix: "%", value: 23.3, decimals: 1, icon: PieChartIcon, trend: -1.4, positive: false },
+  { label: "Revenue", prefix: "$", value: 124_500, icon: DollarSign, trend: 8.2, positive: true },
+  { label: "Net Profit", prefix: "$", value: 31_200, icon: TrendingUp, trend: 5.1, positive: true },
+  { label: "Cash Position", prefix: "$", value: 47_800, icon: BarChart3, trend: 3.2, positive: true },
+  { label: "Profit Margin", suffix: "%", value: 25.1, decimals: 1, icon: PieChartIcon, trend: 1.4, positive: true },
 ];
 
 const INSIGHT_LINES = [
@@ -298,7 +298,10 @@ const DashboardPreview: React.FC = () => {
         <div className="flex items-center justify-between mb-5">
           <div>
             <p className="text-[10px] text-slate-500 uppercase tracking-[0.18em]">Financial Overview</p>
-            <p className="text-base sm:text-lg font-semibold text-white">Acme Co. · This Month</p>
+            <p className="text-base sm:text-lg font-semibold text-white">Sample Co. · This Month</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Sample data — connect your books to see your real numbers.
+            </p>
           </div>
           <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
             <span className="relative flex h-2 w-2">

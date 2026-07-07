@@ -83,13 +83,19 @@ const Features: React.FC<FeaturesProps> = ({ onGetStarted }) => {
           <p className="text-teal-400 text-sm font-semibold uppercase tracking-wider mb-3">Pricing</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-8">
-            Three plans built around how much help you want. From{" "}
-            ${PLANS[0].monthly}/mo (or ${PLANS[0].annual}/mo billed annually — save ~17%).
+            Four plans built around how much help you want. From{" "}
+            ${PLANS[0].monthly}/mo (or ${PLANS[0].annual}/mo billed annually — save 10%).
           </p>
           <div className="flex flex-wrap justify-center gap-4 mb-8">
             {PLANS.map((plan) => {
               const teaserLabel =
-                plan.tierWordmark === "SEE" ? "See" : plan.tierWordmark === "UNDERSTAND" ? "Understand" : "Act";
+                plan.tierWordmark === "STARTER"
+                  ? "Starter"
+                  : plan.tierWordmark === "SEE"
+                    ? "See"
+                    : plan.tierWordmark === "UNDERSTAND"
+                      ? "Understand"
+                      : "Act";
               return (
               <div
                 key={plan.id}

@@ -7,6 +7,7 @@ import { applyInsightDataValidation } from '@/lib/ai/insightValidation';
 import { dedupeInsights } from '@/lib/ai/dedupeInsights';
 import { evaluateIncrementalMargin } from '@/lib/ai/growthCapacityInsight';
 import { applyBalanceSheetInsights } from '@/lib/ai/balanceSheetInsights';
+import { enrichInsights } from '@/lib/ai/insightEnrichment';
 import { SEVERITY_ORDER } from '@/lib/ai/generateInsights';
 
 function periodMonthsForRange(range: FinancialContext['reportRange']): number {
@@ -274,5 +275,5 @@ export function applyTrendAwareInsightRules(
   reconciled.sort((a, b) => (SEVERITY_ORDER[a.urgency] ?? 4) - (SEVERITY_ORDER[b.urgency] ?? 4));
   const withBalanceSheet = applyBalanceSheetInsights(reconciled, context.balanceSheet);
   const validated = applyInsightDataValidation(withBalanceSheet, context);
-  return dedupeInsights(validated);
+  return enrichInsights(dedupeInsights(validated), context.reportRange);
 }

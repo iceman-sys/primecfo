@@ -108,7 +108,7 @@ const PricingPage: React.FC<PricingPageProps> = ({
             PrimeCFO<span style={{ color: ACCENT }}>.ai</span>
           </h1>
           <p className="mx-auto mb-8 max-w-lg text-base leading-relaxed" style={{ color: TEXT_MUTED }}>
-            Three simple paths — see your numbers clearly, understand them with help, or act with a team in your
+            Four simple paths — see your numbers clearly, understand them with help, or act with a team in your
             corner.
           </p>
 
@@ -185,7 +185,7 @@ const PricingPage: React.FC<PricingPageProps> = ({
                 className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
                 style={{ color: ACCENT, background: ACCENT_GLOW }}
               >
-                Save ~17%
+                Save 10%
               </span>
             </button>
           </div>
@@ -207,7 +207,7 @@ const PricingPage: React.FC<PricingPageProps> = ({
       {/* PRICING CARDS */}
       <div
         id="pricing-plans"
-        className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-14 md:grid-cols-3 md:gap-5"
+        className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-14 md:grid-cols-2 lg:grid-cols-4 md:gap-5"
         style={{ background: BG_DEEP }}
       >
         {PLANS.map((plan, i) => {
@@ -405,7 +405,7 @@ const PricingPage: React.FC<PricingPageProps> = ({
             Here&apos;s the simple version: choose based on how much you want us involved.
           </p>
 
-          <div className="grid grid-cols-1 gap-6 text-left md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 text-left md:grid-cols-2 lg:grid-cols-4">
             {DECISION_HELPERS.map((item) => (
               <div
                 key={item.title}

@@ -26,3 +26,12 @@ export function median(values: number[]): number {
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 }
+
+/** Human-readable gap since reconciliation, e.g. "about 5 weeks ago". */
+export function formatGapSinceReconciliation(daysBehind: number): string {
+  if (daysBehind < 14) return 'less than 2 weeks ago';
+  const weeks = Math.round(daysBehind / 7);
+  if (weeks < 8) return `about ${weeks} week${weeks === 1 ? '' : 's'} ago`;
+  const months = Math.round(daysBehind / 30);
+  return `about ${months} month${months === 1 ? '' : 's'} ago`;
+}

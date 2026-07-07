@@ -12,7 +12,7 @@ import type { DataQualityInput } from './types';
 
 function baseInput(overrides: Partial<DataQualityInput> = {}): DataQualityInput {
   return {
-    lastReconciledMonthEnd: new Date(),
+    lastReconciledDate: new Date(),
     currentMonthTxnCount: 100,
     trailingMedianMonthlyTxnCount: 90,
     accountsReceivable: 10_000,
@@ -34,13 +34,22 @@ function baseInput(overrides: Partial<DataQualityInput> = {}): DataQualityInput 
 }
 
 describe('data quality detectors', () => {
-  it('detectStaleBooks fires when books are >45 days behind', () => {
+  it('detectStaleBooks fires when books are 30+ days behind', () => {
     const old = new Date();
     old.setDate(old.getDate() - 60);
-    const r = detectStaleBooks(baseInput({ lastReconciledMonthEnd: old }));
+    const r = detectStaleBooks(baseInput({ lastReconciledDate: old }));
     assert.ok(r);
     assert.equal(r!.rule, 'stale_books');
     assert.equal(r!.priority, 1);
+    assert.equal(r!.severity, 'red');
+  });
+
+  it('detectStaleBooks uses amber for 30-59 day gap', () => {
+    const old = new Date();
+    old.setDate(old.getDate() - 35);
+    const r = detectStaleBooks(baseInput({ lastReconciledDate: old }));
+    assert.ok(r);
+    assert.equal(r!.severity, 'amber');
   });
 
   it('detectARIssue fires when AR > 2 months revenue', () => {
@@ -83,7 +92,7 @@ describe('data quality detectors', () => {
     old.setDate(old.getDate() - 60);
     const r = getDataQualityAdvisory(
       baseInput({
-        lastReconciledMonthEnd: old,
+        lastReconciledDate: old,
         totalEquity: -50_000,
         accumulatedDraws: 80_000,
       })

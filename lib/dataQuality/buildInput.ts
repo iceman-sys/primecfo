@@ -3,6 +3,7 @@ import { loadIntegratedReportRaw, loadLatestReportRaw } from '@/lib/metrics/load
 import { parseArAgingBuckets } from '@/lib/reporting/parseArAging';
 import { extractBalanceSheetSnapshot } from '@/lib/ai/extractBalanceSheet';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
+import { fetchLastReconciledDate } from '@/lib/qbo/reconciliation';
 import type { ReportRange } from '@/lib/qbo/reports';
 import type { DataQualityInput } from './types';
 import { extractAccountBalancesFromReport } from './extractAccounts';
@@ -49,19 +50,14 @@ export async function buildDataQualityInput(
   const priorActivities = activityByMonth.slice(0, -1);
   const trailingMedianMonthlyTxnCount = median(priorActivities);
 
-  const latestPeriod = bundle.periods[bundle.periods.length - 1];
-  const lastReconciledMonthEnd = latestPeriod?.end_date
-    ? new Date(latestPeriod.end_date + 'T12:00:00')
-    : windowTrends.length > 0 && windowTrends[windowTrends.length - 1].end_date
-      ? new Date(windowTrends[windowTrends.length - 1].end_date! + 'T12:00:00')
-      : null;
+  const lastReconciledDate = await fetchLastReconciledDate(clientId);
 
   const grossMargin =
     summary.revenue !== 0 ? (summary.gross_profit / Math.abs(summary.revenue)) * 100 : null;
   const netMargin = summary.data_error ? null : summary.profit_margin_pct;
 
   return {
-    lastReconciledMonthEnd,
+    lastReconciledDate,
     currentMonthTxnCount,
     trailingMedianMonthlyTxnCount,
     accountsReceivable: summary.accounts_receivable,

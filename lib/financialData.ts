@@ -53,6 +53,11 @@ export interface AIInsight {
   recommendations?: Recommendation[];
   talkingPoints?: string[];
   createdAt: string;
+  /** Deep-link to the underlying report tab. */
+  reportLink?: {
+    href: string;
+    label: string;
+  };
 }
 
 export interface RiskPosture {
