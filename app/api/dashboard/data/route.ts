@@ -4,11 +4,14 @@ import { loadClientMetrics } from '@/lib/metrics/loadClientMetrics';
 import { getPercentChange } from '@/lib/financialData';
 import { parseArAgingBuckets, arOver30Ratio } from '@/lib/reporting/parseArAging';
 import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
+import { fetchBankAccounts } from '@/lib/qbo/queryRunner';
+import { loadReconciliationStatus } from '@/lib/qbo/reconciliationStatus';
 import type { ReportRange } from '@/lib/qbo/reports';
 
 type CoreHealth = 'good' | 'warn' | 'bad';
 
-function runwayHealth(months: number | null): CoreHealth {
+function runwayHealth(months: number | null, cashFlowPositive?: boolean): CoreHealth {
+  if (cashFlowPositive) return 'good';
   if (months == null) return 'warn';
   if (months < 2) return 'bad';
   if (months < 5) return 'warn';
@@ -52,6 +55,7 @@ export async function GET(request: NextRequest) {
   if (!access.ok) return access.response;
 
   const bundle = await loadClientMetrics(access.clientId, range);
+  const reconciliation = await loadReconciliationStatus(access.clientId);
 
   if (!bundle.hasData || !bundle.summary) {
     return NextResponse.json({
@@ -61,6 +65,7 @@ export async function GET(request: NextRequest) {
       trends: [],
       range,
       coreMetrics: null,
+      reconciliation,
     });
   }
 
@@ -95,21 +100,38 @@ export async function GET(request: NextRequest) {
   const arBuckets = parseArAgingBuckets(arReport?.raw_json ?? {});
   const revPctChange = getPercentChange(finSummary.revenue, finPrev.revenue);
   const arRatioPast30 = arOver30Ratio(arBuckets);
-  const runwayMonths = bundle.runway.runwayMonths ?? 0;
+
+  let bankCash = finSummary.cash;
+  try {
+    const bankAccounts = await fetchBankAccounts(access.clientId);
+    const liveBank = bankAccounts.reduce((s, a) => s + a.balance, 0);
+    if (liveBank > 0) bankCash = liveBank;
+  } catch {
+    /* use balance-sheet cash */
+  }
+
+  const undepositedFunds = Math.max(0, finSummary.cash - bankCash);
+  const runway = bundle.runway;
+  const cashFlowPositive = runway.cashFlowPositive === true;
 
   const coreMetrics = {
     cashPosition: finSummary.cash,
+    bankCash,
+    undepositedFunds,
     revenueChangePct: Math.round(revPctChange * 10) / 10,
     profitMarginPct: finSummary.data_error ? null : finSummary.profit_margin_pct,
     arAging: arBuckets,
-    cashRunwayMonths: runwayMonths,
+    cashRunwayMonths: runway.runwayMonths,
+    cashFlowPositive,
+    trailingNetCashFlow: runway.trailingNetCashFlow ?? null,
     dataError: finSummary.data_error,
+    excludedPartialMonth: bundle.excludedPartialMonth,
     health: {
-      runway: runwayHealth(bundle.runway.runwayMonths),
+      runway: runwayHealth(runway.runwayMonths, cashFlowPositive),
       ar: arHealth(arRatioPast30),
       revenue: revenueHealth(revPctChange),
       margin: marginHealth(finSummary.profit_margin_pct, finPrev.profit_margin_pct),
-      cash: cashHealth(finSummary.cash, bundle.runway.monthlyBurn),
+      cash: cashHealth(finSummary.cash, runway.monthlyBurn),
     },
   };
 
@@ -147,5 +169,6 @@ export async function GET(request: NextRequest) {
     trends: bundle.trends,
     range,
     coreMetrics,
+    reconciliation,
   });
 }

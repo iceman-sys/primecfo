@@ -19,18 +19,19 @@ export type RunwayResult = {
   runwayMonths: number | null;
   /** Days cash on hand using annualized operating expenses. */
   daysCashOnHand: number | null;
+  /** Trailing net cash flow from Cash Flow Statement (negative = net burn). */
+  trailingNetCashFlow?: number | null;
+  /** When true, runway countdown is not meaningful — operations are self-sustaining. */
+  cashFlowPositive?: boolean;
 };
 
 const RUNWAY_CAP_MONTHS = 120;
 
 /**
- * Authoritative runway: Total Cash / Average Monthly Burn.
- * Burn = average of last 3 months total costs (COGS + operating expenses).
+ * Gross runway (legacy): Total Cash / average monthly total costs.
+ * Prefer {@link computeRunway} with trailing net cash flow for dashboard display.
  */
-export function computeRunway(
-  trends: TrendPoint[],
-  cashBalance: number
-): RunwayResult {
+export function computeGrossRunway(trends: TrendPoint[], cashBalance: number): RunwayResult {
   const last3 = trends
     .map((t) => t.expenses)
     .filter((e) => e > 0)
@@ -60,4 +61,51 @@ export function computeRunway(
     runwayMonths,
     daysCashOnHand,
   };
+}
+
+/**
+ * Authoritative runway for the product UI.
+ * Uses trailing NET cash flow from the Cash Flow Statement when available.
+ * When net cash flow is positive, runway is not shown (cash-flow positive).
+ */
+export function computeRunway(
+  trends: TrendPoint[],
+  cashBalance: number,
+  trailingNetCashFlow?: number | null
+): RunwayResult {
+  const gross = computeGrossRunway(trends, cashBalance);
+
+  if (trailingNetCashFlow != null && Number.isFinite(trailingNetCashFlow)) {
+    if (trailingNetCashFlow >= 0) {
+      return {
+        ...gross,
+        trailingNetCashFlow,
+        cashFlowPositive: true,
+        monthlyBurn: 0,
+        runwayMonths: null,
+        daysCashOnHand: null,
+      };
+    }
+
+    const netBurn = Math.abs(trailingNetCashFlow);
+    const runwayMonths =
+      netBurn > 0 && cashBalance >= 0
+        ? Math.min(RUNWAY_CAP_MONTHS, Math.round((cashBalance / netBurn) * 10) / 10)
+        : null;
+    const daysCashOnHand =
+      netBurn > 0 && cashBalance >= 0
+        ? Math.round((cashBalance / netBurn) * 30 * 10) / 10
+        : null;
+
+    return {
+      cashBalance,
+      monthlyBurn: Math.round(netBurn * 100) / 100,
+      runwayMonths,
+      daysCashOnHand,
+      trailingNetCashFlow,
+      cashFlowPositive: false,
+    };
+  }
+
+  return gross;
 }

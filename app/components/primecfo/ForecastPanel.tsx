@@ -130,8 +130,8 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
             : ''}
         </p>
         <p className="text-[11px] text-slate-600">
-          Open AR (reference): {formatFullCurrency(forecast.components.expectedInflowsWeighted)} ·
-          open AP (reference): {formatFullCurrency(forecast.components.expectedOutflowsBills)}
+          Open AR (Balance Sheet): {formatFullCurrency(forecast.components.expectedInflowsWeighted)} ·
+          open AP (Balance Sheet): {formatFullCurrency(forecast.components.expectedOutflowsBills)}
         </p>
         <p className="pt-1 text-slate-600">
           Trailing revenue {formatFullCurrency(summary.avgMonthlyRevenue)} · expense{" "}

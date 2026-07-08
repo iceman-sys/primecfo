@@ -6,6 +6,7 @@ import { planIdToTier, type ProductTier } from '@/lib/tiers';
 import { getPlanEntitlements, type PlanEntitlements } from '@/lib/billing/entitlements';
 
 const TIER_WORDMARK: Record<ProductTier, string> = {
+  starter: 'STARTER',
   see: 'SEE',
   understand: 'UNDERSTAND',
   act: 'ACT',

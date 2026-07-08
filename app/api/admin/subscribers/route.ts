@@ -9,6 +9,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const TIER_WORDMARK: Record<ProductTier, string> = {
+  starter: 'STARTER',
   see: 'SEE',
   understand: 'UNDERSTAND',
   act: 'ACT',

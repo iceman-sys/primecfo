@@ -99,10 +99,16 @@ export default function TreasuryTab() {
             <TrendingUp className="w-5 h-5 text-teal-500" />
           </div>
           <p className="text-xl font-bold text-white">
-            {data.runwayMonths != null ? `${data.runwayMonths} mo` : "N/A"}
+            {data.cashFlowPositive
+              ? "Cash-flow positive"
+              : data.runwayMonths != null
+                ? `${data.runwayMonths} mo`
+                : "N/A"}
           </p>
           <p className="text-xs text-slate-500 mt-1">
-            Burn {formatCurrency(data.monthlyBurn ?? 0)}/mo
+            {data.cashFlowPositive
+              ? "No runway constraint at current net cash flow"
+              : `Net burn ${formatCurrency(data.monthlyBurn ?? 0)}/mo`}
           </p>
         </div>
       </div>

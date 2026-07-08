@@ -123,10 +123,10 @@ export function evaluateLeverage(input: BalanceSheetInsightInput): BalanceSheetE
     severity,
     category: 'Leverage',
     title,
-    metric: 'Debt-to-EBITDA',
+    metric: 'Debt-to-EBITDA (annualized)',
     metricValue: `${debtToEbitda.toFixed(2)}x`,
     message:
-      `Debt-to-EBITDA is ${debtToEbitda.toFixed(1)}x —${ebitdaNote} total debt ${fmtMoney(bs.totalDebt)}.` +
+      `Debt-to-EBITDA (annualized) is ${debtToEbitda.toFixed(1)}x —${ebitdaNote} total debt ${fmtMoney(bs.totalDebt)}.` +
       (debtDetail ? debtDetail : '') +
       (debtToEbitda > 4.0
         ? ' A deleveraging plan should be part of financial strategy.'
@@ -214,10 +214,10 @@ export function evaluateDebtService(input: BalanceSheetInsightInput): BalanceShe
           : coverage >= 1.25
             ? 'Adequate Interest Coverage'
             : 'Tight Interest Coverage',
-      metric: 'Interest Coverage',
+      metric: 'Interest Coverage (EBIT)',
       metricValue: `${coverage.toFixed(1)}x`,
       message:
-        `${earnings.label} (~${fmtMoney(monthlyEarnings)}/mo) covers interest expense ` +
+        `Operating income / EBIT (~${fmtMoney(monthlyEarnings)}/mo) covers interest expense ` +
         `(~${fmtMoney(monthlyInterest)}/mo) ${coverage.toFixed(1)}x. ` +
         `Principal was not itemized in the Cash Flow Statement, so this is times-interest-earned on interest only.`,
     };
@@ -336,7 +336,10 @@ function evaluationToInsight(evalResult: BalanceSheetEvaluation, suffix: string)
     metric: evalResult.metric,
     metricValue: evalResult.metricValue,
     recommendations: recommendations?.length ? recommendations : undefined,
-    talkingPoints: [evalResult.message],
+    talkingPoints: [
+      `When reviewing ${evalResult.title.toLowerCase()}, confirm the total in your Cash Flow Statement financing section.`,
+      'Discuss whether the current draw pace aligns with operating cash generation and tax planning.',
+    ],
     createdAt: new Date().toISOString(),
   };
 }

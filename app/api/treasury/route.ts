@@ -76,10 +76,10 @@ export async function GET(request: NextRequest) {
   const periodCount = range === '3m' ? 3 : range === '6m' ? 6 : range === '12m' ? 12 : 4;
   const windowNet = netByPeriod.slice(-periodCount);
   const netCashFlow =
-    windowNet.length > 0
-      ? windowNet.reduce((s, v) => s + v, 0)
-      : cfRaw
-        ? extractCashFlowNetIncreaseTotal(cfRaw)
+    cfRaw != null
+      ? extractCashFlowNetIncreaseTotal(cfRaw)
+      : windowNet.length > 0
+        ? windowNet.reduce((s, v) => s + v, 0)
         : null;
 
   const last3Net = (windowNet.length ? windowNet : netByPeriod).slice(-3);
@@ -96,6 +96,7 @@ export async function GET(request: NextRequest) {
   const forecast30Day = cashBalance + projectedNet;
 
   const runway = bundle.runway;
+  const cashFlowPositive = runway.cashFlowPositive === true;
 
   if (!bundle.hasData && bankAccounts.length === 0) {
     return NextResponse.json({
@@ -108,10 +109,14 @@ export async function GET(request: NextRequest) {
     hasData: true,
     periodLabel: RANGE_LABELS[range] ?? range,
     totalCash: cashBalance,
+    balanceSheetCash: bundle.summary?.cash ?? null,
     netCashFlow: netCashFlow ?? null,
+    trailingNetCashFlow: runway.trailingNetCashFlow ?? avgMonthlyNet,
     monthlyBurn: runway.monthlyBurn,
     daysCashOnHand: runway.daysCashOnHand,
-    runwayMonths: runway.runwayMonths,
+    runwayMonths: cashFlowPositive ? null : runway.runwayMonths,
+    cashFlowPositive,
+    runwayLabel: cashFlowPositive ? 'Cash-flow positive — no runway constraint' : undefined,
     forecast30Day: Math.round(forecast30Day * 100) / 100,
     forecastBreakdown: {
       currentCash: cashBalance,

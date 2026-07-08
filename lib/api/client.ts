@@ -177,8 +177,10 @@ export interface DashboardDataResponse {
   range: string;
   coreMetrics: {
     cashPosition: number;
+    bankCash: number;
+    undepositedFunds: number;
     revenueChangePct: number;
-    profitMarginPct: number;
+    profitMarginPct: number | null;
     arAging: {
       total: number;
       current: number;
@@ -187,7 +189,11 @@ export interface DashboardDataResponse {
       days61_90: number;
       days91_plus: number;
     };
-    cashRunwayMonths: number;
+    cashRunwayMonths: number | null;
+    cashFlowPositive: boolean;
+    trailingNetCashFlow: number | null;
+    excludedPartialMonth?: boolean;
+    dataError?: boolean;
     health: {
       runway: 'good' | 'warn' | 'bad';
       ar: 'good' | 'warn' | 'bad';
@@ -196,6 +202,7 @@ export interface DashboardDataResponse {
       cash: 'good' | 'warn' | 'bad';
     };
   } | null;
+  reconciliation?: import('@/lib/qbo/reconciliationStatus').ReconciliationStatus | null;
 }
 
 export async function getDashboardData(
@@ -381,10 +388,14 @@ export type TreasuryResponse = {
   error?: string;
   periodLabel?: string;
   totalCash?: number;
-  netCashFlow?: number;
+  balanceSheetCash?: number | null;
+  netCashFlow?: number | null;
+  trailingNetCashFlow?: number | null;
   monthlyBurn?: number;
   daysCashOnHand?: number | null;
   runwayMonths?: number | null;
+  cashFlowPositive?: boolean;
+  runwayLabel?: string;
   forecast30Day?: number;
   forecastBreakdown?: {
     currentCash: number;

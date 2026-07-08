@@ -1,3 +1,4 @@
+import { columnPeriodLabel } from '@/lib/reporting/columnLabels';
 import { pickNumericColValue } from '@/lib/reportUtils';
 
 type ColDataItem = { value?: string; Value?: string } | Record<string, unknown>;
@@ -38,10 +39,7 @@ export function parseMonthlyPnLSeries(raw: unknown): {
   const cols = doc.Columns?.Column;
   if (!Array.isArray(cols) || cols.length < 2) return empty;
 
-  const monthLabels = cols.slice(1).map((c) => {
-    const title = c.ColTitle as { value?: string } | undefined;
-    return (title?.value ?? '').trim() || '—';
-  });
+  const monthLabels = cols.slice(1).map((c) => columnPeriodLabel(c as Record<string, unknown>) || '—');
 
   const n = monthLabels.length;
   const findRowValues = (labelNeedle: string): number[] => {

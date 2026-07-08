@@ -303,15 +303,6 @@ const DashboardPreview: React.FC = () => {
               Sample data — connect your books to see your real numbers.
             </p>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-            <span className="relative flex h-2 w-2">
-              {!reduced && (
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-              )}
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-            </span>
-            <span className="text-[11px] text-emerald-400 font-medium">QB Connected · Live</span>
-          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-5">

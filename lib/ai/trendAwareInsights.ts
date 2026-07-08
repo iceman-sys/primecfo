@@ -69,6 +69,23 @@ function isTotalRevenueDeclineInsight(
   return declineWords || insight.urgency === 'critical' || insight.urgency === 'warning';
 }
 
+function buildTalkingPoints(
+  partial: { title: string; description: string; urgency: InsightSeverity },
+  idSuffix: string
+): string[] | undefined {
+  if (partial.urgency === 'positive' || partial.urgency === 'info') {
+    return [
+      `When discussing ${partial.title.toLowerCase()} with your team, lead with the specific numbers in the metric above.`,
+      'Validate the trend against your QuickBooks reports before changing spend or hiring plans.',
+    ];
+  }
+  return [
+    `Open with the headline finding: ${partial.title}.`,
+    'Walk through the underlying report (linked below) so stakeholders see the same source data.',
+    'Agree on one concrete next step before ending the conversation — avoid leaving it at the alert level.',
+  ];
+}
+
 function toInsight(
   partial: {
     title: string;
@@ -89,14 +106,7 @@ function toInsight(
     metric: partial.metric,
     metricValue: partial.metricValue?.trim() ? partial.metricValue : undefined,
     createdAt: new Date().toISOString(),
-    talkingPoints:
-      partial.urgency === 'positive' || partial.urgency === 'info'
-        ? [partial.description]
-        : [
-            partial.description,
-            'This assessment uses net cash flow from your Cash Flow Statement and separates recurring from seasonal revenue.',
-            'Review the underlying drivers before making major spending or hiring decisions.',
-          ],
+    talkingPoints: buildTalkingPoints(partial, idSuffix),
   };
 }
 
@@ -156,10 +166,23 @@ function buildRevenueTrendInsight(context: FinancialContext): AIInsight | null {
   );
 }
 
+function isMisleadingExpenseInsight(
+  insight: Pick<AIInsight, 'title' | 'category' | 'description'>
+): boolean {
+  const hay = `${insight.title} ${insight.category} ${insight.description}`.toLowerCase();
+  return hay.includes('expense efficiency') || hay.includes('declining expense');
+}
+
+function isRevenueGrowthRealizedTitle(title: string): boolean {
+  return title.toLowerCase().includes('revenue growth realized');
+}
+
 function isMisleadingRevenueGrowthInsight(
   insight: Pick<AIInsight, 'title' | 'category' | 'metric' | 'description'>,
   context: FinancialContext
 ): boolean {
+  if (isRevenueGrowthRealizedTitle(insight.title)) return true;
+
   const revPct = context.derived.revenueGrowthPct;
   if (revPct == null || revPct <= 0) return false;
 
@@ -239,6 +262,7 @@ export function applyTrendAwareInsightRules(
   const filtered = insights.filter(
     (i) =>
       !isRunwayInsight(i) &&
+      !isMisleadingExpenseInsight(i) &&
       !isDuplicateRevenueInsight(i) &&
       !isTotalRevenueDeclineInsight(i, context) &&
       !isMisleadingRevenueGrowthInsight(i, context) &&
@@ -275,5 +299,8 @@ export function applyTrendAwareInsightRules(
   reconciled.sort((a, b) => (SEVERITY_ORDER[a.urgency] ?? 4) - (SEVERITY_ORDER[b.urgency] ?? 4));
   const withBalanceSheet = applyBalanceSheetInsights(reconciled, context.balanceSheet);
   const validated = applyInsightDataValidation(withBalanceSheet, context);
-  return enrichInsights(dedupeInsights(validated), context.reportRange);
+  return enrichInsights(
+    dedupeInsights(validated, context.derived.revenueGrowthPct),
+    context.reportRange
+  );
 }

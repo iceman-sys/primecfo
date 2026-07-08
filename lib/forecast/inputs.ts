@@ -96,6 +96,8 @@ export type ForecastInputs = {
 
   avgMonthlyNetCashIncrease: number | null;
 
+  balanceSheetArAp: { ar: number; ap: number } | null;
+
 };
 
 
@@ -206,6 +208,13 @@ export async function loadForecastInputs(
   const integratedCf =
     (await loadIntegratedReportRaw(clientId, range, 'cash_flow')) ??
     (await loadLatestReportRaw(clientId, 'cash_flow'));
+  const integratedBs =
+    (await loadIntegratedReportRaw(clientId, range, 'balance_sheet')) ??
+    (await loadLatestReportRaw(clientId, 'balance_sheet'));
+  const integratedPnl =
+    (await loadIntegratedReportRaw(clientId, range, 'pnl')) ??
+    (await loadLatestReportRaw(clientId, 'pnl'));
+
   const cfForMonthlyNet = integratedCf ?? cashFlowMonthly;
 
   const avgMonthlyNetCashIncrease = cfForMonthlyNet
@@ -214,7 +223,7 @@ export async function loadForecastInputs(
 
 
 
-  const pnlResolved = pnlAccrual ?? pnlCash;
+  const pnlResolved = integratedPnl ?? pnlAccrual ?? pnlCash;
 
   const parsed = parseMonthlyPnLSeries(pnlResolved);
 
@@ -244,27 +253,32 @@ export async function loadForecastInputs(
 
 
 
-  let balanceSheetSnapshot: unknown | null = null;
+  let balanceSheetSnapshot: unknown | null = integratedBs;
 
-  if (caps.includeBalanceSheetCf) {
-
+  if (caps.includeBalanceSheetCf && !balanceSheetSnapshot) {
     balanceSheetSnapshot = await fetchReportFromQuickBooks(
-
       clientId,
-
       'balance_sheet',
-
       startStr,
-
       asOf,
-
       'Accrual'
-
     ).catch(() => null);
-
   }
 
+  let balanceSheetArAp: { ar: number; ap: number } | null = null;
+  if (balanceSheetSnapshot) {
+    const { deriveMetricsFromBalanceSheet } = await import('@/lib/deriveMetrics');
+    const bsEntries = deriveMetricsFromBalanceSheet(balanceSheetSnapshot);
+    const ar = bsEntries.find((e) => e.metric_key === 'accounts_receivable')?.value ?? 0;
+    const ap = bsEntries.find((e) => e.metric_key === 'accounts_payable')?.value ?? 0;
+    balanceSheetArAp = { ar, ap };
+  }
 
+  const integratedParsed = integratedPnl ? parseMonthlyPnLSeries(integratedPnl) : null;
+  const integratedAvg =
+    integratedParsed && integratedParsed.revenues.some((v) => v > 0)
+      ? trailingMonthlyAverages(integratedParsed)
+      : null;
 
   return {
 
@@ -292,9 +306,9 @@ export async function loadForecastInputs(
 
     monthlyGrowthRate: Number.isFinite(growth) ? growth : 0,
 
-    avgMonthlyRevenue: avgRev,
+    avgMonthlyRevenue: integratedAvg?.avgRevenue ?? avgRev,
 
-    avgMonthlyExpense: avgExp,
+    avgMonthlyExpense: integratedAvg?.avgExpense ?? avgExp,
 
     avgMonthlyNetIncome: avgNetIncome,
 
@@ -305,6 +319,8 @@ export async function loadForecastInputs(
     cashFlowMonthly,
 
     avgMonthlyNetCashIncrease,
+
+    balanceSheetArAp,
 
   };
 

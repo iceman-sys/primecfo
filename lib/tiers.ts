@@ -1,9 +1,9 @@
 /**
- * Product tiers from pricing-plans.ts (See / Understand / Act).
- * Stripe `plan_id` values: self-service | starter | growth
+ * Product tiers from pricing-plans.ts (Starter / See / Understand / Act).
+ * Stripe `plan_id` values: entry | self-service | starter | growth
  */
 
-export type ProductTier = 'see' | 'understand' | 'act';
+export type ProductTier = 'starter' | 'see' | 'understand' | 'act';
 
 export type TierCapabilities = {
   tier: ProductTier;
@@ -14,10 +14,12 @@ export type TierCapabilities = {
   /** Profit & loss history window for seasonality (months) */
   pnlHistoryMonths: 6 | 12;
   includeBalanceSheetCf: boolean;
+  /** See tier and above: surface data-quality advisories on dashboard */
+  dataQualityAlerts: boolean;
 };
 
 const PLAN_TO_TIER: Record<string, ProductTier> = {
-  entry: 'see',
+  entry: 'starter',
   'self-service': 'see',
   starter: 'understand',
   growth: 'act',
@@ -29,12 +31,12 @@ export function planIdToTier(planId: string | null | undefined): ProductTier | n
 }
 
 /** Default tier when subscription is missing (minimal feature set). */
-export const DEFAULT_PRODUCT_TIER: ProductTier = 'see';
+export const DEFAULT_PRODUCT_TIER: ProductTier = 'starter';
 
 export function getTierCapabilities(planId: string | null | undefined): TierCapabilities {
   const tier = planIdToTier(planId) ?? DEFAULT_PRODUCT_TIER;
   switch (tier) {
-    case 'see':
+    case 'starter':
       return {
         tier,
         forecastDays: 30,
@@ -42,8 +44,9 @@ export function getTierCapabilities(planId: string | null | undefined): TierCapa
         customAlerts: false,
         pnlHistoryMonths: 6,
         includeBalanceSheetCf: false,
+        dataQualityAlerts: false,
       };
-    case 'understand':
+    case 'see':
       return {
         tier,
         forecastDays: 60,
@@ -51,6 +54,17 @@ export function getTierCapabilities(planId: string | null | undefined): TierCapa
         customAlerts: false,
         pnlHistoryMonths: 6,
         includeBalanceSheetCf: false,
+        dataQualityAlerts: true,
+      };
+    case 'understand':
+      return {
+        tier,
+        forecastDays: 90,
+        scenarios: false,
+        customAlerts: false,
+        pnlHistoryMonths: 6,
+        includeBalanceSheetCf: false,
+        dataQualityAlerts: true,
       };
     case 'act':
       return {
@@ -60,6 +74,7 @@ export function getTierCapabilities(planId: string | null | undefined): TierCapa
         customAlerts: true,
         pnlHistoryMonths: 12,
         includeBalanceSheetCf: true,
+        dataQualityAlerts: true,
       };
   }
 }

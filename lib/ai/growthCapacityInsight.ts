@@ -26,6 +26,9 @@ export function evaluateIncrementalMargin(input: {
 
   if (Math.abs(deltaRev) < 1) return null;
 
+  // Incremental margin is meaningless when revenue declined — suppress growth-capacity alarm.
+  if (deltaRev < 0) return null;
+
   const incrementalMargin = (deltaNi / deltaRev) * 100;
 
   if (incrementalMargin >= 30) {

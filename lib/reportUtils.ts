@@ -191,11 +191,13 @@ export type FlatMultiPeriodRow = {
   rowKind: 'detail' | 'sectionHeader' | 'subtotal' | 'grandTotal';
 };
 
+import { extractColumnPeriodLabels } from '@/lib/reporting/columnLabels';
+
 export function extractColumnTitles(rawJson: Record<string, unknown>): string[] {
-  const cols = rawJson.Columns as { Column?: Array<{ ColTitle?: { value?: string } }> } | undefined;
+  const cols = rawJson.Columns as { Column?: Array<Record<string, unknown>> } | undefined;
   const column = cols?.Column;
   if (!Array.isArray(column) || column.length < 2) return [];
-  return column.slice(1).map((c) => (c.ColTitle?.value ?? '').trim() || '—');
+  return extractColumnPeriodLabels(column as Parameters<typeof extractColumnPeriodLabels>[0]);
 }
 
 function classifyFinancialRow(account: string, isBold: boolean): FlatMultiPeriodRow['rowKind'] {

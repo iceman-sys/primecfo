@@ -22,7 +22,7 @@ export interface MetricCard {
   title: string;
   value: number;
   previousValue: number;
-  format: 'currency' | 'currencyExact' | 'percentage' | 'number' | 'days';
+  format: 'currency' | 'currencyExact' | 'percentage' | 'number' | 'days' | 'text';
   trend: 'up' | 'down' | 'flat';
   trendIsGood: boolean;
   icon: string;
@@ -33,6 +33,8 @@ export interface MetricCard {
   metricHealth?: 'good' | 'warn' | 'bad';
   /** When true, hides the trending % badge (e.g. primary value is already a % delta). */
   hideTrendBadge?: boolean;
+  /** When set, replaces formatted numeric value (e.g. cash-flow positive runway). */
+  displayOverride?: string;
 }
 
 export type InsightSeverity = 'critical' | 'warning' | 'watch' | 'positive' | 'info';

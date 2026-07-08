@@ -20,6 +20,7 @@ type BillingStatus = {
     trial_end: string | null;
     cancel_at_period_end: boolean;
   } | null;
+  currentPlan?: { id: string; tierWordmark: string; name: string } | null;
   entitlements?: {
     advisoryMeeting: "none" | "quarterly" | "monthly";
   } | null;
@@ -113,8 +114,10 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Plan</p>
-                <p className="text-white font-medium capitalize">
-                  {billing.subscription.plan_id?.replace(/-/g, " ") || "—"}
+                <p className="text-white font-medium">
+                  {billing.currentPlan
+                    ? `${billing.currentPlan.tierWordmark} · ${billing.currentPlan.name}`
+                    : billing.subscription.plan_id?.replace(/-/g, " ") || "—"}
                 </p>
               </div>
               <div>

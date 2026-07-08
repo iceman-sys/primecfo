@@ -8,10 +8,10 @@ import { useReportRange } from "@/contexts/ReportRangeContext";
 import DashboardView from "@/app/components/primecfo/DashboardView";
 import ForecastPanel from "@/app/components/primecfo/ForecastPanel";
 import { getDashboardData, getInsights, getDataQualityAdvisory, syncReports, getForecast, syncCheckoutSession, BILLING_UPDATED_EVENT, SyncError, type DashboardDataResponse, type ReportRange } from "@/lib/api/client";
+import { formatCurrency, formatExactCurrency, getTrend } from "@/lib/financialData";
 import { toastErrorWithProgress } from "@/app/components/ui/sonner";
 import { toast } from "sonner";
 import type { MetricCard, ChartDataPoint, AIInsight, RiskPosture } from "@/lib/financialData";
-import { formatCurrency, formatExactCurrency, getTrend } from "@/lib/financialData";
 import { buildHistoricCashTrail14d } from "@/lib/forecast/historicTrail";
 
 const RANGE_TO_LABEL: Record<ReportRange, string> = {
@@ -97,6 +97,19 @@ function mapCoreToFiveMetrics(
 ): MetricCard[] {
   const ar = core.arAging;
   const arDisplay = Math.max(ar.total, summary.accounts_receivable);
+
+  const cashContext =
+    core.undepositedFunds > 500
+      ? `Includes ${formatExactCurrency(core.undepositedFunds)} undeposited funds · bank ${formatExactCurrency(core.bankCash)}`
+      : "From latest balance-sheet sync";
+
+  const runwayValue = core.cashFlowPositive ? 0 : (core.cashRunwayMonths ?? 0);
+  const runwayContext = core.cashFlowPositive
+    ? `Net cash flow +${formatExactCurrency(core.trailingNetCashFlow ?? 0)}/mo — no runway constraint`
+    : core.cashRunwayMonths != null
+      ? `~${core.cashRunwayMonths.toFixed(1)} months at net burn`
+      : "Sync Cash Flow Statement for runway";
+
   return [
     {
       id: "spec-1",
@@ -108,7 +121,7 @@ function mapCoreToFiveMetrics(
       icon: "Wallet",
       color: "teal",
       metricHealth: core.health.cash,
-      contextLine: "From latest balance-sheet sync",
+      contextLine: cashContext,
     },
     {
       id: "spec-2",
@@ -127,10 +140,10 @@ function mapCoreToFiveMetrics(
     {
       id: "spec-3",
       title: "Profit Margin",
-      value: core.profitMarginPct,
+      value: core.profitMarginPct ?? 0,
       previousValue: previousSummary.profit_margin_pct,
       format: "percentage",
-      ...getTrend(core.profitMarginPct, previousSummary.profit_margin_pct, true),
+      ...getTrend(core.profitMarginPct ?? 0, previousSummary.profit_margin_pct, true),
       icon: "PieChart",
       color: "violet",
       metricHealth: core.health.margin,
@@ -151,15 +164,17 @@ function mapCoreToFiveMetrics(
     {
       id: "spec-5",
       title: "Cash Runway",
-      value: core.cashRunwayMonths,
+      value: runwayValue,
       previousValue: 0,
-      format: "number",
+      format: core.cashFlowPositive ? "text" : "number",
       trend: "flat",
-      trendIsGood: core.health.runway !== "bad",
+      trendIsGood: core.cashFlowPositive || core.health.runway !== "bad",
       icon: "TrendingUp",
       color: "blue",
       metricHealth: core.health.runway,
-      contextLine: `~${core.cashRunwayMonths.toFixed(1)} months at trailing cash burn`,
+      contextLine: runwayContext,
+      displayOverride: core.cashFlowPositive ? "Cash-flow positive" : undefined,
+      hideTrendBadge: true,
     },
   ];
 }
@@ -250,7 +265,7 @@ export default function DashboardPage() {
     enabled: !!(selectedClient?.id && selectedClient.qbStatus === "connected"),
     staleTime: 120_000,
     refetchOnMount: "always",
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
   const syncMutation = useMutation({
@@ -308,6 +323,7 @@ export default function DashboardPage() {
   }, [chartData, forecastData?.summary?.bankBalance]);
 
   const dataQualityAdvisory = dataQualityData?.advisory ?? null;
+  const reconciliation = dashboardData?.reconciliation ?? null;
 
   return (
     <DashboardView
@@ -316,6 +332,7 @@ export default function DashboardPage() {
       riskPosture={riskPosture}
       client={selectedClient}
       dataQualityAdvisory={dataQualityAdvisory}
+      reconciliation={reconciliation}
       forecastPanel={
         selectedClient?.qbStatus === "connected" ? (
           <ForecastPanel

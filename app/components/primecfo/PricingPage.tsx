@@ -108,8 +108,8 @@ const PricingPage: React.FC<PricingPageProps> = ({
             PrimeCFO<span style={{ color: ACCENT }}>.ai</span>
           </h1>
           <p className="mx-auto mb-8 max-w-lg text-base leading-relaxed" style={{ color: TEXT_MUTED }}>
-            Four simple paths — see your numbers clearly, understand them with help, or act with a team in your
-            corner.
+            Four simple paths — keep your numbers visible, see them clearly, understand them with help, or act
+            with a team in your corner.
           </p>
 
           {isSubscriptionLoading && (

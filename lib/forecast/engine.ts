@@ -109,6 +109,19 @@ export function computeCashForecast(
   );
   const outflowsBills = inputs.openBills.reduce((s, b) => s + parseEntityBalance(b), 0);
 
+  let referenceAr = weightedInflowsExpected;
+  let referenceAp = outflowsBills;
+  if (inputs.balanceSheetSnapshot) {
+    const bsEntries = deriveMetricsFromBalanceSheet(inputs.balanceSheetSnapshot);
+    const arEntry = bsEntries.find((e) => e.metric_key === 'accounts_receivable');
+    const apEntry = bsEntries.find((e) => e.metric_key === 'accounts_payable');
+    if (arEntry != null) referenceAr = arEntry.value;
+    if (apEntry != null) referenceAp = apEntry.value;
+  } else if (inputs.balanceSheetArAp) {
+    referenceAr = inputs.balanceSheetArAp.ar;
+    referenceAp = inputs.balanceSheetArAp.ap;
+  }
+
   const recurring = resolveRecurringMonthlyNet(inputs);
   const expectedMonthlyNet = projectMonthlyNet(inputs, SCENARIO_EXPECTED);
 
@@ -156,8 +169,8 @@ export function computeCashForecast(
     tier: caps.tier,
     bankBalance: inputs.bankBalance,
     components: {
-      expectedInflowsWeighted: weightedInflowsExpected,
-      expectedOutflowsBills: outflowsBills,
+      expectedInflowsWeighted: referenceAr,
+      expectedOutflowsBills: referenceAp,
       estimatedRecurringMonthly: recurring.value,
       recurringBasis: recurring.basis,
       collectionRate: 0.85,

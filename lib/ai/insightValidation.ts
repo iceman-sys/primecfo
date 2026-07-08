@@ -49,12 +49,49 @@ function isGrowthCapacityInsight(insight: Pick<AIInsight, 'category' | 'title'>)
   return hay.includes('growth capacity') || hay.includes('capacity constraint') || hay.includes('capacity utilization');
 }
 
+function isExpenseEfficiencyInsight(insight: Pick<AIInsight, 'title' | 'category' | 'description'>): boolean {
+  const hay = `${insight.title} ${insight.category} ${insight.description}`.toLowerCase();
+  return hay.includes('expense efficiency') || hay.includes('declining expense');
+}
+
+function isContradictoryRevenueInsight(
+  insight: AIInsight,
+  context?: FinancialContext
+): boolean {
+  if (!context) return false;
+  const revPct = context.derived.revenueGrowthPct;
+  if (revPct == null) return false;
+
+  const hay = `${insight.title} ${insight.category} ${insight.metric ?? ''}`.toLowerCase();
+  if (!hay.includes('revenue')) return false;
+  if (hay.includes('seasonal') || hay.includes('recurring') || hay.includes('composition')) return false;
+
+  const claimsGrowth =
+    hay.includes('growth') ||
+    hay.includes('realized') ||
+    hay.includes('increase') ||
+    (insight.metricValue ?? '').includes('+');
+  const claimsDecline =
+    hay.includes('decline') ||
+    hay.includes('decrease') ||
+    hay.includes('drop') ||
+    (insight.metricValue ?? '').includes('-');
+
+  if (revPct < -1 && claimsGrowth) return true;
+  if (revPct > 1 && claimsDecline) return true;
+  return false;
+}
+
 export function shouldSuppressInsight(
   insight: AIInsight,
   context?: FinancialContext
 ): boolean {
   const category = insight.category.toLowerCase();
   const combined = `${insight.title} ${insight.description}`;
+
+  if (isExpenseEfficiencyInsight(insight)) return true;
+
+  if (isContradictoryRevenueInsight(insight, context)) return true;
 
   if (isTaxInsight(insight)) {
     if (context?.derived.taxExpense == null) return true;

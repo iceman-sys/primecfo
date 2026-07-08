@@ -14,9 +14,17 @@ export type PlanEntitlements = {
 };
 
 const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
+  starter: {
+    tier: 'starter',
+    forecastHorizonDays: 30,
+    aiSummaryCadence: 'monthly',
+    customAlerts: false,
+    forecastScenarios: false,
+    advisoryMeeting: 'none',
+  },
   see: {
     tier: 'see',
-    forecastHorizonDays: 30,
+    forecastHorizonDays: 60,
     aiSummaryCadence: 'monthly',
     customAlerts: false,
     forecastScenarios: false,
@@ -24,7 +32,7 @@ const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
   },
   understand: {
     tier: 'understand',
-    forecastHorizonDays: 60,
+    forecastHorizonDays: 90,
     aiSummaryCadence: 'weekly',
     customAlerts: false,
     forecastScenarios: false,
@@ -42,6 +50,6 @@ const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
 
 /** Feature matrix for a Stripe plan_id (self-service | starter | growth). */
 export function getPlanEntitlements(planId: string | null | undefined): PlanEntitlements {
-  const tier = planIdToTier(planId) ?? 'see';
+  const tier = planIdToTier(planId) ?? 'starter';
   return ENTITLEMENTS[tier];
 }

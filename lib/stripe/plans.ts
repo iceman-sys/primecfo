@@ -83,9 +83,9 @@ function productDescription(plan: Plan): string {
     'self-service':
       'Your numbers, finally clear. Dashboard KPIs, monthly AI summary, 30-day forecast.',
     starter:
-      'AI insights. Human guidance. Weekly summaries, 60-day forecast, quarterly CPA advisory.',
+      'AI insights. Human guidance. Weekly summaries, 30–90 day forecast, quarterly fractional CFO advisory.',
     growth:
-      'A finance team in your corner. 90-day scenarios, custom alerts, monthly CPA advisory.',
+      'A finance team in your corner. 90-day scenarios, custom alerts, monthly fractional CFO advisory.',
   };
   return descriptions[plan.id] ?? plan.headline;
 }

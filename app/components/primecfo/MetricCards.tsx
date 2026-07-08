@@ -61,7 +61,9 @@ const MetricCards: React.FC<MetricCardsProps> = ({ metrics, dataQualityAdvisory,
         const changeStr = formatPercentChange(metric.value, metric.previousValue);
 
         let displayValue = "";
-        if (metric.title === "Cash Runway") {
+        if (metric.displayOverride) {
+          displayValue = metric.displayOverride;
+        } else if (metric.title === "Cash Runway" && metric.format !== "text") {
           displayValue = `${metric.value.toFixed(1)} mo`;
         } else if (metric.format === "currency") displayValue = formatCurrency(metric.value);
         else if (metric.format === "currencyExact") displayValue = formatExactCurrency(metric.value);

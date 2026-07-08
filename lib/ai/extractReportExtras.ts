@@ -268,8 +268,10 @@ export type OwnerDrawsSnapshot = {
 const OWNER_DISTRIBUTION_PATTERNS = [
   'shareholder distribution',
   'shareholder draw',
+  'shareholder draws',
   'owner draw',
   "owner's draw",
+  'owner draws',
   'member draw',
   'member distribution',
   'partner distribution',

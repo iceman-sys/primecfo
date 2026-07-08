@@ -6,9 +6,11 @@ import MetricCards from "./MetricCards";
 import AIInsights from "./AIInsights";
 import RiskPosture from "./RiskPosture";
 import DataQualityAdvisoryPanel from "./DataQualityAdvisory";
+import ReconciliationBanner from "./ReconciliationBanner";
 import { MetricCard, AIInsight, Client, timeAgo } from "@/lib/financialData";
 import type { RiskPosture as RiskPostureType } from "@/lib/financialData";
 import type { DataQualityAdvisory } from "@/lib/dataQuality/types";
+import type { ReconciliationStatus } from "@/lib/qbo/reconciliationStatus";
 
 export type DashboardRange = "3m" | "6m" | "12m" | "4q";
 
@@ -42,6 +44,7 @@ interface DashboardViewProps {
   onDismissSyncWarning?: () => void;
   onConnectClick?: () => void;
   dataQualityAdvisory?: DataQualityAdvisory | null;
+  reconciliation?: ReconciliationStatus | null;
 }
 
 const DashboardView: React.FC<DashboardViewProps> = ({
@@ -64,6 +67,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   onDismissSyncWarning,
   onConnectClick,
   dataQualityAdvisory,
+  reconciliation,
 }) => {
   const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
 
@@ -194,6 +198,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           No financial data yet. Click &quot;Sync&quot; to pull reports from QuickBooks and see metrics and trends here.
         </div>
       )}
+
+      {reconciliation && client?.qbStatus === "connected" ? (
+        <ReconciliationBanner status={reconciliation} className="mb-6" />
+      ) : null}
 
       {dataQualityAdvisory && client?.id ? (
         <DataQualityAdvisoryPanel

@@ -145,6 +145,24 @@ export async function getFinancialContext(
     cash: t.cash,
   }));
 
+  const completeTrends = bundle.lastReconciledDate
+    ? trends.filter((t) => {
+        if (!t.end_date) return true;
+        const end = new Date(`${t.end_date.slice(0, 10)}T23:59:59`);
+        const reconEnd = new Date(
+          bundle.lastReconciledDate!.getFullYear(),
+          bundle.lastReconciledDate!.getMonth(),
+          bundle.lastReconciledDate!.getDate(),
+          23,
+          59,
+          59,
+          999
+        );
+        return end <= reconEnd;
+      })
+    : trends;
+  const trendsForAnalysis = completeTrends.length >= 2 ? completeTrends : trends;
+
   const revenueGrowthPct =
     previousSummary && previousSummary.revenue !== 0
       ? ((summary.revenue - previousSummary.revenue) / Math.abs(previousSummary.revenue)) * 100
@@ -296,7 +314,7 @@ export async function getFinancialContext(
     reportRange: range,
     summary,
     previousSummary,
-    trends,
+    trends: trendsForAnalysis,
     derived: {
       revenueGrowthPct,
       expenseGrowthPct,

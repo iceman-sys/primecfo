@@ -326,6 +326,7 @@ describe('Prime Accounting regression fixtures', () => {
       balanceSheetSnapshot: null,
       cashFlowMonthly: null,
       avgMonthlyNetCashIncrease: -913.25,
+      balanceSheetArAp: null,
     } as ForecastInputs;
 
     const forecast = computeCashForecast(inputs, forecastCaps);

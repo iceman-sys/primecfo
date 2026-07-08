@@ -2,6 +2,9 @@ import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import { getDateRanges, getSingleDateRange, type ReportRange, type PeriodType } from '@/lib/qbo/reports';
 import { computeRunway, type TrendPoint } from '@/lib/metrics/runway';
 import { totalCosts } from '@/lib/metrics/costs';
+import { fetchLastReconciledDate } from '@/lib/qbo/reconciliation';
+import { capReconciliationDate, splitPeriodsExcludingPartial } from '@/lib/metrics/partialMonth';
+import { loadTrailingNetCashFlow } from '@/lib/metrics/cashFlowMetrics';
 
 export type PeriodRow = {
   id: string;
@@ -41,6 +44,8 @@ export type ClientMetricsBundle = {
   previousSummary: SummaryMetrics | null;
   runway: ReturnType<typeof computeRunway>;
   hasData: boolean;
+  lastReconciledDate: Date | null;
+  excludedPartialMonth: boolean;
 };
 
 function getStartDateCutoff(monthsBack: number): string {
@@ -128,13 +133,20 @@ export async function loadClientMetrics(
   const sb = supabaseAdmin();
   const cutoff = getStartDateCutoff(24);
 
-  const { data: periods } = await sb
-    .from('financial_report_periods')
-    .select('id, period_type, start_date, end_date, label')
-    .eq('client_id', clientId)
-    .eq('period_type', periodType)
-    .gte('start_date', cutoff)
-    .order('start_date', { ascending: true });
+  const [periodsResult, lastReconciledRaw, trailingNetCashFlow] = await Promise.all([
+    sb
+      .from('financial_report_periods')
+      .select('id, period_type, start_date, end_date, label')
+      .eq('client_id', clientId)
+      .eq('period_type', periodType)
+      .gte('start_date', cutoff)
+      .order('start_date', { ascending: true }),
+    fetchLastReconciledDate(clientId).catch(() => null),
+    loadTrailingNetCashFlow(clientId, range).catch(() => null),
+  ]);
+
+  const lastReconciledDate = capReconciliationDate(lastReconciledRaw);
+  const { data: periods } = periodsResult;
 
   const periodList = ((periods ?? []) as PeriodRow[]).filter(
     (p) => !p.label.toLowerCase().startsWith('last ')
@@ -170,8 +182,11 @@ export async function loadClientMetrics(
   const firstIdx = effectiveWindow.length
     ? periodList.findIndex((p) => p.id === effectiveWindow[0].id)
     : -1;
-  const previousPeriods =
+  const previousPeriodsRaw =
     firstIdx > 0 ? periodList.slice(Math.max(0, firstIdx - effectiveWindow.length), firstIdx) : [];
+
+  const { current: currentWindow, previous: previousWindow, excludedPartial } =
+    splitPeriodsExcludingPartial(effectiveWindow, previousPeriodsRaw, lastReconciledDate);
 
   const trends: TrendPoint[] = periodList.map((p) => {
     const m = metricsByPeriod.get(p.id) ?? {};
@@ -191,15 +206,17 @@ export async function loadClientMetrics(
     };
   });
 
-  const summary = aggregatePeriods(effectiveWindow, metricsByPeriod);
-  const previousSummary = aggregatePeriods(previousPeriods, metricsByPeriod);
+  const summary = aggregatePeriods(currentWindow, metricsByPeriod);
+  const previousSummary = aggregatePeriods(previousWindow, metricsByPeriod);
 
-  const trendWindow = trends.filter((t) =>
-    effectiveWindow.some((p) => p.label === t.periodLabel)
-  );
+  const trendWindow = trends.filter((t) => currentWindow.some((p) => p.label === t.periodLabel));
 
   const cashForRunway = summary?.cash ?? (trends.length ? trends[trends.length - 1].cash : 0);
-  const runway = computeRunway(trendWindow.length ? trendWindow : trends, cashForRunway);
+  const runway = computeRunway(
+    trendWindow.length ? trendWindow : trends,
+    cashForRunway,
+    trailingNetCashFlow
+  );
 
   return {
     range,
@@ -210,6 +227,8 @@ export async function loadClientMetrics(
     previousSummary,
     runway,
     hasData: periodList.length > 0 && metricsByPeriod.size > 0,
+    lastReconciledDate,
+    excludedPartialMonth: excludedPartial,
   };
 }
 
