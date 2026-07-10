@@ -11,6 +11,7 @@ import {
   type Plan,
   type DecisionHelper,
 } from "@/app/lib/pricing-plans";
+import { formatSubscriptionLabel } from "@/lib/billing/displayPlan";
 
 /** Deep navy palette (user reference ~#050714 / #080b1e) */
 const BG_DEEP = "#050714";
@@ -131,15 +132,8 @@ const PricingPage: React.FC<PricingPageProps> = ({
                 Your current subscription
               </p>
               <p className="mt-2 text-base font-semibold" style={{ color: TEXT }}>
-                <span style={{ color: ACCENT }}>{activeSubscription.tierWordmark}</span>
-                <span style={{ color: TEXT_DIM }}> · </span>
-                {activeSubscription.planName}
+                {formatSubscriptionLabel(activeSubscription.planName, activeSubscription.interval)}
               </p>
-              {(activeSubscription.interval === "year" || activeSubscription.interval === "month") && (
-                <p className="mt-1 text-sm" style={{ color: TEXT_MUTED }}>
-                  {activeSubscription.interval === "year" ? "Billed annually" : "Billed monthly"}
-                </p>
-              )}
             </div>
           )}
 

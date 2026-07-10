@@ -27,6 +27,11 @@ export type CashFlowForecastResult = {
     avgMonthlyOperatingCashNet: number | null;
     /** Open AR/AP are shown for context but not added to the projection (Option A). */
     includesOpenArApInProjection: boolean;
+    /** Trailing revenue volatility (CoV %) used for scenario bands, when available. */
+    scenarioVolatilityPct?: number | null;
+    scenarioUsedDefaults?: boolean;
+    scenarioOptimisticMultiplier?: number;
+    scenarioConservativeMultiplier?: number;
   };
   horizonDays: 30 | 60 | 90;
   /** Ending cash at horizon (expected) */

@@ -277,7 +277,14 @@ const OWNER_DISTRIBUTION_PATTERNS = [
   'partner distribution',
 ];
 
-const TAX_DRAW_PATTERNS = ['tax draw', 'tax distribution', 'estimated tax', 'income tax payment'];
+const TAX_DRAW_PATTERNS = [
+  'tax draw',
+  'tax distribution',
+  'estimated tax',
+  'income tax payment',
+  'taxes-ac',
+  'taxes ac',
+];
 
 function isInFinancingSection(rows: FlatMultiPeriodRow[], index: number): boolean {
   for (let i = index; i >= 0; i--) {
@@ -303,7 +310,6 @@ export function extractOwnerDrawsFromCashFlow(rawJson: unknown): OwnerDrawsSnaps
     const norm = normalize(row.account);
     if (norm.startsWith('total ')) return;
     if (!isInFinancingSection(rows, index)) return;
-    if (isExcludedFinancingRow(norm)) return;
     if (isPrincipalPaymentRow(norm)) return;
 
     const amt = Math.abs(rowAmount(row, colIdx));

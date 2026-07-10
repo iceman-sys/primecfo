@@ -17,24 +17,16 @@ import PublicShell from "@/app/components/primecfo/PublicShell";
 export const metadata: Metadata = {
   title: "About Us | PrimeCFO.ai",
   description:
-    "Unlocking Potential Through Financial Intelligence™ — QuickBooks-connected AI insights for modern business owners.",
+    "Built by accountants. Powered by AI. PrimeCFO.ai — Unlocking Potential Through Financial Intelligence™.",
   alternates: { canonical: "/about" },
   openGraph: {
     title: "About PrimeCFO.ai",
     description:
-      "Our mission is to make financial clarity accessible to every business owner.",
+      "Built by Prime Accounting Solutions — 20 years in the books of small businesses.",
     url: "/about",
     type: "website",
   },
 };
-
-// NOTE: The About Us content/design referenced in the project brief lives at
-//   https://claude.ai/public/artifacts/3d66e271-6255-4222-a805-95e1a1e49fe3
-// Claude public artifact pages are rendered client-side, so the raw copy
-// cannot be fetched programmatically. If the artifact contains canonical
-// wording you want to preserve verbatim, paste it into the sections below.
-// The layout, tone, and visual system below follow the existing PrimeCFO.ai
-// site style (dark slate + teal/emerald accents, Tailwind utility classes).
 
 export default function AboutPage() {
   const values = [
@@ -71,8 +63,8 @@ export default function AboutPage() {
   const stats = [
     { value: "100%", label: "QuickBooks-native data" },
     { value: "<60s", label: "From connect to first insight" },
-    { value: "3", label: "Plans from $119/mo (save ~17% annually)" },
-    { value: "14-day", label: "Free trial · card required" },
+    { value: "4", label: "Plans from $59/mo (save 10% annually)" },
+    { value: "20 yrs", label: "Of accounting experience behind the product" },
   ];
 
   return (
@@ -89,15 +81,14 @@ export default function AboutPage() {
             <span className="text-sm text-teal-400 font-medium">About PrimeCFO.ai</span>
           </div>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
-            Financial clarity for{" "}
+            Built by accountants.{" "}
             <span className="bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">
-              every business owner.
+              Powered by AI.
             </span>
           </h1>
           <p className="text-lg sm:text-xl text-slate-400 leading-relaxed max-w-2xl mx-auto">
-            PrimeCFO.ai connects to your QuickBooks account and turns raw
-            financial data into the insights a full-time CFO would surface — at
-            a price any growing business can afford.
+            PrimeCFO.ai — Unlocking Potential Through Financial Intelligence
+            <sup className="text-[0.45em] font-normal align-super text-emerald-300/95 ml-0.5">™</sup>
           </p>
         </div>
       </section>
@@ -107,22 +98,27 @@ export default function AboutPage() {
           <div className="grid md:grid-cols-2 gap-10 lg:gap-16 items-start">
             <div>
               <p className="text-teal-400 text-sm font-semibold uppercase tracking-wider mb-3">
-                Our mission
+                Our origin
               </p>
               <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Make financial intelligence accessible.
+                Built by accountants who live in the books.
               </h2>
               <p className="text-slate-400 leading-relaxed mb-4">
-                Most small and mid-sized businesses operate without a CFO.
-                Owners rely on bookkeepers for clean records and accountants
-                for year-end tax work — but nobody is turning the numbers into
-                decisions.
+                PrimeCFO.ai wasn&apos;t built by a software company guessing at what owners need.
+                It was built by{" "}
+                <a
+                  href="https://primeaccsolutions.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-400 hover:text-teal-300 underline decoration-teal-500/40 underline-offset-4"
+                >
+                  Prime Accounting Solutions
+                </a>{" "}
+                — a firm that has spent 20 years in the books of small businesses.
               </p>
               <p className="text-slate-400 leading-relaxed">
-                PrimeCFO.ai closes that gap. We pair your general ledger with
-                AI that reads your financials the way a senior finance leader
-                would, and we surface what matters — in plain English, every
-                time you log in.
+                Every insight, alert, and forecast in the product started as a question a real
+                client asked us.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -134,9 +130,7 @@ export default function AboutPage() {
                   <p className="text-3xl font-bold bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">
                     {s.value}
                   </p>
-                  <p className="text-xs text-slate-400 mt-2 leading-snug">
-                    {s.label}
-                  </p>
+                  <p className="text-xs text-slate-400 mt-2 leading-snug">{s.label}</p>
                 </div>
               ))}
             </div>
@@ -145,6 +139,25 @@ export default function AboutPage() {
       </section>
 
       <section className="bg-slate-950 py-20">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl mx-auto text-center mb-10">
+            <p className="text-teal-400 text-sm font-semibold uppercase tracking-wider mb-3">
+              AI + HI
+            </p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+              Artificial intelligence, human intelligence.
+            </h2>
+          </div>
+          <div className="max-w-3xl mx-auto rounded-2xl border border-slate-800 bg-slate-900/50 p-8 sm:p-10 text-center">
+            <p className="text-slate-300 leading-relaxed text-lg">
+              The AI reads your books every day; our human experience decides what&apos;s worth
+              telling you. Software finds the patterns. Accountants make them mean something.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-slate-900 py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <p className="text-teal-400 text-sm font-semibold uppercase tracking-wider mb-3">
@@ -154,8 +167,7 @@ export default function AboutPage() {
               The principles behind the product
             </h2>
             <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-              We build PrimeCFO.ai around a few convictions that shape every
-              feature.
+              We build PrimeCFO.ai around a few convictions that shape every feature.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 gap-6">
@@ -169,19 +181,15 @@ export default function AboutPage() {
                 >
                   <v.icon className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  {v.title}
-                </h3>
-                <p className="text-sm text-slate-400 leading-relaxed">
-                  {v.description}
-                </p>
+                <h3 className="text-lg font-semibold text-white mb-2">{v.title}</h3>
+                <p className="text-sm text-slate-400 leading-relaxed">{v.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-slate-900 py-20">
+      <section className="bg-slate-950 py-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <p className="text-teal-400 text-sm font-semibold uppercase tracking-wider mb-3">
@@ -219,33 +227,27 @@ export default function AboutPage() {
                 <div className="w-10 h-10 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center mb-4">
                   <item.icon className="w-5 h-5 text-teal-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  {item.title}
-                </h3>
-                <p className="text-sm text-slate-400 leading-relaxed">
-                  {item.body}
-                </p>
+                <h3 className="text-lg font-semibold text-white mb-2">{item.title}</h3>
+                <p className="text-sm text-slate-400 leading-relaxed">{item.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-slate-950 py-20 relative overflow-hidden">
+      <section className="bg-slate-900 py-20 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-teal-900/20 via-transparent to-transparent" />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-teal-500/10 border border-teal-500/20 rounded-full mb-6">
             <Brain className="w-4 h-4 text-teal-400" />
-            <span className="text-sm text-teal-400 font-medium">
-              AI-powered, owner-friendly
-            </span>
+            <span className="text-sm text-teal-400 font-medium">AI-powered, owner-friendly</span>
           </div>
           <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
             Want to see PrimeCFO.ai in action?
           </h2>
           <p className="text-lg text-slate-400 mb-8 max-w-2xl mx-auto">
-            Connect your QuickBooks account and see your first AI-generated
-            financial insight in under a minute.
+            Connect your QuickBooks account and see your first AI-generated financial insight in
+            under a minute.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
@@ -263,6 +265,10 @@ export default function AboutPage() {
               See pricing
             </Link>
           </div>
+          <p className="mt-8 text-sm text-slate-500">
+            PrimeCFO.ai — Unlocking Potential Through Financial Intelligence
+            <sup className="text-[0.55em] align-super">™</sup>
+          </p>
         </div>
       </section>
     </PublicShell>

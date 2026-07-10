@@ -64,7 +64,7 @@ const Hero: React.FC<HeroProps> = ({ onGetStarted }) => {
               {[
                 { icon: Shield, text: "Bank-Level Security" },
                 { icon: Zap, text: "Real-Time Sync" },
-                { icon: CheckCircle, text: "SOC 2 Compliant" },
+                { icon: CheckCircle, text: "SOC 2-aligned controls" },
               ].map((item) => (
                 <div key={item.text} className="flex items-center gap-2 text-slate-500">
                   <item.icon className="w-4 h-4 text-teal-500" />

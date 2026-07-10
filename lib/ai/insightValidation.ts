@@ -144,7 +144,37 @@ export function shouldSuppressInsight(
   return false;
 }
 
-/** Strip N/A alarming insights; demote any remaining missing-metric cards to neutral info. */
+function isProfitMarginInsight(insight: Pick<AIInsight, 'category' | 'title' | 'metric'>): boolean {
+  const hay = `${insight.category} ${insight.title} ${insight.metric ?? ''}`.toLowerCase();
+  if (hay.includes('gross margin') || hay.includes('incremental margin')) return false;
+  return hay.includes('profit margin') || hay.includes('net margin') || hay.includes('net profit margin');
+}
+
+/** Align margin insights with KPI definition: net income ÷ revenue for the current period window. */
+function normalizeProfitMarginInsight(insight: AIInsight, context: FinancialContext): AIInsight {
+  if (!isProfitMarginInsight(insight)) return insight;
+  if (context.summary.data_error) return insight;
+
+  const margin = context.summary.profit_margin_pct;
+  const change = context.derived.profitMarginChangePct;
+  const metricValue = `${margin.toFixed(1)}%`;
+  let description = insight.description;
+
+  if (change != null && Math.abs(change) >= 0.05) {
+    const dir = change >= 0 ? 'up' : 'down';
+    description = `Net profit margin is ${margin.toFixed(1)}% for this period (${dir} ${Math.abs(change).toFixed(1)} pts vs prior). Margin = net income ÷ revenue using the same period totals as your dashboard KPI card.`;
+  } else {
+    description = `Net profit margin is ${margin.toFixed(1)}% for this period. Margin = net income ÷ revenue using the same period totals as your dashboard KPI card.`;
+  }
+
+  return {
+    ...insight,
+    metric: 'Profit Margin',
+    metricValue,
+    description,
+  };
+}
+
 export function applyInsightDataValidation(
   insights: AIInsight[],
   context: FinancialContext
@@ -152,10 +182,11 @@ export function applyInsightDataValidation(
   return insights
     .filter((insight) => !shouldSuppressInsight(insight, context))
     .map((insight) => {
-      if (!isMissingMetric(insight.metricValue)) return insight;
-      if (ALARM_SEVERITIES.has(insight.urgency)) {
-        return { ...insight, urgency: 'info' as const };
+      const normalized = normalizeProfitMarginInsight(insight, context);
+      if (!isMissingMetric(normalized.metricValue)) return normalized;
+      if (ALARM_SEVERITIES.has(normalized.urgency)) {
+        return { ...normalized, urgency: 'info' as const };
       }
-      return insight;
+      return normalized;
     });
 }

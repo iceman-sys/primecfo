@@ -7,8 +7,8 @@ export type ProductTier = 'starter' | 'see' | 'understand' | 'act';
 
 export type TierCapabilities = {
   tier: ProductTier;
-  /** Max cash forecast horizon in days */
-  forecastDays: 30 | 60 | 90;
+  /** Max cash forecast horizon in days (0 = dashboard + runway only, no forward forecast) */
+  forecastDays: 0 | 30 | 60 | 90;
   scenarios: boolean;
   customAlerts: boolean;
   /** Profit & loss history window for seasonality (months) */
@@ -39,7 +39,7 @@ export function getTierCapabilities(planId: string | null | undefined): TierCapa
     case 'starter':
       return {
         tier,
-        forecastDays: 30,
+        forecastDays: 0,
         scenarios: false,
         customAlerts: false,
         pnlHistoryMonths: 6,
@@ -49,7 +49,7 @@ export function getTierCapabilities(planId: string | null | undefined): TierCapa
     case 'see':
       return {
         tier,
-        forecastDays: 60,
+        forecastDays: 30,
         scenarios: false,
         customAlerts: false,
         pnlHistoryMonths: 6,
@@ -59,7 +59,7 @@ export function getTierCapabilities(planId: string | null | undefined): TierCapa
     case 'understand':
       return {
         tier,
-        forecastDays: 90,
+        forecastDays: 60,
         scenarios: false,
         customAlerts: false,
         pnlHistoryMonths: 6,
@@ -82,8 +82,9 @@ export function getTierCapabilities(planId: string | null | undefined): TierCapa
 export function clampForecastHorizon(
   requested: number,
   cap: TierCapabilities['forecastDays']
-): 30 | 60 | 90 {
-  if (requested <= 30) return 30;
-  if (requested <= 60) return Math.min(60, cap) as 30 | 60 | 90;
-  return Math.min(90, cap) as 30 | 60 | 90;
+): 0 | 30 | 60 | 90 {
+  if (cap === 0) return 0;
+  if (requested <= 30) return Math.min(30, cap) as 0 | 30 | 60 | 90;
+  if (requested <= 60) return Math.min(60, cap) as 0 | 30 | 60 | 90;
+  return Math.min(90, cap) as 0 | 30 | 60 | 90;
 }

@@ -19,10 +19,12 @@ import {
   extractInterestExpense,
   extractNetOperatingIncome,
   extractOperatingCashFlow,
+  extractOwnerDrawsFromCashFlow,
 } from '@/lib/ai/extractReportExtras';
 import { extractBalanceSheetSnapshot } from '@/lib/ai/extractBalanceSheet';
 import {
   evaluateDebtService,
+  evaluateOwnerDraws,
   type BalanceSheetInsightInput,
 } from '@/lib/ai/balanceSheetInsights';
 
@@ -220,6 +222,31 @@ describe('Prime Accounting regression fixtures', () => {
     const ocf = extractOperatingCashFlow(CF_RAW);
     assert.equal(ocf, 297_449);
     assert.ok(ocf != null && ocf > 0);
+  });
+
+  it('owner draws YTD from financing activities', () => {
+    const draws = extractOwnerDrawsFromCashFlow(CF_RAW);
+    assert.ok(draws != null);
+    assert.equal(draws.totalYtd, 308_408);
+    assert.equal(draws.ownerDistributions, 308_408);
+
+    const insight = evaluateOwnerDraws({
+      balanceSheet: {} as BalanceSheetInsightInput['balanceSheet'],
+      periodMonths: 12,
+      interestExpenseTotal: null,
+      financingPrincipalTotal: null,
+      monthlyOperatingCash: null,
+      netOperatingIncome: null,
+      operatingCashFlow: null,
+      periodEbitda: null,
+      annualizedEbitda: null,
+      debtToEbitda: null,
+      ownerDraws: draws,
+      accountsReceivable: null,
+    });
+    assert.ok(insight != null);
+    assert.equal(insight.title, 'Owner Draws (YTD)');
+    assert.match(insight.metricValue, /\$308,408/);
   });
 
   it('interest coverage is ~4x on EBIT, never negative from net-change-in-cash', () => {

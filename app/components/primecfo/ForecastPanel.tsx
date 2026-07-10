@@ -36,7 +36,23 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
     );
   }
 
-  if (!data?.forecast) return null;
+  if (!data?.forecast) {
+    if (data?.upgradeMessage) {
+      return (
+        <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-6 text-sm text-slate-400">
+          <h3 className="text-lg font-semibold text-white mb-2">Cash flow outlook</h3>
+          <p>{data.upgradeMessage}</p>
+          <a
+            href="/pricing"
+            className="inline-flex mt-3 text-teal-400 hover:text-teal-300 font-medium"
+          >
+            View plans →
+          </a>
+        </div>
+      );
+    }
+    return null;
+  }
 
   const { forecast, capabilities, summary } = data;
   const { series, components, horizonDays } = forecast;
@@ -126,7 +142,9 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
           Projection compounds this net cash each month from today&apos;s bank balance. Open AR/AP are
           not added separately — they are already reflected in historical net cash movement.
           {capabilities.scenarios
-            ? ' Best / Expected / Worst vary revenue by +20% / baseline / −30% (expenses and financing outflows held fixed).'
+            ? forecast.components.scenarioUsedDefaults
+              ? ' Best / Expected / Worst use default ±20% / −30% revenue bands (expenses and financing held fixed) — limited history for volatility-based bands.'
+              : ` Best / Expected / Worst bands derive from trailing revenue volatility (~${forecast.components.scenarioVolatilityPct?.toFixed(1) ?? '—'}% CoV): revenue ×${forecast.components.scenarioOptimisticMultiplier?.toFixed(2) ?? '1.20'} / ×1.00 / ×${forecast.components.scenarioConservativeMultiplier?.toFixed(2) ?? '0.70'} (expenses and financing held fixed).`
             : ''}
         </p>
         <p className="text-[11px] text-slate-600">

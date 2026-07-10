@@ -82,13 +82,14 @@ const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
 const useAnimatedNumber = (target: number, start: boolean, durationMs = 1400) => {
   const reduced = usePrefersReducedMotion();
-  const [value, setValue] = useState(reduced ? target : 0);
+  const [value, setValue] = useState(reduced ? target : target);
   useEffect(() => {
     if (!start) return;
     if (reduced) {
       setValue(target);
       return;
     }
+    setValue(0);
     let raf = 0;
     const t0 = performance.now();
     const step = (t: number) => {
@@ -276,7 +277,11 @@ const AnimatedChart: React.FC<{ start: boolean }> = ({ start }) => {
 const DashboardPreview: React.FC = () => {
   const reduced = usePrefersReducedMotion();
   const { ref, inView } = useInView<HTMLDivElement>();
-  const start = inView || reduced;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const start = inView || reduced || mounted;
 
   const [insightIdx, setInsightIdx] = useState(0);
   useEffect(() => {

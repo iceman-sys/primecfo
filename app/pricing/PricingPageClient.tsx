@@ -185,8 +185,18 @@ export default function PricingPageClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
+      <div className="min-h-screen bg-slate-950">
+        <Navbar
+          currentView="pricing"
+          onNavigate={() => {}}
+          isLoggedIn={false}
+          onLogin={() => {}}
+          userEmail={null}
+          isOperator={false}
+        />
+        <div className="flex items-center justify-center py-32">
+          <div className="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
+        </div>
       </div>
     );
   }

@@ -264,7 +264,6 @@ export default function DashboardPage() {
     queryFn: () => getForecast(selectedClient!.id, range),
     enabled: !!(selectedClient?.id && selectedClient.qbStatus === "connected"),
     staleTime: 120_000,
-    refetchOnMount: "always",
     refetchOnWindowFocus: false,
   });
 

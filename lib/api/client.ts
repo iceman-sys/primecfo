@@ -272,6 +272,7 @@ export async function generateInsights(
 }
 
 export type ForecastApiResponse = {
+  upgradeMessage?: string;
   forecast: {
     asOf: string;
     tier: string;
@@ -296,7 +297,7 @@ export type ForecastApiResponse = {
       optimistic?: number;
       conservative?: number;
     }>;
-  };
+  } | null;
   capabilities: { tier: string; forecastDays: number; scenarios: boolean };
   summary: {
     asOf: string;

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CreditCard, ExternalLink, Loader2, Calendar } from "lucide-react";
+import { formatSubscriptionLabel } from "@/lib/billing/displayPlan";
 import ContactHelpBlock from "@/app/components/primecfo/ContactHelpBlock";
 import MfaSettings from "@/app/components/primecfo/MfaSettings";
 import { CALENDAR_URL } from "@/app/lib/pricing-plans";
@@ -116,7 +117,10 @@ export default function SettingsPage() {
                 <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Plan</p>
                 <p className="text-white font-medium">
                   {billing.currentPlan
-                    ? `${billing.currentPlan.tierWordmark} · ${billing.currentPlan.name}`
+                    ? formatSubscriptionLabel(
+                        billing.currentPlan.name,
+                        billing.subscription.interval
+                      )
                     : billing.subscription.plan_id?.replace(/-/g, " ") || "—"}
                 </p>
               </div>

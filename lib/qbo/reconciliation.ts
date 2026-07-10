@@ -53,12 +53,17 @@ async function fetchLastReconciledFromAccounts(clientId: string): Promise<Date |
   return latest;
 }
 
-/** Fallback when ReconcileInfo is missing — most recent reconciled payment date. */
+/** Fallback when ReconcileInfo is missing — most recent reconciled transaction date across QBO entities. */
 async function fetchMaxReconciledTxnDate(clientId: string): Promise<Date | null> {
   const entityQueries = [
     `SELECT TxnDate FROM Payment WHERE Reconciled = true ORDERBY TxnDate DESC MAXRESULTS 1`,
     `SELECT TxnDate FROM Deposit WHERE Reconciled = true ORDERBY TxnDate DESC MAXRESULTS 1`,
     `SELECT TxnDate FROM Purchase WHERE Reconciled = true ORDERBY TxnDate DESC MAXRESULTS 1`,
+    `SELECT TxnDate FROM BillPayment WHERE Reconciled = true ORDERBY TxnDate DESC MAXRESULTS 1`,
+    `SELECT TxnDate FROM Transfer WHERE Reconciled = true ORDERBY TxnDate DESC MAXRESULTS 1`,
+    `SELECT TxnDate FROM JournalEntry WHERE Reconciled = true ORDERBY TxnDate DESC MAXRESULTS 1`,
+    `SELECT TxnDate FROM Check WHERE Reconciled = true ORDERBY TxnDate DESC MAXRESULTS 1`,
+    `SELECT TxnDate FROM CreditCardPayment WHERE Reconciled = true ORDERBY TxnDate DESC MAXRESULTS 1`,
   ];
 
   let latest: Date | null = null;

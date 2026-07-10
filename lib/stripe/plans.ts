@@ -79,11 +79,11 @@ function productDisplayName(plan: Plan): string {
 function productDescription(plan: Plan): string {
   const descriptions: Record<string, string> = {
     entry:
-      'Essential dashboard, monthly AI summary emailed to you, and 30-day forecast.',
+      'Essential dashboard, monthly AI summary emailed to you, current cash position & runway — updated daily.',
     'self-service':
-      'Your numbers, finally clear. Dashboard KPIs, monthly AI summary, 30-day forecast.',
+      'Your numbers, finally clear. Dashboard KPIs, monthly AI summary, 30-day cash flow forecast.',
     starter:
-      'AI insights. Human guidance. Weekly summaries, 30–90 day forecast, quarterly fractional CFO advisory.',
+      'AI insights. Human guidance. Weekly summaries, 60-day forecast, quarterly fractional CFO advisory.',
     growth:
       'A finance team in your corner. 90-day scenarios, custom alerts, monthly fractional CFO advisory.',
   };
@@ -92,9 +92,23 @@ function productDescription(plan: Plan): string {
 
 async function findOrCreateProduct(plan: Plan): Promise<string> {
   const productId = productIdFor(plan.id);
+  const displayName = productDisplayName(plan);
+  const description = productDescription(plan);
   try {
     const existing = await stripe().products.retrieve(productId);
-    if (existing && !existing.deleted) return existing.id;
+    if (existing && !existing.deleted) {
+      if (existing.name !== displayName || existing.description !== description) {
+        await stripe().products.update(productId, {
+          name: displayName,
+          description,
+          metadata: {
+            primecfo_plan_id: plan.id,
+            primecfo_tier: plan.tierWordmark,
+          },
+        });
+      }
+      return existing.id;
+    }
   } catch (err) {
     const code =
       typeof err === 'object' && err && 'code' in err

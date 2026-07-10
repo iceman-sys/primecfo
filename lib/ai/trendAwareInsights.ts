@@ -139,6 +139,13 @@ function buildCashRunwayInsight(context: FinancialContext): AIInsight {
 }
 
 function buildRevenueTrendInsight(context: FinancialContext): AIInsight | null {
+  if (context.derived.excludedPartialMonth) {
+    const revPct = context.derived.revenueGrowthPct;
+    if (revPct != null && revPct < -15) {
+      return null;
+    }
+  }
+
   const evalResult = evaluateRevenueInsight({
     currentItems: context.derived.revenueLineItems,
     previousItems: context.derived.previousRevenueLineItems,
@@ -147,6 +154,9 @@ function buildRevenueTrendInsight(context: FinancialContext): AIInsight | null {
   });
 
   if (!evalResult || evalResult.suppress) return null;
+  if (context.derived.excludedPartialMonth && evalResult.title === 'Seasonal Revenue Shift') {
+    return null;
+  }
 
   const metricLabel =
     evalResult.title.includes('Composition') || evalResult.title.includes('Concentration')

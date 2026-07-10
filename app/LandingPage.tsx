@@ -11,7 +11,6 @@ export default function LandingPage() {
   const router = useRouter();
   const [session, setSession] = useState<{ user: { email?: string } } | null>(null);
   const [isOperator, setIsOperator] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/me", { cache: "no-store" })
@@ -19,18 +18,15 @@ export default function LandingPage() {
         if (!res.ok) {
           setSession(null);
           setIsOperator(false);
-          setLoading(false);
           return;
         }
         const me = (await res.json()) as { email?: string | null; isOperator?: boolean };
         setSession({ user: { email: me.email ?? undefined } });
         setIsOperator(!!me.isOperator);
-        setLoading(false);
       })
       .catch(() => {
         setSession(null);
         setIsOperator(false);
-        setLoading(false);
       });
   }, []);
 
@@ -59,14 +55,6 @@ export default function LandingPage() {
       router.push("/login?next=/dashboard");
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-teal-500/30 border-t-teal-500 rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-950">

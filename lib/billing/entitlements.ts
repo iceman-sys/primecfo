@@ -5,8 +5,8 @@ export type AdvisoryMeeting = 'none' | 'quarterly' | 'monthly';
 
 export type PlanEntitlements = {
   tier: ProductTier;
-  /** See = 30d, Understand = 60d, Act = 90d (+ scenarios via tiers.ts) */
-  forecastHorizonDays: 30 | 60 | 90;
+  /** See = 30d, Understand = 60d, Act = 90d; Starter = 0 (runway only) */
+  forecastHorizonDays: 0 | 30 | 60 | 90;
   aiSummaryCadence: AiSummaryCadence;
   customAlerts: boolean;
   forecastScenarios: boolean;
@@ -16,7 +16,7 @@ export type PlanEntitlements = {
 const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
   starter: {
     tier: 'starter',
-    forecastHorizonDays: 30,
+    forecastHorizonDays: 0,
     aiSummaryCadence: 'monthly',
     customAlerts: false,
     forecastScenarios: false,
@@ -24,7 +24,7 @@ const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
   },
   see: {
     tier: 'see',
-    forecastHorizonDays: 60,
+    forecastHorizonDays: 30,
     aiSummaryCadence: 'monthly',
     customAlerts: false,
     forecastScenarios: false,
@@ -32,7 +32,7 @@ const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
   },
   understand: {
     tier: 'understand',
-    forecastHorizonDays: 90,
+    forecastHorizonDays: 60,
     aiSummaryCadence: 'weekly',
     customAlerts: false,
     forecastScenarios: false,

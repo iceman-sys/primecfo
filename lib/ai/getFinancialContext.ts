@@ -92,6 +92,7 @@ export type FinancialContext = {
     debtServiceCoverage: number | null;
     incrementalMarginPct: number | null;
     dataError: boolean;
+    excludedPartialMonth: boolean;
   };
   balanceSheet: BalanceSheetInsightInput | null;
   balanceSheetContext: BalanceSheetContext | null;
@@ -334,6 +335,7 @@ export async function getFinancialContext(
       debtServiceCoverage,
       incrementalMarginPct,
       dataError: summary.data_error ?? false,
+      excludedPartialMonth: bundle.excludedPartialMonth,
     },
     balanceSheet,
     balanceSheetContext,

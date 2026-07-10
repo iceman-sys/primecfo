@@ -3,7 +3,7 @@ import { getDateRanges, getSingleDateRange, type ReportRange, type PeriodType } 
 import { computeRunway, type TrendPoint } from '@/lib/metrics/runway';
 import { totalCosts } from '@/lib/metrics/costs';
 import { fetchLastReconciledDate } from '@/lib/qbo/reconciliation';
-import { capReconciliationDate, splitPeriodsExcludingPartial } from '@/lib/metrics/partialMonth';
+import { capReconciliationDate, splitPeriodsExcludingPartial, filterCompleteTrends } from '@/lib/metrics/partialMonth';
 import { loadTrailingNetCashFlow } from '@/lib/metrics/cashFlowMetrics';
 
 export type PeriodRow = {
@@ -209,7 +209,11 @@ export async function loadClientMetrics(
   const summary = aggregatePeriods(currentWindow, metricsByPeriod);
   const previousSummary = aggregatePeriods(previousWindow, metricsByPeriod);
 
-  const trendWindow = trends.filter((t) => currentWindow.some((p) => p.label === t.periodLabel));
+  const trendWindowRaw = trends.filter((t) => currentWindow.some((p) => p.label === t.periodLabel));
+  const trendWindow = filterCompleteTrends(
+    trendWindowRaw.length ? trendWindowRaw : trends,
+    lastReconciledDate
+  );
 
   const cashForRunway = summary?.cash ?? (trends.length ? trends[trends.length - 1].cash : 0);
   const runway = computeRunway(

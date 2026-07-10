@@ -158,7 +158,7 @@ export async function loadForecastInputs(
 
   const asOf = ymd(today);
 
-  const arApWindowDays = caps.forecastDays;
+  const arApWindowDays = caps.forecastDays > 0 ? caps.forecastDays : 30;
 
   const horizonEnd = ymd(addDays(today, arApWindowDays));
 

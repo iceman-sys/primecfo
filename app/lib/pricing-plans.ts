@@ -61,12 +61,12 @@ export const PLANS: Plan[] = [
     cardBullets: [
       "Cash position, revenue trend, profit margin, AR aging, cash runway",
       "Monthly AI summary in plain English — emailed to you",
-      "30-day cash flow forecast",
+      "Current cash position & runway — updated daily",
     ],
     features: [
       { label: "QuickBooks Dashboard", included: true },
       { label: "AI Financial Summaries", value: "Monthly — emailed" },
-      { label: "Cash Flow Forecast", value: "30-day" },
+      { label: "Cash Flow Forecast", value: "Runway only (no forward forecast)" },
       { label: "KPI Tracking", value: "5 KPIs" },
     ],
     cta: "Start Free for 14 Days",
@@ -88,14 +88,14 @@ export const PLANS: Plan[] = [
     headline: "Your numbers, finally clear.",
     cardBullets: [
       "Everything in Starter",
-      "30–60 day cash flow dashboard",
+      "30-day cash flow forecast",
       "Data-quality alerts when your books need attention",
       "Monthly AI summary in plain English — emailed to you",
     ],
     features: [
       { label: "QuickBooks Dashboard", included: true },
       { label: "AI Financial Summaries", value: "Monthly — emailed" },
-      { label: "Cash Flow Forecast", value: "30–60 day" },
+      { label: "Cash Flow Forecast", value: "30-day" },
       { label: "Data-Quality Alerts", included: true },
       { label: "KPI Tracking", value: "5 KPIs" },
     ],
@@ -119,13 +119,13 @@ export const PLANS: Plan[] = [
     cardBullets: [
       "Everything in See",
       "Weekly AI financial summaries",
-      "30–90 day cash flow forecast",
+      "60-day cash flow forecast",
       "1-hour quarterly advisory meeting with your fractional CFO",
     ],
     features: [
       { label: "QuickBooks Dashboard", included: true },
       { label: "AI Financial Summaries", value: "Weekly" },
-      { label: "Cash Flow Forecast", value: "30–90 day" },
+      { label: "Cash Flow Forecast", value: "60-day" },
       { label: "Advisory Hours", value: "1 hr/quarter fractional CFO meeting" },
     ],
     cta: "Start Free for 14 Days",
@@ -178,19 +178,19 @@ export const DECISION_HELPERS: DecisionHelper[] = [
   {
     icon: "zap",
     title: "I want essentials",
-    desc: "Starter gives you a clear dashboard, monthly AI summary emailed to you, and a 30-day cash outlook.",
+    desc: "Starter gives you a clear dashboard, monthly AI summary emailed to you, and daily cash position & runway — no forward forecast.",
     tier: "Starter — $53/mo billed annually ($59 monthly)",
   },
   {
     icon: "zap",
     title: "I want to do it myself",
-    desc: "See adds a 30–60 day cash flow dashboard and data-quality alerts on top of Starter.",
+    desc: "See adds a 30-day cash flow forecast and data-quality alerts on top of Starter.",
     tier: "See — $107/mo billed annually ($119 monthly)",
   },
   {
     icon: "users",
     title: "I want a guide",
-    desc: "Understand adds weekly summaries, a 30–90 day forecast, and a 1-hour quarterly advisory meeting with your fractional CFO.",
+    desc: "Understand adds weekly summaries, a 60-day forecast, and a 1-hour quarterly advisory meeting with your fractional CFO.",
     tier: "Understand — $314/mo billed annually ($349 monthly)",
   },
   {
@@ -222,7 +222,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Is my financial data secure?",
-    a: "We maintain bank-level encryption, SOC 2 compliance standards, and a comprehensive Written Information Security Program (WISP). Your data is never shared or sold.",
+    a: "We maintain bank-level encryption, SOC 2-aligned controls, and a comprehensive Written Information Security Program (WISP). Your data is never shared or sold.",
   },
 ];
 
@@ -277,5 +277,5 @@ export const TRUST_LOGOS: TrustLogo[] = [
   { name: "Stripe", caption: "Secure Payments" },
   { name: "Plaid", caption: "Bank-Level Connections" },
   { name: "Supabase", caption: "Encrypted Storage" },
-  { name: "SOC 2", caption: "Compliance Aligned" },
+  { name: "SOC 2", caption: "Aligned Controls" },
 ];

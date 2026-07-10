@@ -26,6 +26,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    if (session.capabilities.forecastDays === 0) {
+      return NextResponse.json({
+        forecast: null,
+        capabilities: {
+          tier: session.capabilities.tier,
+          forecastDays: session.capabilities.forecastDays,
+          scenarios: session.capabilities.scenarios,
+        },
+        upgradeMessage:
+          'Cash flow forecasts start on the See plan (30-day). Upgrade to unlock forward-looking projections.',
+      });
+    }
+
     const inputs = await loadForecastInputs(access.clientId, session.capabilities, range);
     const forecast = computeCashForecast(inputs, session.capabilities);
 

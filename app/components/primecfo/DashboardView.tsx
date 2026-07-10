@@ -211,7 +211,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
         />
       ) : null}
 
-      <div className={`mb-6 transition-opacity duration-200 ${isRangeLoading ? "opacity-60 pointer-events-none" : ""}`}>
+      <div className={`mb-6 transition-opacity duration-200 ${isRangeLoading ? "opacity-60" : ""}`}>
         <MetricCards
           metrics={metrics}
           dataQualityAdvisory={dataQualityAdvisory}
