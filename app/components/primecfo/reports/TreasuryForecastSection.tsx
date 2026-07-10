@@ -88,6 +88,8 @@ function TreasuryForecastContent({
         series={series}
         horizonDays={horizonDays}
         showScenarios={capabilities.scenarios}
+        shortfall={forecast.worstCaseShortfall}
+        methodologyHint={forecast.components.scenarioMethodology}
       />
 
       {waypoints.length > 1 ? (

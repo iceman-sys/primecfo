@@ -87,7 +87,7 @@ describe('data quality detectors', () => {
     assert.equal(r!.rule, 'suspense_balances');
   });
 
-  it('getDataQualityAdvisory returns highest priority only', () => {
+  it('getDataQualityAdvisory skips stale_books (owned by ReconciliationBanner)', () => {
     const old = new Date();
     old.setDate(old.getDate() - 60);
     const r = getDataQualityAdvisory(
@@ -98,7 +98,7 @@ describe('data quality detectors', () => {
       })
     );
     assert.ok(r);
-    assert.equal(r!.rule, 'stale_books');
+    assert.equal(r!.rule, 'structural_negative');
   });
 
   it('getDataQualityAdvisory returns null for clean data', () => {

@@ -25,35 +25,6 @@ export type HistoricCashPoint = { offset: number; cash: number };
 
 type Point = ForecastSeriesPoint;
 
-function interpolateAtDay(anchors: Point[], targetDay: number): { e: number; o?: number; c?: number } {
-  if (!anchors.length) return { e: 0 };
-  const sorted = [...anchors].sort((a, b) => a.dayOffset - b.dayOffset);
-  const pick = (p: Point) => ({ e: p.expected, o: p.optimistic, c: p.conservative });
-  if (targetDay <= sorted[0]!.dayOffset) return pick(sorted[0]!);
-  const lastPt = sorted[sorted.length - 1]!;
-  if (targetDay >= lastPt.dayOffset) return pick(lastPt);
-  for (let k = 0; k < sorted.length - 1; k++) {
-    const a = sorted[k]!;
-    const b = sorted[k + 1]!;
-    if (targetDay < a.dayOffset || targetDay > b.dayOffset) continue;
-    if (b.dayOffset === a.dayOffset) return pick(b);
-    const span = b.dayOffset - a.dayOffset;
-    const mu = (targetDay - a.dayOffset) / span;
-    return {
-      e: a.expected + mu * (b.expected - a.expected),
-      o:
-        a.optimistic != null && b.optimistic != null
-          ? a.optimistic + mu * (b.optimistic - a.optimistic)
-          : undefined,
-      c:
-        a.conservative != null && b.conservative != null
-          ? a.conservative + mu * (b.conservative - a.conservative)
-          : undefined,
-    };
-  }
-  return pick(lastPt);
-}
-
 function formatAxisTick(n: number): string {
   const v = Math.abs(n);
   if (v >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -74,13 +45,22 @@ type ForecastChartProps = {
   horizonDays: number;
   showScenarios: boolean;
   historic?: HistoricCashPoint[];
+  /** When worst case would go negative — callout instead of deep negative line. */
+  shortfall?: { amount: number; dayOffset: number } | null;
+  methodologyHint?: string;
 };
 
+/**
+ * Chart uses sparse anchor points only (not one row per day) to avoid main-thread freezes
+ * from Recharts re-rendering ~100 interpolated points.
+ */
 const ForecastChart: React.FC<ForecastChartProps> = ({
   series,
   horizonDays,
   showScenarios,
   historic = [],
+  shortfall = null,
+  methodologyHint,
 }) => {
   const [height, setHeight] = useState(280);
 
@@ -96,8 +76,6 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
     return () => window.removeEventListener("resize", apply);
   }, []);
 
-  const histByDay = useMemo(() => new Map(historic.map((h) => [h.offset, h.cash])), [historic]);
-
   const chartRows = useMemo(() => {
     const rows: Array<{
       day: number;
@@ -107,42 +85,51 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
       worst?: number;
     }> = [];
 
-    const hasHist = historic.length > 0;
-    const startDay = hasHist
-      ? Math.min(-14, ...historic.map((h) => h.offset))
-      : 0;
-
-    for (let day = startDay; day <= horizonDays; day++) {
-      const histV = histByDay.get(day);
-      const intr =
-        day >= 0 ? interpolateAtDay(series, day) : { e: 0, o: undefined, c: undefined };
-      let worst = intr.c;
-      if (day >= 0 && worst != null && intr.e >= 0) worst = Math.max(worst, 0);
-
-      rows.push({
-        day,
-        ...(histV !== undefined ? { history: histV } : {}),
-        ...(day >= 0
-          ? {
-              expected: intr.e,
-              best: showScenarios ? intr.o : undefined,
-              worst: showScenarios ? worst : undefined,
-            }
-          : {}),
-      });
+    // Sparse historic trail (at most ~8 points)
+    if (historic.length > 0) {
+      const sorted = [...historic].sort((a, b) => a.offset - b.offset);
+      const step = Math.max(1, Math.floor(sorted.length / 8));
+      for (let i = 0; i < sorted.length; i += step) {
+        const h = sorted[i]!;
+        rows.push({ day: h.offset, history: h.cash });
+      }
+      const lastH = sorted[sorted.length - 1]!;
+      if (rows[rows.length - 1]?.day !== lastH.offset) {
+        rows.push({ day: lastH.offset, history: lastH.cash });
+      }
     }
 
-    return rows;
-  }, [historic, histByDay, horizonDays, series, showScenarios]);
+    const sortedSeries = [...series].sort((a, b) => a.dayOffset - b.dayOffset);
+    for (const p of sortedSeries) {
+      if (p.dayOffset > horizonDays) continue;
+      const existing = rows.find((r) => r.day === p.dayOffset);
+      const worstRaw = showScenarios ? p.conservative : undefined;
+      // Floor displayed worst case at $0 — shortfall is shown as a callout
+      const worst = worstRaw != null ? Math.max(worstRaw, 0) : undefined;
+      const payload = {
+        expected: p.expected,
+        best: showScenarios ? p.optimistic : undefined,
+        worst,
+      };
+      if (existing) {
+        Object.assign(existing, payload);
+      } else {
+        rows.push({ day: p.dayOffset, ...payload });
+      }
+    }
 
-  const mins = chartRows.flatMap((r) =>
+    return rows.sort((a, b) => a.day - b.day);
+  }, [historic, horizonDays, series, showScenarios]);
+
+  const vals = chartRows.flatMap((r) =>
     [r.history, r.expected, r.best, r.worst].filter((x): x is number => typeof x === "number")
   );
-  const maxVal = mins.length ? Math.max(...mins) : 0;
-  const minVal = mins.length ? Math.min(...mins, 0) : 0;
-  const pad = Math.max(Math.abs(maxVal - minVal) * 0.08, 1000);
-  const yMin = minVal - pad;
-  const yMax = maxVal + pad;
+  const maxVal = vals.length ? Math.max(...vals) : 0;
+  const minVal = vals.length ? Math.min(...vals, 0) : 0;
+  // Floor y-axis at $0 so bands stay visible; never stretch into deep negatives
+  const yMin = 0;
+  const pad = Math.max(Math.abs(maxVal - Math.min(minVal, 0)) * 0.08, 1000);
+  const yMax = Math.max(maxVal + pad, pad);
 
   const showHistory = historic.length > 0;
   const endRow = chartRows.find((r) => r.day === horizonDays);
@@ -150,9 +137,15 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
 
   return (
     <div className="w-full mt-4">
-      {lastExpected != null && lastExpected < 0 ? (
+      {shortfall && shortfall.amount > 0 ? (
         <p className="text-xs font-medium mb-2" style={{ color: NEG_ALERT }}>
-          Projected cash dips below zero within this horizon — review payables timing and near-term inflows.
+          Worst case: projected shortfall of {formatMoney(shortfall.amount)} around day{" "}
+          {shortfall.dayOffset}.
+        </p>
+      ) : lastExpected != null && lastExpected < 0 ? (
+        <p className="text-xs font-medium mb-2" style={{ color: NEG_ALERT }}>
+          Projected cash dips below zero within this horizon — review payables timing and near-term
+          inflows.
         </p>
       ) : null}
       <div style={{ width: "100%", height }} className="touch-pan-x">
@@ -165,10 +158,16 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
               interval="preserveStartEnd"
               tickFormatter={(d) => (d === 0 ? "0" : String(d))}
             />
-            <YAxis tickFormatter={formatAxisTick} domain={[yMin, yMax]} tick={{ fontSize: 11, fill: AXIS_MUTED }} />
+            <YAxis
+              tickFormatter={formatAxisTick}
+              domain={[yMin, yMax]}
+              allowDataOverflow
+              tick={{ fontSize: 11, fill: AXIS_MUTED }}
+            />
             <Tooltip
               formatter={(value: number | string, name: string) => [formatMoney(Number(value)), name]}
               labelFormatter={(d) => `Day ${d}`}
+              contentStyle={{ fontSize: 12 }}
             />
             <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
             <ReferenceLine y={0} stroke="#94a3b8" strokeDasharray="4 4" />
@@ -181,6 +180,7 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
                 strokeWidth={2}
                 dot={false}
                 connectNulls
+                isAnimationActive={false}
               />
             ) : null}
             {showScenarios ? (
@@ -192,6 +192,7 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
                 strokeWidth={1.5}
                 dot={false}
                 connectNulls
+                isAnimationActive={false}
               />
             ) : null}
             <Line
@@ -202,6 +203,7 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
               strokeWidth={2.5}
               dot={false}
               connectNulls
+              isAnimationActive={false}
             />
             {showScenarios ? (
               <Line
@@ -213,11 +215,17 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
                 strokeDasharray="5 5"
                 dot={false}
                 connectNulls
+                isAnimationActive={false}
               />
             ) : null}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+      {methodologyHint ? (
+        <p className="text-[11px] text-slate-600 mt-2 leading-snug" title={methodologyHint}>
+          {methodologyHint}
+        </p>
+      ) : null}
     </div>
   );
 };

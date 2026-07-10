@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useReportRange } from "@/contexts/ReportRangeContext";
+import { useClientContext } from "@/contexts/ClientContext";
+import { getReconciliationStatus } from "@/lib/api/client";
 import ReportViewer from "@/app/components/primecfo/ReportViewer";
 import TreasuryTab from "@/app/components/primecfo/reports/TreasuryTab";
 import AnalyticsTab from "@/app/components/primecfo/reports/AnalyticsTab";
@@ -25,7 +28,19 @@ function parseTabParam(value: string | null): ReportsTabId {
 export default function ReportsPage() {
   const searchParams = useSearchParams();
   const { range } = useReportRange();
-  const [activeTab, setActiveTab] = useState<ReportsTabId>(() => parseTabParam(searchParams.get("tab")));
+  const { selectedClient } = useClientContext();
+  const [activeTab, setActiveTab] = useState<ReportsTabId>(() =>
+    parseTabParam(searchParams.get("tab"))
+  );
+
+  const { data: recon } = useQuery({
+    queryKey: ["reconciliation", selectedClient?.id],
+    queryFn: () => getReconciliationStatus(selectedClient!.id),
+    enabled: !!selectedClient?.id && selectedClient.qbStatus === "connected",
+    staleTime: 120_000,
+  });
+
+  const showReconcileTip = recon?.severity === "red" || recon?.severity === "unknown";
 
   useEffect(() => {
     setActiveTab(parseTabParam(searchParams.get("tab")));
@@ -69,6 +84,11 @@ export default function ReportsPage() {
         </div>
       </div>
       <div className="flex-1 overflow-auto p-6 scrollbar-reports">
+        {showReconcileTip ? (
+          <p className="mb-4 text-sm text-amber-200/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+            Tip: reconcile QuickBooks before running reports for the most precise figures.
+          </p>
+        ) : null}
         {activeTab === "reports" && <ReportViewer />}
         {activeTab === "treasury" && <TreasuryTab />}
         {activeTab === "analytics" && <AnalyticsTab />}

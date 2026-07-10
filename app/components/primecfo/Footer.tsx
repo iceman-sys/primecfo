@@ -25,7 +25,7 @@ const Footer: React.FC = () => {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-1.5 text-slate-500">
                 <Shield className="w-4 h-4" />
-                <span className="text-xs">SOC 2</span>
+                <span className="text-xs">SOC 2-aligned controls</span>
               </div>
               <div className="flex items-center gap-1.5 text-slate-500">
                 <Lock className="w-4 h-4" />

@@ -4,8 +4,6 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 
-import Link from "next/link";
-
 import { Info, X } from "lucide-react";
 
 import type { DataQualityAdvisory, DataQualityAdvisorySeverity } from "@/lib/dataQuality/types";
@@ -248,7 +246,9 @@ export default function DataQualityAdvisoryPanel({
 
           <div className="flex flex-wrap items-center gap-3 mt-3">
 
-            <Link
+            {/* Plain anchors so navigation works even if JS is busy/hydrating */}
+
+            <a
 
               href="/contact"
 
@@ -256,9 +256,9 @@ export default function DataQualityAdvisoryPanel({
 
             >
 
-              Contact Us
+              Talk to a Prime advisor
 
-            </Link>
+            </a>
 
             <a
 
@@ -268,7 +268,7 @@ export default function DataQualityAdvisoryPanel({
 
             >
 
-              Talk to a Prime advisor
+              Email a Prime advisor
 
             </a>
 
@@ -378,7 +378,7 @@ export function DataQualityMetricBadge({
 
             <p className="text-xs text-slate-300 leading-relaxed">{advisory.message}</p>
 
-            <Link
+            <a
 
               href="/contact"
 
@@ -388,9 +388,9 @@ export function DataQualityMetricBadge({
 
             >
 
-              Contact Us →
+              Talk to a Prime advisor →
 
-            </Link>
+            </a>
 
           </div>
 

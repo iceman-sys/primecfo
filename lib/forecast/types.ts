@@ -27,9 +27,15 @@ export type CashFlowForecastResult = {
     avgMonthlyOperatingCashNet: number | null;
     /** Open AR/AP are shown for context but not added to the projection (Option A). */
     includesOpenArApInProjection: boolean;
-    /** Trailing revenue volatility (CoV %) used for scenario bands, when available. */
-    scenarioVolatilityPct?: number | null;
+    /** How many reconciled full months fed the percentile bands. */
+    scenarioSampleCount?: number;
     scenarioUsedDefaults?: boolean;
+    scenarioBestMonthlyNet?: number;
+    scenarioWorstMonthlyNet?: number;
+    avgMonthlyOwnerDraws?: number;
+    scenarioMethodology?: string;
+    /** @deprecated Replaced by percentile net-cash bands. */
+    scenarioVolatilityPct?: number | null;
     scenarioOptimisticMultiplier?: number;
     scenarioConservativeMultiplier?: number;
   };
@@ -37,6 +43,10 @@ export type CashFlowForecastResult = {
   /** Ending cash at horizon (expected) */
   endingCashExpected: number;
   series: ForecastDayPoint[];
+  /** Same projection with owner draws added back (toggle: before draws). */
+  seriesBeforeDraws?: ForecastDayPoint[];
+  /** When worst-case path goes negative — show callout instead of deep negative chart line. */
+  worstCaseShortfall?: { amount: number; dayOffset: number } | null;
 };
 
 export type ScenarioKind = 'new_hire' | 'revenue_drop' | 'major_purchase';

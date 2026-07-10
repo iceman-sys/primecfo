@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import type { ForecastApiResponse } from "@/lib/api/client";
 import type { HistoricCashPoint } from "@/app/components/primecfo/ForecastChart";
 import ForecastChart from "@/app/components/primecfo/ForecastChart";
@@ -20,6 +20,8 @@ function labelForDay(offset: number): string {
 
 /** Cash outlook from live QBO pulls (tier-gated horizon). */
 const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, historicTrail }) => {
+  const [beforeDraws, setBeforeDraws] = useState(false);
+
   if (loading) {
     return (
       <div className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-6 text-slate-400 text-sm">
@@ -55,14 +57,24 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
   }
 
   const { forecast, capabilities, summary } = data;
-  const { series, components, horizonDays } = forecast;
+  const { components, horizonDays } = forecast;
+  const activeSeries =
+    beforeDraws && forecast.seriesBeforeDraws?.length
+      ? forecast.seriesBeforeDraws
+      : forecast.series;
 
-  const todayPoint = series.find((p) => p.dayOffset === 0);
-  const horizonPoint = series.length ? series[series.length - 1] : undefined;
+  const todayPoint = activeSeries.find((p) => p.dayOffset === 0);
+  const horizonPoint = activeSeries.length ? activeSeries[activeSeries.length - 1] : undefined;
 
   const intermediatePoints = horizonPoint
-    ? series.filter((p) => p.dayOffset !== 0 && p.dayOffset !== horizonPoint.dayOffset)
+    ? activeSeries.filter((p) => p.dayOffset !== 0 && p.dayOffset !== horizonPoint.dayOffset)
     : [];
+
+  const methodology =
+    components.scenarioMethodology ??
+    "Scenarios are based on your last 6 months of actual reconciled cash flow (20th–80th percentile months).";
+
+  const shortfall = beforeDraws ? null : forecast.worstCaseShortfall ?? null;
 
   return (
     <div className="rounded-xl border border-teal-500/20 bg-slate-800/50 p-6">
@@ -77,11 +89,48 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
         <p className="text-xs text-slate-500">As of {forecast.asOf}</p>
       </div>
 
+      {(components.avgMonthlyOwnerDraws ?? 0) > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Owner draws:</span>
+          <div className="inline-flex rounded-lg border border-slate-700/60 overflow-hidden text-xs">
+            <button
+              type="button"
+              onClick={() => setBeforeDraws(false)}
+              className={`px-3 py-1.5 transition-colors ${
+                !beforeDraws
+                  ? "bg-teal-500/20 text-teal-200"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+              }`}
+            >
+              At your current draw pace
+            </button>
+            <button
+              type="button"
+              onClick={() => setBeforeDraws(true)}
+              className={`px-3 py-1.5 transition-colors border-l border-slate-700/60 ${
+                beforeDraws
+                  ? "bg-teal-500/20 text-teal-200"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+              }`}
+            >
+              Before draws
+            </button>
+          </div>
+          <span className="text-[11px] text-slate-600">
+            Median draw ~{formatFullCurrency(components.avgMonthlyOwnerDraws ?? 0)}/mo
+          </span>
+        </div>
+      ) : null}
+
       <div className="grid sm:grid-cols-2 gap-3 mb-4">
         {todayPoint ? (
           <div className="rounded-lg bg-slate-900/50 border border-slate-700/50 px-4 py-3">
-            <p className="text-[11px] uppercase tracking-wide text-slate-500">{labelForDay(todayPoint.dayOffset)}</p>
-            <p className="text-xl font-semibold text-white mt-1">{formatFullCurrency(todayPoint.expected)}</p>
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">
+              {labelForDay(todayPoint.dayOffset)}
+            </p>
+            <p className="text-xl font-semibold text-white mt-1">
+              {formatFullCurrency(todayPoint.expected)}
+            </p>
           </div>
         ) : null}
         {horizonPoint && horizonPoint.dayOffset !== 0 ? (
@@ -89,10 +138,13 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
             <p className="text-[11px] uppercase tracking-wide text-teal-500/90">
               Day {horizonPoint.dayOffset} · Plan horizon
             </p>
-            <p className="text-xl font-semibold text-white mt-1">{formatFullCurrency(horizonPoint.expected)}</p>
+            <p className="text-xl font-semibold text-white mt-1">
+              {formatFullCurrency(Math.max(horizonPoint.expected, 0))}
+            </p>
             {horizonPoint.optimistic != null && horizonPoint.conservative != null ? (
               <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">
-                Range {formatFullCurrency(horizonPoint.conservative)} – {formatFullCurrency(horizonPoint.optimistic)}
+                Range {formatFullCurrency(Math.max(horizonPoint.conservative, 0))} –{" "}
+                {formatFullCurrency(horizonPoint.optimistic)}
               </p>
             ) : null}
           </div>
@@ -100,10 +152,12 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
       </div>
 
       <ForecastChart
-        series={series}
+        series={activeSeries}
         horizonDays={forecast.horizonDays ?? capabilities.forecastDays}
         showScenarios={capabilities.scenarios}
         historic={historicTrail}
+        shortfall={shortfall}
+        methodologyHint={methodology}
       />
 
       {intermediatePoints.length > 0 ? (
@@ -113,15 +167,18 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
             {intermediatePoints.map((pt) => (
               <div key={pt.dayOffset} className="min-w-[120px]">
                 <p className="text-[11px] text-slate-500">{labelForDay(pt.dayOffset)}</p>
-                <p className="text-sm font-medium text-slate-200">{formatFullCurrency(pt.expected)}</p>
+                <p className="text-sm font-medium text-slate-200">
+                  {formatFullCurrency(Math.max(pt.expected, 0))}
+                </p>
               </div>
             ))}
           </div>
           {horizonDays > 30 ? (
             <p className="text-[11px] text-slate-600 mt-2 leading-snug">
-              Each 30-day step compounds trailing net cash from your Cash Flow Statement (includes
-              owner draws, loan payments, and COGS). Day {horizonDays} shows the full {horizonDays}
-              -day projection.
+              Each 30-day step compounds median monthly net cash from your last{" "}
+              {components.scenarioSampleCount ?? 6} reconciled months
+              {beforeDraws ? " (before owner draws)" : " (at your current draw pace)"}. Day{" "}
+              {horizonDays} shows the full {horizonDays}-day projection.
             </p>
           ) : null}
         </div>
@@ -129,23 +186,26 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
 
       <div className="text-xs text-slate-500 space-y-1 border-t border-slate-700/40 pt-4">
         <p>
-          Recurring monthly net (
-          {components.recurringBasis === 'cash_flow_statement'
-            ? 'trailing avg from Cash Flow Statement'
-            : 'trailing P&L net income fallback'}
+          Expected monthly net (
+          {components.recurringBasis === "cash_flow_statement"
+            ? "median of reconciled CF months"
+            : "trailing P&L net income fallback"}
           ):{" "}
           <span className="text-slate-300">
             {formatFullCurrency(forecast.components.estimatedRecurringMonthly)}
           </span>
         </p>
-        <p className="text-[11px] text-slate-600 leading-snug">
-          Projection compounds this net cash each month from today&apos;s bank balance. Open AR/AP are
-          not added separately — they are already reflected in historical net cash movement.
+        <p className="text-[11px] text-slate-600 leading-snug" title={methodology}>
           {capabilities.scenarios
-            ? forecast.components.scenarioUsedDefaults
-              ? ' Best / Expected / Worst use default ±20% / −30% revenue bands (expenses and financing held fixed) — limited history for volatility-based bands.'
-              : ` Best / Expected / Worst bands derive from trailing revenue volatility (~${forecast.components.scenarioVolatilityPct?.toFixed(1) ?? '—'}% CoV): revenue ×${forecast.components.scenarioOptimisticMultiplier?.toFixed(2) ?? '1.20'} / ×1.00 / ×${forecast.components.scenarioConservativeMultiplier?.toFixed(2) ?? '0.70'} (expenses and financing held fixed).`
-            : ''}
+            ? components.scenarioUsedDefaults
+              ? " Best / Expected / Worst use limited-history defaults — fewer than 3 reconciled full months available."
+              : ` Best / Expected / Worst use the median and 20th–80th percentile months from your last ${components.scenarioSampleCount ?? 6} reconciled cash-flow months${
+                  components.scenarioBestMonthlyNet != null &&
+                  components.scenarioWorstMonthlyNet != null
+                    ? ` (${formatFullCurrency(components.scenarioWorstMonthlyNet)} – ${formatFullCurrency(components.scenarioBestMonthlyNet)}/mo)`
+                    : ""
+                }.`
+            : ""}
         </p>
         <p className="text-[11px] text-slate-600">
           Open AR (Balance Sheet): {formatFullCurrency(forecast.components.expectedInflowsWeighted)} ·
@@ -155,16 +215,12 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
           Trailing revenue {formatFullCurrency(summary.avgMonthlyRevenue)} · expense{" "}
           {formatFullCurrency(summary.avgMonthlyExpense)} · AR {formatFullCurrency(summary.arTotal)}
         </p>
-        {forecast.components.balanceSheetCash != null && forecast.components.bankVsStatementDelta != null ? (
+        {forecast.components.balanceSheetCash != null &&
+        forecast.components.bankVsStatementDelta != null ? (
           <p className="pt-2 text-[11px] text-slate-600 border-t border-slate-700/30">
-            Balance Sheet cash (statement): {formatFullCurrency(forecast.components.balanceSheetCash)} · Δ vs bank
-            accounts query: {formatFullCurrency(forecast.components.bankVsStatementDelta)}
-          </p>
-        ) : null}
-        {forecast.components.avgMonthlyOperatingCashNet != null ? (
-          <p className="text-[11px] text-slate-600">
-            Avg monthly net operating cash (statement):{" "}
-            {formatFullCurrency(forecast.components.avgMonthlyOperatingCashNet)}
+            Balance Sheet cash (statement):{" "}
+            {formatFullCurrency(forecast.components.balanceSheetCash)} · Δ vs bank accounts query:{" "}
+            {formatFullCurrency(forecast.components.bankVsStatementDelta)}
           </p>
         ) : null}
       </div>

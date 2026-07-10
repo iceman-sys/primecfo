@@ -1,6 +1,6 @@
 import { fetchLastReconciledDate } from '@/lib/qbo/reconciliation';
 import { capReconciliationDate } from '@/lib/metrics/partialMonth';
-import { daysBetween, formatAdvisoryDate, formatGapSinceReconciliation } from '@/lib/dataQuality/utils';
+import { daysBetween, formatAdvisoryDate } from '@/lib/dataQuality/utils';
 
 export type ReconciliationSeverity = 'blue' | 'amber' | 'red' | 'unknown';
 
@@ -10,6 +10,8 @@ export type ReconciliationStatus = {
   severity: ReconciliationSeverity;
   headline: string;
   message: string;
+  /** Weeks behind (for State C copy); null when unknown. */
+  weeksBehind: number | null;
 };
 
 function severityForGap(daysBehind: number | null): ReconciliationSeverity {
@@ -20,8 +22,8 @@ function severityForGap(daysBehind: number | null): ReconciliationSeverity {
 }
 
 /**
- * Build always-on reconciliation banner copy from QBO ReconcileInfo.LastReconciledDate.
- * Never shows a reconciliation date later than today.
+ * Always-on reconciliation coaching banner (States A–D).
+ * Never leads with fetch failure — coaching + service funnel only.
  */
 export async function loadReconciliationStatus(
   clientId: string,
@@ -34,26 +36,27 @@ export async function loadReconciliationStatus(
     return {
       lastReconciledDate: null,
       daysBehind: null,
+      weeksBehind: null,
       severity: 'unknown',
-      headline: 'Reconciliation date unavailable',
+      headline: 'Pro tip',
       message:
-        'We could not confirm your last bank reconciliation date from QuickBooks. ' +
-        'If your books are more than a month behind, figures and trend insights may not reflect recent activity.',
+        'PrimeCFO.ai is most effective when QuickBooks is fully reconciled. Recent activity looks lighter than usual, which usually means books are awaiting reconciliation — insights will sharpen as soon as they\u2019re current. Prime Accounting Solutions, LLC can review and reconcile your books.',
     };
   }
 
   const daysBehind = daysBetween(lastReconciled, today);
   const severity = severityForGap(daysBehind);
   const through = formatAdvisoryDate(lastReconciled);
-  const gapLabel = formatGapSinceReconciliation(daysBehind);
+  const weeksBehind = Math.max(1, Math.round(daysBehind / 7));
 
   if (severity === 'blue') {
     return {
       lastReconciledDate: lastReconciled.toISOString().slice(0, 10),
       daysBehind,
+      weeksBehind,
       severity,
       headline: 'Books current',
-      message: `Your books were last reconciled through ${through}. Insights use complete, reconciled periods.`,
+      message: `Books reconciled through ${through}. Your insights reflect current data.`,
     };
   }
 
@@ -61,23 +64,21 @@ export async function loadReconciliationStatus(
     return {
       lastReconciledDate: lastReconciled.toISOString().slice(0, 10),
       daysBehind,
+      weeksBehind,
       severity,
-      headline: 'Books may be behind',
+      headline: 'Sharpen your insights',
       message:
-        `Your books were last reconciled through ${through} — ${gapLabel}. ` +
-        'Recent activity may not be fully captured yet, which can skew trend insights. ' +
-        'The latest month is excluded from period-over-period calculations until books are current.',
+        `Your books are reconciled through ${through}. PrimeCFO.ai is most effective when QuickBooks is fully reconciled — bringing the last few weeks current will sharpen your forecasts and trends. Prime Accounting Solutions, LLC can handle it for you.`,
     };
   }
 
   return {
     lastReconciledDate: lastReconciled.toISOString().slice(0, 10),
     daysBehind,
+    weeksBehind,
     severity,
-    headline: 'Books significantly behind',
+    headline: 'Your insights are running on older data',
     message:
-      `Your books were last reconciled through ${through} — ${gapLabel}. ` +
-      'Figures may be significantly off until books are brought current. ' +
-      'Partial months are excluded from trend calculations.',
+      `Books are reconciled through ${through}. Trends and forecasts below may not reflect the last ${weeksBehind} weeks of activity. Reconcile in QuickBooks, or let Prime Accounting Solutions, LLC bring you current.`,
   };
 }

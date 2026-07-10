@@ -200,10 +200,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       )}
 
       {reconciliation && client?.qbStatus === "connected" ? (
-        <ReconciliationBanner status={reconciliation} className="mb-6" />
+        <ReconciliationBanner
+          status={reconciliation}
+          clientId={client.id}
+          className="mb-6"
+        />
       ) : null}
 
-      {dataQualityAdvisory && client?.id ? (
+      {dataQualityAdvisory &&
+      dataQualityAdvisory.rule !== "stale_books" &&
+      client?.id ? (
         <DataQualityAdvisoryPanel
           advisory={dataQualityAdvisory}
           clientId={client.id}

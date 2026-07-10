@@ -82,21 +82,23 @@ const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 
 const useAnimatedNumber = (target: number, start: boolean, durationMs = 1400) => {
   const reduced = usePrefersReducedMotion();
-  const [value, setValue] = useState(reduced ? target : target);
+  // Start at target to avoid a stuck $0 flash if the main thread is busy during RAF.
+  const [value, setValue] = useState(target);
   useEffect(() => {
     if (!start) return;
     if (reduced) {
       setValue(target);
       return;
     }
-    setValue(0);
     let raf = 0;
+    const from = 0;
     const t0 = performance.now();
     const step = (t: number) => {
       const k = Math.min(1, (t - t0) / durationMs);
-      setValue(target * easeOutCubic(k));
+      setValue(from + (target - from) * easeOutCubic(k));
       if (k < 1) raf = requestAnimationFrame(step);
     };
+    // Defer first paint of $0 until the next frame so SSR/hydration shows the final sample values.
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [target, start, durationMs, reduced]);
@@ -244,7 +246,7 @@ const AnimatedChart: React.FC<{ start: boolean }> = ({ start }) => {
             style={{
               background:
                 "linear-gradient(90deg, transparent, hsla(173,90%,60%,0.18), transparent)",
-              animation: "lp-sweep 3.6s ease-in-out infinite",
+              animation: "lp-sweep 3.6s ease-in-out 2",
             }}
           />
         </div>

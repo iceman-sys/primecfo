@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "About PrimeCFO.ai",
     description:
-      "Built by Prime Accounting Solutions — 20 years in the books of small businesses.",
+      "Built by Prime Accounting Solutions, LLC — 20 years in the books of small businesses.",
     url: "/about",
     type: "website",
   },
@@ -80,10 +80,10 @@ export default function AboutPage() {
             <div className="w-2 h-2 bg-teal-400 rounded-full animate-pulse" />
             <span className="text-sm text-teal-400 font-medium">About PrimeCFO.ai</span>
           </div>
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight mb-6">
+          <h1 className="text-3xl sm:text-4xl lg:text-[2.75rem] font-bold text-white leading-tight mb-6">
             Built by accountants.{" "}
-            <span className="bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">
-              Powered by AI.
+            <span className="bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent whitespace-nowrap">
+              Powered{"\u00A0"}by{"\u00A0"}AI.
             </span>
           </h1>
           <p className="text-lg sm:text-xl text-slate-400 leading-relaxed max-w-2xl mx-auto">
@@ -112,7 +112,7 @@ export default function AboutPage() {
                   rel="noopener noreferrer"
                   className="text-teal-400 hover:text-teal-300 underline decoration-teal-500/40 underline-offset-4"
                 >
-                  Prime Accounting Solutions
+                  Prime Accounting Solutions, LLC
                 </a>{" "}
                 — a firm that has spent 20 years in the books of small businesses.
               </p>
@@ -145,7 +145,7 @@ export default function AboutPage() {
               AI + HI
             </p>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Artificial intelligence, human intelligence.
+              Artificial intelligence + human intelligence.
             </h2>
           </div>
           <div className="max-w-3xl mx-auto rounded-2xl border border-slate-800 bg-slate-900/50 p-8 sm:p-10 text-center">

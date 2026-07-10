@@ -277,5 +277,5 @@ export const TRUST_LOGOS: TrustLogo[] = [
   { name: "Stripe", caption: "Secure Payments" },
   { name: "Plaid", caption: "Bank-Level Connections" },
   { name: "Supabase", caption: "Encrypted Storage" },
-  { name: "SOC 2", caption: "Aligned Controls" },
+  { name: "SOC 2", caption: "Aligned controls" },
 ];

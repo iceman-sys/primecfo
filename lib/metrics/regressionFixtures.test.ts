@@ -354,6 +354,15 @@ describe('Prime Accounting regression fixtures', () => {
       cashFlowMonthly: null,
       avgMonthlyNetCashIncrease: -913.25,
       balanceSheetArAp: null,
+      lastReconciledDate: new Date('2026-05-31'),
+      reconciledMonthlyCash: [
+        { endDate: '2025-12-31', netCash: -800, ownerDraws: 5000 },
+        { endDate: '2026-01-31', netCash: -1000, ownerDraws: 4000 },
+        { endDate: '2026-02-28', netCash: -900, ownerDraws: 6000 },
+        { endDate: '2026-03-31', netCash: -950, ownerDraws: 5000 },
+        { endDate: '2026-04-30', netCash: -850, ownerDraws: 5500 },
+        { endDate: '2026-05-31', netCash: -980, ownerDraws: 4500 },
+      ],
     } as ForecastInputs;
 
     const forecast = computeCashForecast(inputs, forecastCaps);

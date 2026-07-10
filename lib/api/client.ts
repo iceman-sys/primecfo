@@ -218,6 +218,21 @@ export async function getDashboardData(
   return res.json();
 }
 
+export async function getReconciliationStatus(
+  clientId: string
+): Promise<import('@/lib/qbo/reconciliationStatus').ReconciliationStatus> {
+  const params = new URLSearchParams({ clientId });
+  const res = await fetch(`/api/reconciliation/status?${params}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? `Failed to load reconciliation status: ${res.status}`);
+  }
+  const data = (await res.json()) as {
+    status: import('@/lib/qbo/reconciliationStatus').ReconciliationStatus;
+  };
+  return data.status;
+}
+
 import type { DataQualityAdvisory } from '@/lib/dataQuality/types';
 
 export type DataQualityAdvisoryResponse = {
@@ -293,14 +308,21 @@ export type ForecastResult = {
     bankVsStatementDelta: number | null;
     avgMonthlyOperatingCashNet: number | null;
     includesOpenArApInProjection: boolean;
-    scenarioVolatilityPct?: number | null;
+    scenarioSampleCount?: number;
     scenarioUsedDefaults?: boolean;
+    scenarioBestMonthlyNet?: number;
+    scenarioWorstMonthlyNet?: number;
+    avgMonthlyOwnerDraws?: number;
+    scenarioMethodology?: string;
+    scenarioVolatilityPct?: number | null;
     scenarioOptimisticMultiplier?: number;
     scenarioConservativeMultiplier?: number;
   };
   horizonDays: number;
   endingCashExpected: number;
   series: ForecastSeriesPoint[];
+  seriesBeforeDraws?: ForecastSeriesPoint[];
+  worstCaseShortfall?: { amount: number; dayOffset: number } | null;
 };
 
 export type ForecastApiResponse = {

@@ -12,6 +12,10 @@ const SUSPENSE_PATTERNS = [
   'Suspense',
 ];
 
+/**
+ * Stale-books coaching lives on the merged ReconciliationBanner (States A–D).
+ * Kept for unit tests / diagnostics; excluded from getDataQualityAdvisory so banners never stack.
+ */
 export function detectStaleBooks(data: DataQualityInput, today = new Date()): DataQualityAdvisory | null {
   const lastReconciled = data.lastReconciledDate;
   const daysBehind = lastReconciled ? daysBetween(lastReconciled, today) : 999;
@@ -20,7 +24,6 @@ export function detectStaleBooks(data: DataQualityInput, today = new Date()): Da
   const volumeDrop =
     baseline > 0 && data.currentMonthTxnCount < baseline * 0.5;
 
-  // Books current (< 30 days) and no volume drop → no advisory
   if (daysBehind < 30 && !volumeDrop) return null;
 
   const severity = daysBehind >= 60 ? 'red' : 'amber';
@@ -28,22 +31,13 @@ export function detectStaleBooks(data: DataQualityInput, today = new Date()): Da
   let message: string;
   if (lastReconciled) {
     const gapLabel = formatGapSinceReconciliation(daysBehind);
-    const urgentNote =
-      daysBehind >= 60
-        ? ' Figures may be significantly off until books are brought current.'
-        : ' Recent activity may not be fully captured yet, which can affect the figures shown.';
     message =
-      `Your books were last reconciled through ${formatAdvisoryDate(lastReconciled)} — ${gapLabel}.` +
-      urgentNote +
-      ' Bringing your books current will sharpen these insights.';
-  } else if (volumeDrop) {
-    message =
-      'Recent activity appears lower than usual, which may mean your books are not fully current. ' +
-      'Bringing your books up to date will sharpen these insights.';
+      `Your books are reconciled through ${formatAdvisoryDate(lastReconciled)} — ${gapLabel}. ` +
+      'Bringing QuickBooks current will sharpen your forecasts and trends.';
   } else {
     message =
-      'We could not confirm your last reconciliation date from QuickBooks. ' +
-      'If your books are more than a month behind, figures shown may not reflect recent activity.';
+      'Recent activity looks lighter than usual, which usually means books are awaiting reconciliation — ' +
+      'insights will sharpen as soon as they\u2019re current.';
   }
 
   return {
@@ -151,8 +145,8 @@ export function detectSuspenseBalances(data: DataQualityInput): DataQualityAdvis
 }
 
 export function getDataQualityAdvisory(data: DataQualityInput): DataQualityAdvisory | null {
+  // stale_books is owned by ReconciliationBanner — do not stack a second banner.
   const rules = [
-    detectStaleBooks(data),
     detectStructuralNegatives(data),
     detectARIssue(data),
     detectSuspenseBalances(data),
