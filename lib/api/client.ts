@@ -271,33 +271,41 @@ export async function generateInsights(
   return { insights: data.insights ?? [], riskPosture: data.riskPosture ?? null };
 }
 
+export type ForecastSeriesPoint = {
+  dayOffset: number;
+  expected: number;
+  optimistic?: number;
+  conservative?: number;
+};
+
+export type ForecastResult = {
+  asOf: string;
+  tier: string;
+  bankBalance: number;
+  components: {
+    expectedInflowsWeighted: number;
+    expectedOutflowsBills: number;
+    estimatedRecurringMonthly: number;
+    recurringBasis: 'cash_flow_statement' | 'pnl_net_income_fallback';
+    collectionRate: number;
+    arApWindowDays: number;
+    balanceSheetCash: number | null;
+    bankVsStatementDelta: number | null;
+    avgMonthlyOperatingCashNet: number | null;
+    includesOpenArApInProjection: boolean;
+    scenarioVolatilityPct?: number | null;
+    scenarioUsedDefaults?: boolean;
+    scenarioOptimisticMultiplier?: number;
+    scenarioConservativeMultiplier?: number;
+  };
+  horizonDays: number;
+  endingCashExpected: number;
+  series: ForecastSeriesPoint[];
+};
+
 export type ForecastApiResponse = {
   upgradeMessage?: string;
-  forecast: {
-    asOf: string;
-    tier: string;
-    bankBalance: number;
-    components: {
-      expectedInflowsWeighted: number;
-      expectedOutflowsBills: number;
-      estimatedRecurringMonthly: number;
-      recurringBasis: 'cash_flow_statement' | 'pnl_net_income_fallback';
-      collectionRate: number;
-      arApWindowDays: number;
-      balanceSheetCash: number | null;
-      bankVsStatementDelta: number | null;
-      avgMonthlyOperatingCashNet: number | null;
-      includesOpenArApInProjection: boolean;
-    };
-    horizonDays: number;
-    endingCashExpected: number;
-    series: Array<{
-      dayOffset: number;
-      expected: number;
-      optimistic?: number;
-      conservative?: number;
-    }>;
-  } | null;
+  forecast: ForecastResult | null;
   capabilities: { tier: string; forecastDays: number; scenarios: boolean };
   summary: {
     asOf: string;

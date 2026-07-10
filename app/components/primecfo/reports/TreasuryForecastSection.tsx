@@ -3,7 +3,7 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { getForecast, type ForecastApiResponse } from "@/lib/api/client";
+import { getForecast, type ForecastApiResponse, type ForecastResult } from "@/lib/api/client";
 import ForecastChart from "@/app/components/primecfo/ForecastChart";
 import { formatFullCurrency } from "@/lib/financialData";
 
@@ -36,17 +36,23 @@ export default function TreasuryForecastSection({ clientId }: TreasuryForecastSe
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-2">Cash Flow Forecast</h3>
         <p className="text-sm text-slate-400">
-          {error instanceof Error ? error.message : "Forecast unavailable. Connect QuickBooks and run Sync."}
+          {data?.upgradeMessage ??
+            (error instanceof Error ? error.message : "Forecast unavailable. Connect QuickBooks and run Sync.")}
         </p>
       </div>
     );
   }
 
-  return <TreasuryForecastContent data={data} />;
+  return <TreasuryForecastContent forecast={data.forecast} capabilities={data.capabilities} />;
 }
 
-function TreasuryForecastContent({ data }: { data: ForecastApiResponse }) {
-  const { forecast, capabilities } = data;
+function TreasuryForecastContent({
+  forecast,
+  capabilities,
+}: {
+  forecast: ForecastResult;
+  capabilities: ForecastApiResponse["capabilities"];
+}) {
   const horizonDays = forecast.horizonDays ?? capabilities.forecastDays;
   const series = forecast.series;
   const horizonPoint = series.length ? series[series.length - 1] : undefined;

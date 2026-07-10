@@ -12,7 +12,7 @@ import {
   Legend,
   ReferenceLine,
 } from "recharts";
-import type { ForecastApiResponse } from "@/lib/api/client";
+import type { ForecastSeriesPoint } from "@/lib/api/client";
 
 const NEG_ALERT = "#c0392b";
 const BEST = "#2A9D8F";
@@ -23,7 +23,7 @@ const AXIS_MUTED = "#475569";
 
 export type HistoricCashPoint = { offset: number; cash: number };
 
-type Point = ForecastApiResponse["forecast"]["series"][number];
+type Point = ForecastSeriesPoint;
 
 function interpolateAtDay(anchors: Point[], targetDay: number): { e: number; o?: number; c?: number } {
   if (!anchors.length) return { e: 0 };
