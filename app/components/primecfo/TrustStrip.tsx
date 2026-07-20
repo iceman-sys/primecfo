@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { ShieldCheck, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import { TESTIMONIALS, TRUST_LOGOS } from "@/app/lib/pricing-plans";
 
 /**
@@ -72,13 +72,6 @@ const LogoMark: React.FC<{ name: string; className?: string }> = ({ name, classN
           <span className="text-base font-semibold tracking-tight">Supabase</span>
         </span>
       );
-    case "SOC 2":
-      return (
-        <span aria-hidden className="inline-flex items-center gap-2">
-          <ShieldCheck className={cls} />
-          <span className="text-base font-semibold tracking-tight">SOC 2</span>
-        </span>
-      );
     default:
       return <span className="text-base font-semibold tracking-tight">{name}</span>;
   }
@@ -103,7 +96,7 @@ const TrustStrip: React.FC<{
 
         <ul
           role="list"
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-x-6 gap-y-6 items-center justify-items-center text-slate-400"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-6 items-center justify-items-center text-slate-400"
         >
           {TRUST_LOGOS.map((logo) => (
             <li

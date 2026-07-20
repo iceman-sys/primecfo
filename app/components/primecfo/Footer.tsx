@@ -23,10 +23,13 @@ const Footer: React.FC = () => {
               AI-powered financial intelligence that transforms your QuickBooks data into clear, actionable business insights.
             </p>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1.5 text-slate-500">
+              <Link
+                href="/security"
+                className="flex items-center gap-1.5 text-slate-500 hover:text-teal-400 transition-colors"
+              >
                 <Shield className="w-4 h-4" />
-                <span className="text-xs">SOC 2-aligned controls</span>
-              </div>
+                <span className="text-xs">Security</span>
+              </Link>
               <div className="flex items-center gap-1.5 text-slate-500">
                 <Lock className="w-4 h-4" />
                 <span className="text-xs">256-bit SSL</span>
@@ -53,6 +56,9 @@ const Footer: React.FC = () => {
               <li>
                 <Link href="/contact" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Contact Us</Link>
               </li>
+              <li>
+                <Link href="/security" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Security</Link>
+              </li>
             </ul>
           </div>
           <div>
@@ -63,6 +69,9 @@ const Footer: React.FC = () => {
               </li>
               <li>
                 <Link href="/privacy" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Privacy Policy</Link>
+              </li>
+              <li>
+                <Link href="/security" className="text-sm text-slate-400 hover:text-teal-400 transition-colors">Security practices</Link>
               </li>
             </ul>
           </div>

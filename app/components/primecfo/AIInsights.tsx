@@ -16,6 +16,7 @@ import {
   MessageSquareQuote,
 } from "lucide-react";
 import type { AIInsight, InsightSeverity } from "@/lib/financialData";
+import AdvisorCta from "@/app/components/primecfo/AdvisorCta";
 
 interface AIInsightsProps {
   insights: AIInsight[];
@@ -115,7 +116,6 @@ const AIInsights: React.FC<AIInsightsProps> = ({
           : "bg-slate-900/60 border border-slate-700/40 rounded-2xl p-6"
       }`}
     >
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 bg-gradient-to-br from-violet-500/20 to-purple-600/20 border border-violet-500/20 rounded-xl flex items-center justify-center">
@@ -126,7 +126,7 @@ const AIInsights: React.FC<AIInsightsProps> = ({
               AI Insights
             </h3>
             <p className="text-sm text-slate-500">
-              {insights.length} insights generated
+              {insights.length} insights · AI analysis with your Prime advisors available
             </p>
           </div>
         </div>
@@ -161,7 +161,6 @@ const AIInsights: React.FC<AIInsightsProps> = ({
         </div>
       </div>
 
-      {/* Cards */}
       <div className="space-y-3">
         {displayed.map((insight) => {
           const config =
@@ -184,14 +183,12 @@ const AIInsights: React.FC<AIInsightsProps> = ({
                 }
                 className="w-full flex items-center gap-5 px-5 py-5 text-left"
               >
-                {/* Icon */}
                 <div
                   className={`w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center ${config.iconBg}`}
                 >
                   <Icon className={`w-6 h-6 ${config.text}`} />
                 </div>
 
-                {/* Text content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span
@@ -221,7 +218,6 @@ const AIInsights: React.FC<AIInsightsProps> = ({
                   )}
                 </div>
 
-                {/* Metric badge */}
                 {insight.metricValue && (
                   <div className="flex-shrink-0 text-right mr-1">
                     <p
@@ -237,7 +233,6 @@ const AIInsights: React.FC<AIInsightsProps> = ({
                   </div>
                 )}
 
-                {/* Chevron */}
                 <div className="flex-shrink-0">
                   {isExpanded ? (
                     <ChevronUp className="w-5 h-5 text-slate-500" />
@@ -247,11 +242,16 @@ const AIInsights: React.FC<AIInsightsProps> = ({
                 </div>
               </button>
 
-              {/* Expanded detail */}
+              <div className="px-5 pb-3 ml-[4.25rem]">
+                <AdvisorCta
+                  variant="insight"
+                  subject={`PrimeCFO.ai insight: ${insight.title}`}
+                />
+              </div>
+
               {isExpanded && (
-                <div className="px-5 pb-5 pt-0 ml-[4.25rem] space-y-4">
-                  {/* Full description */}
-                  <p className="text-base text-slate-300 leading-relaxed">
+                <div className="px-5 pb-5 pt-0 ml-[4.25rem] space-y-4 border-t border-slate-700/30 mt-1">
+                  <p className="text-base text-slate-300 leading-relaxed pt-4">
                     {insight.description}
                   </p>
 
@@ -264,7 +264,6 @@ const AIInsights: React.FC<AIInsightsProps> = ({
                     </Link>
                   )}
 
-                  {/* Recommendations */}
                   {hasRecommendations && (
                     <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-3">
@@ -275,10 +274,7 @@ const AIInsights: React.FC<AIInsightsProps> = ({
                       </div>
                       <div className="space-y-3">
                         {insight.recommendations!.map((rec, idx) => (
-                          <div
-                            key={idx}
-                            className="flex gap-3"
-                          >
+                          <div key={idx} className="flex gap-3">
                             <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-500/15 text-violet-400 text-xs font-bold flex items-center justify-center mt-0.5">
                               {idx + 1}
                             </span>
@@ -298,7 +294,6 @@ const AIInsights: React.FC<AIInsightsProps> = ({
                     </div>
                   )}
 
-                  {/* Advisor Talking Points */}
                   {hasTalkingPoints && (
                     <div className="bg-slate-800/40 border border-slate-700/40 rounded-xl p-4">
                       <div className="flex items-center gap-2 mb-3">
@@ -309,10 +304,7 @@ const AIInsights: React.FC<AIInsightsProps> = ({
                       </div>
                       <div className="space-y-2">
                         {insight.talkingPoints!.map((point, idx) => (
-                          <div
-                            key={idx}
-                            className="flex gap-3 items-start"
-                          >
+                          <div key={idx} className="flex gap-3 items-start">
                             <span className="flex-shrink-0 w-1 h-1 rounded-full bg-teal-400 mt-2" />
                             <p className="text-sm text-slate-300 leading-relaxed italic">
                               &ldquo;{point}&rdquo;

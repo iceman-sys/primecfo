@@ -17,7 +17,7 @@ const Features: React.FC<FeaturesProps> = ({ onGetStarted }) => {
     { icon: Brain, title: "AI-Powered Insights", description: "Plain-English analysis of your financial data.", color: "from-violet-500 to-purple-500" },
     { icon: FileText, title: "Automated Reports", description: "P&L, Balance Sheet, and Cash Flow from QuickBooks.", color: "from-amber-500 to-orange-500" },
     { icon: TrendingUp, title: "Trend Analysis", description: "Month-over-month and year-over-year performance.", color: "from-pink-500 to-rose-500" },
-    { icon: Shield, title: "Enterprise Security", description: "Bank-level encryption and secure data isolation.", color: "from-slate-500 to-slate-600" },
+    { icon: Shield, title: "Encrypted & isolated", description: "256-bit SSL in transit, encrypted storage, and per-tenant data isolation.", color: "from-slate-500 to-slate-600" },
     { icon: RefreshCw, title: "Auto-Sync", description: "Financial data syncs on a schedule.", color: "from-green-500 to-emerald-500" },
     { icon: Users, title: "Multi-Client Support", description: "Manage multiple businesses from one dashboard.", color: "from-indigo-500 to-blue-500" },
   ];

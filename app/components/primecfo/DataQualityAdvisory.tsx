@@ -238,7 +238,7 @@ export default function DataQualityAdvisoryPanel({
 
           <p className="text-xs text-slate-500 mt-2">
 
-            These figures depend on how your books are kept. Prime Accounting Solutions can review and
+            These figures depend on how your books are kept. Prime Accounting Solutions, LLC can review and
 
             reconcile your books so your insights are precise.
 

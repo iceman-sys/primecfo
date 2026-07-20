@@ -222,7 +222,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: "Is my financial data secure?",
-    a: "We maintain bank-level encryption, SOC 2-aligned controls, and a comprehensive Written Information Security Program (WISP). Your data is never shared or sold.",
+    a: "We encrypt data in transit (256-bit SSL/TLS) and at rest, isolate each tenant’s data, and connect to QuickBooks via OAuth — we never store your QuickBooks password. See our Security page for details. Your data is never shared or sold.",
   },
 ];
 
@@ -268,7 +268,7 @@ export const TESTIMONIALS: Testimonial[] = [
 /** Trust logos shown above pricing. SVG strings are inlined to avoid extra asset hosting. */
 export type TrustLogo = {
   name: string;
-  /** A short subtitle/badge, e.g. "Official Integration" or "SOC 2 aligned" */
+  /** A short subtitle/badge, e.g. "Official Integration" or "Encrypted Storage" */
   caption?: string;
 };
 
@@ -277,5 +277,4 @@ export const TRUST_LOGOS: TrustLogo[] = [
   { name: "Stripe", caption: "Secure Payments" },
   { name: "Plaid", caption: "Bank-Level Connections" },
   { name: "Supabase", caption: "Encrypted Storage" },
-  { name: "SOC 2", caption: "Aligned controls" },
 ];

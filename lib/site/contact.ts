@@ -29,3 +29,13 @@ export function mailtoSales(subject?: string): string {
   if (!subject) return base;
   return `${base}?subject=${encodeURIComponent(subject)}`;
 }
+
+/** Named security contact (vulnerability reports, deletion requests). Defaults to support. */
+export const SECURITY_EMAIL =
+  process.env.NEXT_PUBLIC_SECURITY_EMAIL?.trim() || SUPPORT_EMAIL;
+
+export function mailtoSecurity(subject?: string): string {
+  const base = `mailto:${SECURITY_EMAIL}`;
+  if (!subject) return base;
+  return `${base}?subject=${encodeURIComponent(subject)}`;
+}

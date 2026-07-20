@@ -11,6 +11,7 @@ import { ReportRangeProvider } from "@/contexts/ReportRangeContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import Navbar from "@/app/components/primecfo/Navbar";
 import Sidebar from "@/app/components/primecfo/Sidebar";
+import PrimeBackedStrip from "@/app/components/primecfo/PrimeBackedStrip";
 
 const queryClient = new QueryClient();
 
@@ -160,7 +161,10 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
           isOperator={isOperator}
         />
         <main className="flex-1 lg:ml-64 min-h-[calc(100vh-4rem)]">
-          <div className="p-6 lg:p-8 max-w-7xl w-full mx-auto">{children}</div>
+          <div className="p-6 lg:p-8 max-w-7xl w-full mx-auto">
+            <PrimeBackedStrip className="mb-4 pb-3 border-b border-slate-800/60" />
+            {children}
+          </div>
         </main>
 
         {isMobile && !sidebarOpen && (

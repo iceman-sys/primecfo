@@ -48,7 +48,7 @@ export default function AboutPage() {
       icon: ShieldCheck,
       title: "Security is non-negotiable",
       description:
-        "Your books are sensitive. We encrypt data in transit and at rest, isolate every tenant, and follow SOC 2-aligned controls end to end.",
+        "Your books are sensitive. We encrypt data in transit and at rest, isolate every tenant, and connect to QuickBooks via OAuth — we never store your passwords.",
       color: "from-blue-500 to-cyan-500",
     },
     {

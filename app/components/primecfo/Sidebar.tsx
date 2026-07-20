@@ -12,8 +12,10 @@ import {
   Building2,
   RefreshCw,
   HelpCircle,
+  Calendar,
 } from 'lucide-react';
 import { Client, timeAgo } from '@/lib/financialData';
+import { CALENDAR_URL } from '@/lib/site/contact';
 
 interface SidebarProps {
   currentView: string;
@@ -177,7 +179,16 @@ const Sidebar: React.FC<SidebarProps> = ({
             ))}
           </nav>
 
-          <div className="p-4 border-t border-slate-800">
+          <div className="p-4 border-t border-slate-800 space-y-1">
+            <a
+              href={CALENDAR_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm rounded-xl transition-colors text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 border border-transparent hover:border-teal-500/20"
+            >
+              <Calendar className="w-5 h-5" />
+              Talk to Your Advisor
+            </a>
             <button
               type="button"
               onClick={() => {

@@ -9,6 +9,7 @@ import {
   extractCashFlowNetIncreaseTotal,
 } from '@/lib/metrics/parseQboReport';
 import { getIntegratedPeriodLabel } from '@/lib/metrics/loadClientMetrics';
+import { assertMetricConsistency, getMonthlyNetCashForRange } from '@/lib/metrics/monthlyNetCash';
 import type { ReportRange } from '@/lib/qbo/reports';
 
 const RANGE_LABELS: Record<ReportRange, string> = {
@@ -97,6 +98,13 @@ export async function GET(request: NextRequest) {
 
   const runway = bundle.runway;
   const cashFlowPositive = runway.cashFlowPositive === true;
+
+  const monthlyFromSot = cfRaw ? getMonthlyNetCashForRange(cfRaw, range) : null;
+  assertMetricConsistency('monthly_net_cash', [
+    { screen: 'treasury_trailing_avg', value: avgMonthlyNet },
+    { screen: 'cash_flow_sot', value: monthlyFromSot },
+    { screen: 'runway_trailing_net', value: runway.trailingNetCashFlow },
+  ]);
 
   if (!bundle.hasData && bankAccounts.length === 0) {
     return NextResponse.json({

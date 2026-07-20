@@ -56,3 +56,29 @@ export function assertMonthlyNetCashConsistency(
     );
   }
 }
+
+/**
+ * Generic cross-screen metric guard. Logs when the same logical metric diverges
+ * across dashboard / treasury / forecast / insights surfaces.
+ */
+export function assertMetricConsistency(
+  metricKey: string,
+  samples: Array<{ screen: string; value: number | null | undefined }>,
+  tolerance = 1
+): void {
+  if (process.env.NODE_ENV === 'production') return;
+  const finite = samples.filter(
+    (s): s is { screen: string; value: number } =>
+      s.value != null && Number.isFinite(s.value)
+  );
+  if (finite.length < 2) return;
+  const baseline = finite[0]!;
+  for (let i = 1; i < finite.length; i++) {
+    const other = finite[i]!;
+    if (Math.abs(baseline.value - other.value) > tolerance) {
+      console.error(
+        `CONSISTENCY BUG [${metricKey}]: ${baseline.screen}=${baseline.value} vs ${other.screen}=${other.value}`
+      );
+    }
+  }
+}

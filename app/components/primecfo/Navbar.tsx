@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { BarChart3, Menu, X, ChevronDown, Bell, Settings, LogOut, User, CreditCard, Users } from 'lucide-react';
 import { emailDisplayName, emailInitials } from '@/lib/auth/display';
+import AdvisorCta from '@/app/components/primecfo/AdvisorCta';
+import { CALENDAR_URL } from '@/lib/site/contact';
 
 interface NavbarProps {
   currentView: string;
@@ -75,6 +77,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 { label: 'How It Works', view: 'how-it-works', anchor: true },
                 { label: 'Pricing', view: 'pricing', anchor: false },
                 { label: 'About Us', view: 'about', anchor: false },
+                { label: 'Security', view: 'security', anchor: false },
                 { label: 'Contact', view: 'contact', anchor: false },
               ].map((item) => (
                 <button
@@ -119,6 +122,7 @@ const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-2">
             {isLoggedIn ? (
               <>
+                <AdvisorCta variant="header" />
                 <div className="relative">
                   <button
                     onClick={() => {
@@ -281,6 +285,15 @@ const Navbar: React.FC<NavbarProps> = ({
                     {item.label}
                   </button>
                 ))}
+                <a
+                  href={CALENDAR_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block w-full text-left px-4 py-2.5 text-sm text-teal-400 font-medium hover:bg-slate-800 rounded-lg"
+                >
+                  Talk to Your Advisor
+                </a>
                 <button
                   onClick={() => {
                     onNavigate('settings');
@@ -338,6 +351,17 @@ const Navbar: React.FC<NavbarProps> = ({
                   }`}
                 >
                   About Us
+                </button>
+                <button
+                  onClick={() => {
+                    onNavigate('security');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`block w-full text-left px-4 py-2.5 text-sm rounded-lg ${
+                    currentView === 'security' ? 'text-teal-400 bg-slate-800' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  Security
                 </button>
                 <button
                   onClick={() => {
