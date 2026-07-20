@@ -104,8 +104,8 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
       if (p.dayOffset > horizonDays) continue;
       const existing = rows.find((r) => r.day === p.dayOffset);
       const worstRaw = showScenarios ? p.conservative : undefined;
-      // Floor displayed worst case at $0 — shortfall is shown as a callout
-      const worst = worstRaw != null ? Math.max(worstRaw, 0) : undefined;
+      // Show true path including negatives — Y-axis scales to fit loss scenarios
+      const worst = showScenarios ? worstRaw : undefined;
       const payload = {
         expected: p.expected,
         best: showScenarios ? p.optimistic : undefined,
@@ -125,10 +125,10 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
     [r.history, r.expected, r.best, r.worst].filter((x): x is number => typeof x === "number")
   );
   const maxVal = vals.length ? Math.max(...vals) : 0;
-  const minVal = vals.length ? Math.min(...vals, 0) : 0;
-  // Floor y-axis at $0 so bands stay visible; never stretch into deep negatives
-  const yMin = 0;
-  const pad = Math.max(Math.abs(maxVal - Math.min(minVal, 0)) * 0.08, 1000);
+  const minVal = vals.length ? Math.min(...vals) : 0;
+  // Accommodate loss scenarios: floor at 0 OR lower when any series goes negative
+  const pad = Math.max(Math.abs(maxVal - Math.min(minVal, 0)) * 0.1, 500);
+  const yMin = Math.min(0, minVal) - (minVal < 0 ? pad : 0);
   const yMax = Math.max(maxVal + pad, pad);
 
   const showHistory = historic.length > 0;
@@ -161,7 +161,6 @@ const ForecastChart: React.FC<ForecastChartProps> = ({
             <YAxis
               tickFormatter={formatAxisTick}
               domain={[yMin, yMax]}
-              allowDataOverflow
               tick={{ fontSize: 11, fill: AXIS_MUTED }}
             />
             <Tooltip

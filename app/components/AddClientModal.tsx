@@ -129,6 +129,12 @@ export default function AddClientModal({ isOpen, onClose, onSuccess }: AddClient
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (res.status === 402 || data.code === "client_limit_reached") {
+          throw new Error(
+            data.error ??
+              "Client limit reached for your plan. Upgrade to add more clients."
+          );
+        }
         throw new Error(data.error ?? "Failed to create client");
       }
       setNewClientId(data.data?.client_id ?? null);

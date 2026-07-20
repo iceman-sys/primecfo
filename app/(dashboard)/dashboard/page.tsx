@@ -9,6 +9,7 @@ import DashboardView from "@/app/components/primecfo/DashboardView";
 import ForecastPanel from "@/app/components/primecfo/ForecastPanel";
 import { getDashboardData, getInsights, getDataQualityAdvisory, syncReports, getForecast, syncCheckoutSession, BILLING_UPDATED_EVENT, SyncError, type DashboardDataResponse, type ReportRange } from "@/lib/api/client";
 import { formatCurrency, formatExactCurrency, getTrend } from "@/lib/financialData";
+import { resolveRatioMetric } from "@/lib/metrics/displayRules";
 import { toastErrorWithProgress } from "@/app/components/ui/sonner";
 import { toast } from "sonner";
 import type { MetricCard, ChartDataPoint, AIInsight, RiskPosture } from "@/lib/financialData";
@@ -110,6 +111,22 @@ function mapCoreToFiveMetrics(
       ? `~${core.cashRunwayMonths.toFixed(1)} months at net burn`
       : "Sync Cash Flow Statement for runway";
 
+  const marginResolved = resolveRatioMetric({
+    label: "Profit Margin",
+    ratioPct: core.profitMarginPct,
+    numerator: summary.net_income,
+    denominator: summary.revenue,
+    numeratorLabel: "Net Income",
+    denominatorLabel: "Revenue",
+    dataError: core.dataError,
+  });
+
+  const marginIsRatio =
+    marginResolved.primary.includes("%") && !marginResolved.primary.includes("·");
+  const marginNumeric = marginIsRatio
+    ? parseFloat(marginResolved.primary)
+    : summary.net_income;
+
   return [
     {
       id: "spec-1",
@@ -139,15 +156,28 @@ function mapCoreToFiveMetrics(
     },
     {
       id: "spec-3",
-      title: "Profit Margin",
-      value: core.profitMarginPct ?? 0,
-      previousValue: previousSummary.profit_margin_pct,
-      format: "percentage",
-      ...getTrend(core.profitMarginPct ?? 0, previousSummary.profit_margin_pct, true),
+      title: marginIsRatio ? "Profit Margin" : "Net Income",
+      value: marginIsRatio ? marginNumeric : summary.net_income,
+      previousValue: marginIsRatio
+        ? previousSummary.profit_margin_pct
+        : previousSummary.net_income,
+      format: marginIsRatio ? "percentage" : "currencyExact",
+      ...getTrend(
+        marginIsRatio ? marginNumeric : summary.net_income,
+        marginIsRatio ? previousSummary.profit_margin_pct : previousSummary.net_income,
+        true
+      ),
       icon: "PieChart",
       color: "violet",
       metricHealth: core.health.margin,
-      contextLine: "Net income ÷ revenue · current period",
+      contextLine:
+        marginResolved.explanation ??
+        (marginIsRatio
+          ? "Net income ÷ revenue · current period"
+          : marginResolved.primary.includes("·")
+            ? marginResolved.primary
+            : "Net income for the current period"),
+      displayOverride: marginIsRatio ? undefined : formatExactCurrency(summary.net_income),
     },
     {
       id: "spec-4",

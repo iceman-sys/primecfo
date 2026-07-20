@@ -77,7 +77,7 @@ export default function TreasuryTab() {
             <ArrowRightLeft className="w-5 h-5 text-violet-500" />
           </div>
           <p className={`text-xl font-bold ${(data.netCashFlow ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-            {data.netCashFlow != null ? formatCurrency(data.netCashFlow) : "N/A"}
+            {data.netCashFlow != null ? formatCurrency(data.netCashFlow) : "—"}
           </p>
           <p className="text-xs text-slate-500 mt-1">
             {data.periodLabel ?? "Selected period"} · from Cash Flow Statement
@@ -89,7 +89,7 @@ export default function TreasuryTab() {
             <Calendar className="w-5 h-5 text-amber-500" />
           </div>
           <p className="text-xl font-bold text-white">
-            {data.daysCashOnHand != null ? Math.round(data.daysCashOnHand) : "N/A"}
+            {data.daysCashOnHand != null ? Math.round(data.daysCashOnHand) : "—"}
           </p>
           <p className="text-xs text-slate-500 mt-1">Based on burn rate</p>
         </div>
@@ -103,7 +103,7 @@ export default function TreasuryTab() {
               ? "Cash-flow positive"
               : data.runwayMonths != null
                 ? `${data.runwayMonths} mo`
-                : "N/A"}
+                : "No runway constraint"}
           </p>
           <p className="text-xs text-slate-500 mt-1">
             {data.cashFlowPositive

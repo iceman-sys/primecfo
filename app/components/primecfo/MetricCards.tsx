@@ -16,9 +16,8 @@ import {
   MetricCard,
   formatCurrency,
   formatExactCurrency,
-  formatPercentChange,
-  getPercentChange,
 } from "@/lib/financialData";
+import { formatChange, getPercentChangeSafe } from "@/lib/metrics/displayRules";
 import type { DataQualityAdvisory } from "@/lib/dataQuality/types";
 import { DataQualityMetricBadge } from "./DataQualityAdvisory";
 
@@ -57,8 +56,8 @@ const MetricCards: React.FC<MetricCardsProps> = ({ metrics, dataQualityAdvisory,
       {metrics.map((metric) => {
         const IconComponent = iconMap[metric.icon] || DollarSign;
         const colors = colorMap[metric.color] || colorMap.teal;
-        const percentChange = getPercentChange(metric.value, metric.previousValue);
-        const changeStr = formatPercentChange(metric.value, metric.previousValue);
+        const percentChange = getPercentChangeSafe(metric.value, metric.previousValue, metric.format);
+        const changeStr = formatChange(metric.value, metric.previousValue, metric.format);
 
         let displayValue = "";
         if (metric.displayOverride) {

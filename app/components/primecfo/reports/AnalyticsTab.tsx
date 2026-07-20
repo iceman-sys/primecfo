@@ -54,11 +54,11 @@ const formatCurrency = (n: number) =>
 
 
 
-const formatPercent = (n: number | null) => (n == null ? "N/A" : `${n.toFixed(1)}%`);
+const formatPercent = (n: number | null) => (n == null ? "—" : `${n.toFixed(1)}%`);
 
 
 
-const formatRatio = (n: number | null) => (n == null ? "N/A" : n.toFixed(2));
+const formatRatio = (n: number | null) => (n == null ? "—" : n.toFixed(2));
 
 
 
@@ -210,7 +210,7 @@ export default function AnalyticsTab() {
 
           label="DSO"
 
-          value={kpis.dso != null ? `${Math.round(kpis.dso)} days` : "N/A"}
+          value={kpis.dso != null ? `${Math.round(kpis.dso)} days` : "—"}
 
           subtitle={kpis.dsoNote ?? undefined}
 
@@ -220,15 +220,15 @@ export default function AnalyticsTab() {
 
           label="DPO"
 
-          value={kpis.dpo != null ? `${Math.round(kpis.dpo)} days` : "N/A"}
+          value={kpis.dpo != null ? `${Math.round(kpis.dpo)} days` : "—"}
 
           subtitle={kpis.dpoNote ?? undefined}
 
         />
 
-        <KpiCard label="Monthly Burn" value={kpis.burnRate != null ? formatCurrency(kpis.burnRate) : "N/A"} />
+        <KpiCard label="Monthly Burn" value={kpis.burnRate != null ? formatCurrency(kpis.burnRate) : "Cash-flow positive / no burn"} />
 
-        <KpiCard label="Runway" value={kpis.runway != null ? `${kpis.runway.toFixed(1)} mo` : "N/A"} />
+        <KpiCard label="Runway" value={kpis.runway != null ? `${kpis.runway.toFixed(1)} mo` : "No runway constraint"} />
 
       </div>
 
@@ -402,7 +402,7 @@ export default function AnalyticsTab() {
 
               {periodCount === 1 ? "" : "s"}). Net margin from totals:{" "}
 
-              {totalRevenue > 0 ? `${((totalNetIncome / totalRevenue) * 100).toFixed(1)}%` : "N/A"}.
+              {totalRevenue > 0 ? `${((totalNetIncome / totalRevenue) * 100).toFixed(1)}%` : "not enough revenue this period"}.
 
             </p>
 

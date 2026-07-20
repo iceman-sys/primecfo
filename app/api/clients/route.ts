@@ -6,14 +6,40 @@ import { requireOperator } from '@/lib/auth/requireOperator';
 import { requireUser } from '@/lib/auth/requireUser';
 import { fetchClientsWithLastSync } from '@/lib/clients/list';
 import { ensureUserClient } from '@/lib/clients/provision';
+import {
+  getClientQuota,
+  upgradeMessageForClientLimit,
+} from '@/lib/billing/clientLimits';
 
 /**
- * POST /api/clients — Create a new client (admin only).
+ * POST /api/clients — Create a new client (admin/operator). Gated by subscription client limit.
  * GET /api/clients?list=1 — Admins: all clients; customers: own business (auto-provisioned).
  */
 export async function POST(request: Request) {
   const auth = await requireOperator();
   if (!auth.ok) return auth.response;
+
+  // Server-side client-limit gate (cannot be bypassed in UI)
+  try {
+    const quota = await getClientQuota({ firmScope: true });
+    if (!quota.canAdd) {
+      return NextResponse.json(
+        {
+          error: upgradeMessageForClientLimit(quota),
+          code: 'client_limit_reached',
+          quota: {
+            tier: quota.tier,
+            limit: quota.limit,
+            activeCount: quota.activeCount,
+          },
+          upgradePath: '/pricing',
+        },
+        { status: 402 }
+      );
+    }
+  } catch (e) {
+    console.error('Client quota check failed:', e);
+  }
 
   let clientId: string | null = null;
   const supabase = supabaseAdmin();
@@ -94,7 +120,7 @@ export async function POST(request: Request) {
         console.error('⚠️ QBO connection failed:', qboError);
         
         // Update client notes to track the QBO info even if connection fails
-        const updatedNotes = `${clientData.notes || ''}\n\n[QBO Connection Failed]\nCompany ID: ${body.qbo_company_id}\nCustomer ID: ${body.qbo_customer_id || 'N/A'}\nError: ${qboError.message}`;
+        const updatedNotes = `${clientData.notes || ''}\n\n[QBO Connection Failed]\nCompany ID: ${body.qbo_company_id}\nCustomer ID: ${body.qbo_customer_id || 'n/a'}\nError: ${qboError.message}`;
         
         await supabase
           .from('clients')

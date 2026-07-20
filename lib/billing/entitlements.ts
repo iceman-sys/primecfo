@@ -1,4 +1,5 @@
 import { planIdToTier, type ProductTier } from '@/lib/tiers';
+import { CLIENT_LIMITS } from '@/lib/billing/clientLimits';
 
 export type AiSummaryCadence = 'monthly' | 'weekly';
 export type AdvisoryMeeting = 'none' | 'quarterly' | 'monthly';
@@ -11,6 +12,8 @@ export type PlanEntitlements = {
   customAlerts: boolean;
   forecastScenarios: boolean;
   advisoryMeeting: AdvisoryMeeting;
+  /** Max active client companies on this plan */
+  maxActiveClients: number;
 };
 
 const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
@@ -21,6 +24,7 @@ const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
     customAlerts: false,
     forecastScenarios: false,
     advisoryMeeting: 'none',
+    maxActiveClients: CLIENT_LIMITS.starter,
   },
   see: {
     tier: 'see',
@@ -29,6 +33,7 @@ const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
     customAlerts: false,
     forecastScenarios: false,
     advisoryMeeting: 'none',
+    maxActiveClients: CLIENT_LIMITS.see,
   },
   understand: {
     tier: 'understand',
@@ -37,6 +42,7 @@ const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
     customAlerts: false,
     forecastScenarios: false,
     advisoryMeeting: 'quarterly',
+    maxActiveClients: CLIENT_LIMITS.understand,
   },
   act: {
     tier: 'act',
@@ -45,6 +51,7 @@ const ENTITLEMENTS: Record<ProductTier, PlanEntitlements> = {
     customAlerts: true,
     forecastScenarios: true,
     advisoryMeeting: 'monthly',
+    maxActiveClients: CLIENT_LIMITS.act,
   },
 };
 

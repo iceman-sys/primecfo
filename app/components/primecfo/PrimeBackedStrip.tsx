@@ -21,7 +21,11 @@ export default function PrimeBackedStrip({ className = "" }: { className?: strin
         Prime Accounting Solutions, LLC
       </a>
       {" "}
-      — 20 years helping small businesses unlock potential through financial intelligence.
+      — helping small businesses{' '}
+      <strong className="font-semibold text-slate-400">
+        Unlock Potential Through Financial Intelligence
+      </strong>{' '}
+      since 2008.
     </p>
   );
 }

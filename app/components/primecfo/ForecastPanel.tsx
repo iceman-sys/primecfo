@@ -139,11 +139,11 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
               Day {horizonPoint.dayOffset} · Plan horizon
             </p>
             <p className="text-xl font-semibold text-white mt-1">
-              {formatFullCurrency(Math.max(horizonPoint.expected, 0))}
+              {formatFullCurrency(horizonPoint.expected)}
             </p>
             {horizonPoint.optimistic != null && horizonPoint.conservative != null ? (
               <p className="text-[11px] text-slate-500 mt-1.5 leading-snug">
-                Range {formatFullCurrency(Math.max(horizonPoint.conservative, 0))} –{" "}
+                Range {formatFullCurrency(horizonPoint.conservative)} –{" "}
                 {formatFullCurrency(horizonPoint.optimistic)}
               </p>
             ) : null}
@@ -168,7 +168,7 @@ const ForecastPanel: React.FC<ForecastPanelProps> = ({ data, loading, error, his
               <div key={pt.dayOffset} className="min-w-[120px]">
                 <p className="text-[11px] text-slate-500">{labelForDay(pt.dayOffset)}</p>
                 <p className="text-sm font-medium text-slate-200">
-                  {formatFullCurrency(Math.max(pt.expected, 0))}
+                  {formatFullCurrency(pt.expected)}
                 </p>
               </div>
             ))}

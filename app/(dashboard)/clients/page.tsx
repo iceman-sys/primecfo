@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Users,
   Plus,
@@ -51,6 +51,15 @@ const statusBadge: Record<
   },
 };
 
+type ClientQuota = {
+  tier: string;
+  limit: number | null;
+  activeCount: number;
+  remaining: number | null;
+  canAdd: boolean;
+  upgradePath: string;
+};
+
 export default function ClientsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -62,6 +71,17 @@ export default function ClientsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+
+  const { data: quota } = useQuery({
+    queryKey: ["client-quota"],
+    queryFn: async (): Promise<ClientQuota> => {
+      const res = await fetch("/api/billing/client-quota");
+      if (!res.ok) throw new Error("Failed to load quota");
+      return res.json();
+    },
+    enabled: operatorChecked,
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -128,12 +148,15 @@ export default function ClientsPage() {
         setSelectedClient(remaining[0] ?? null);
       }
       await queryClient.invalidateQueries({ queryKey: ["clients"] });
+      await queryClient.invalidateQueries({ queryKey: ["client-quota"] });
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete client");
     } finally {
       setDeletingId(null);
     }
   };
+
+  const atLimit = quota != null && !quota.canAdd;
 
   if (!operatorChecked) {
     return (
@@ -161,23 +184,49 @@ export default function ClientsPage() {
           </div>
           <div>
             <h3 className="text-lg font-semibold text-white">Client Management</h3>
-            <p className="text-xs text-slate-400">{clients.length} clients total</p>
+            <p className="text-xs text-slate-400">
+              {clients.length} clients total
+              {quota?.limit != null
+                ? ` · ${quota.activeCount} / ${quota.limit} active on ${quota.tier} plan`
+                : ""}
+            </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-sm font-medium rounded-xl hover:from-teal-400 hover:to-emerald-400 transition-all shadow-lg shadow-teal-500/25"
-        >
-          <Plus className="w-4 h-4" />
-          Add Client
-        </button>
+        {atLimit ? (
+          <a
+            href={quota?.upgradePath ?? "/pricing"}
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/15 border border-amber-500/30 text-amber-200 text-sm font-medium rounded-xl hover:bg-amber-500/25 transition-all"
+          >
+            Upgrade to add more clients
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-sm font-medium rounded-xl hover:from-teal-400 hover:to-emerald-400 transition-all shadow-lg shadow-teal-500/25"
+          >
+            <Plus className="w-4 h-4" />
+            Add Client
+          </button>
+        )}
       </div>
+
+      {atLimit ? (
+        <div className="mb-6 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Your plan includes {quota?.limit} active client
+          {quota?.limit === 1 ? "" : "s"} ({quota?.activeCount} in use). Upgrade to add more, or
+          deactivate an existing client first. Connecting a QuickBooks Accountant firm does not
+          auto-activate every listed company.
+        </div>
+      ) : null}
 
       <AddClientModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["clients"] })}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["clients"] });
+          queryClient.invalidateQueries({ queryKey: ["client-quota"] });
+        }}
       />
 
       {deleteError && (

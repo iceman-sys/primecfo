@@ -123,7 +123,11 @@ const TrustStrip: React.FC<{
           >
             Prime Accounting Solutions
           </a>{" "}
-          · 20 years helping small businesses unlock potential through financial intelligence.
+          · Helping small businesses{' '}
+          <strong className="font-semibold text-slate-400">
+            Unlock Potential Through Financial Intelligence
+          </strong>{' '}
+          since 2008.
         </p>
 
         {showTestimonials && (

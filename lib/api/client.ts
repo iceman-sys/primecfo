@@ -372,6 +372,7 @@ export type BillingStatusResponse = {
     customAlerts: boolean;
     forecastScenarios: boolean;
     advisoryMeeting: 'none' | 'quarterly' | 'monthly';
+    maxActiveClients?: number;
   } | null;
 };
 

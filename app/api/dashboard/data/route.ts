@@ -119,7 +119,10 @@ export async function GET(request: NextRequest) {
     bankCash,
     undepositedFunds,
     revenueChangePct: Math.round(revPctChange * 10) / 10,
-    profitMarginPct: finSummary.data_error ? null : finSummary.profit_margin_pct,
+    profitMarginPct:
+      Math.abs(finSummary.revenue) > 0.005
+        ? finSummary.profit_margin_pct
+        : null,
     arAging: arBuckets,
     cashRunwayMonths: runway.runwayMonths,
     cashFlowPositive,

@@ -3,6 +3,8 @@
  * Data is supplied from API; this file only provides types and helpers.
  */
 
+import { formatChange, getPercentChangeSafe } from '@/lib/metrics/displayRules';
+
 export interface Client {
   id: string;
   name: string;
@@ -116,15 +118,11 @@ export function formatCurrencyOrDash(value: number | string | null | undefined):
 }
 
 export function formatPercentChange(current: number, previous: number): string {
-  if (previous === 0) return 'N/A';
-  const change = ((current - previous) / Math.abs(previous)) * 100;
-  const sign = change >= 0 ? '+' : '';
-  return `${sign}${change.toFixed(1)}%`;
+  return formatChange(current, previous, 'currency');
 }
 
 export function getPercentChange(current: number, previous: number): number {
-  if (previous === 0) return 0;
-  return ((current - previous) / Math.abs(previous)) * 100;
+  return getPercentChangeSafe(current, previous, 'currency');
 }
 
 /** Build trend and trendIsGood from current vs previous value. */
