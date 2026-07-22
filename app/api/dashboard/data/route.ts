@@ -129,11 +129,12 @@ export async function GET(request: NextRequest) {
     trailingNetCashFlow: runway.trailingNetCashFlow ?? null,
     dataError: finSummary.data_error,
     excludedPartialMonth: bundle.excludedPartialMonth,
+    currentPeriodIncomplete: bundle.currentPeriodIncomplete,
     health: {
       runway: runwayHealth(runway.runwayMonths, cashFlowPositive),
       ar: arHealth(arRatioPast30),
-      revenue: revenueHealth(revPctChange),
-      margin: marginHealth(finSummary.profit_margin_pct, finPrev.profit_margin_pct),
+      revenue: bundle.currentPeriodIncomplete ? 'warn' : revenueHealth(revPctChange),
+      margin: bundle.currentPeriodIncomplete ? 'warn' : marginHealth(finSummary.profit_margin_pct, finPrev.profit_margin_pct),
       cash: cashHealth(finSummary.cash, runway.monthlyBurn),
     },
   };

@@ -139,6 +139,10 @@ function buildCashRunwayInsight(context: FinancialContext): AIInsight {
 }
 
 function buildRevenueTrendInsight(context: FinancialContext): AIInsight | null {
+  if (context.derived.currentPeriodIncomplete) {
+    return null;
+  }
+
   if (context.derived.excludedPartialMonth) {
     const revPct = context.derived.revenueGrowthPct;
     if (revPct != null && revPct < -15) {
@@ -214,6 +218,7 @@ function isGrowthCapacityLlmInsight(insight: Pick<AIInsight, 'category' | 'title
 }
 
 function buildTotalRevenueGrowthInsight(context: FinancialContext): AIInsight | null {
+  if (context.derived.currentPeriodIncomplete) return null;
   const revPct = context.derived.revenueGrowthPct;
   if (revPct == null || revPct <= 0) return null;
 
@@ -231,6 +236,7 @@ function buildTotalRevenueGrowthInsight(context: FinancialContext): AIInsight | 
 }
 
 function buildGrowthCapacityInsight(context: FinancialContext): AIInsight | null {
+  if (context.derived.currentPeriodIncomplete) return null;
   if (!context.previousSummary) return null;
 
   const evalResult = evaluateIncrementalMargin({
@@ -283,9 +289,13 @@ export function applyTrendAwareInsightRules(
     runwayMonths: context.derived.runwayMonths,
     trailingNetCashFlow: context.derived.trailingNetCashFlow,
     revenueGrowthPct: context.derived.recurringRevenueChangePct ?? context.derived.revenueGrowthPct,
-    profitMarginPct: context.summary.data_error ? null : context.summary.profit_margin_pct,
+    profitMarginPct:
+      context.summary.data_error || context.derived.currentPeriodIncomplete
+        ? null
+        : context.summary.profit_margin_pct,
     expenseGrowthPct: context.derived.expenseGrowthPct,
     cashFlowPositive: (context.derived.trailingNetCashFlow ?? 0) >= 0,
+    currentPeriodIncomplete: context.derived.currentPeriodIncomplete,
   };
 
   const reconciled = [...deterministic, ...filtered].map((insight) => {

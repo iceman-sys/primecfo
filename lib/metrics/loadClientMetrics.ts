@@ -3,8 +3,15 @@ import { getDateRanges, getSingleDateRange, type ReportRange, type PeriodType } 
 import { computeRunway, type TrendPoint } from '@/lib/metrics/runway';
 import { totalCosts } from '@/lib/metrics/costs';
 import { fetchLastReconciledDate } from '@/lib/qbo/reconciliation';
-import { capReconciliationDate, splitPeriodsExcludingPartial, filterCompleteTrends } from '@/lib/metrics/partialMonth';
+import {
+  capReconciliationDate,
+  splitPeriodsExcludingPartial,
+  excludeSparseTrailingPeriod,
+  filterCompleteTrends,
+} from '@/lib/metrics/partialMonth';
 import { loadTrailingNetCashFlow } from '@/lib/metrics/cashFlowMetrics';
+import { isCurrentPeriodIncomplete } from '@/lib/metrics/periodCompleteness';
+import { median } from '@/lib/dataQuality/utils';
 
 export type PeriodRow = {
   id: string;
@@ -46,6 +53,8 @@ export type ClientMetricsBundle = {
   hasData: boolean;
   lastReconciledDate: Date | null;
   excludedPartialMonth: boolean;
+  /** True when the current window looks empty / unreconciled vs history. */
+  currentPeriodIncomplete: boolean;
 };
 
 function getStartDateCutoff(monthsBack: number): string {
@@ -185,8 +194,26 @@ export async function loadClientMetrics(
   const previousPeriodsRaw =
     firstIdx > 0 ? periodList.slice(Math.max(0, firstIdx - effectiveWindow.length), firstIdx) : [];
 
-  const { current: currentWindow, previous: previousWindow, excludedPartial } =
+  const activityByPeriodId = new Map<string, number>();
+  for (const p of periodList) {
+    const m = metricsByPeriod.get(p.id) ?? {};
+    const rev = Math.abs(m.revenue ?? 0);
+    const opex = Math.abs(m.expenses ?? 0);
+    const cogsVal = Math.abs(m.cogs ?? 0);
+    activityByPeriodId.set(p.id, rev + totalCosts(cogsVal, opex));
+  }
+
+  let { current: currentWindow, previous: previousWindow, excludedPartial } =
     splitPeriodsExcludingPartial(effectiveWindow, previousPeriodsRaw, lastReconciledDate);
+
+  // When recon date is missing (or trailing month still empty), drop sparse trailing months
+  // so we prefer the last complete activity window over a $0 cascade.
+  const sparse = excludeSparseTrailingPeriod(currentWindow, previousWindow, activityByPeriodId);
+  if (sparse.excludedSparse) {
+    currentWindow = sparse.current;
+    previousWindow = sparse.previous;
+    excludedPartial = true;
+  }
 
   const trends: TrendPoint[] = periodList.map((p) => {
     const m = metricsByPeriod.get(p.id) ?? {};
@@ -222,6 +249,19 @@ export async function loadClientMetrics(
     trailingNetCashFlow
   );
 
+  const windowActivities = currentWindow.map((p) => activityByPeriodId.get(p.id) ?? 0);
+  const currentActivity =
+    windowActivities.length > 0 ? windowActivities[windowActivities.length - 1] : 0;
+  const trailingMedianActivity = median(windowActivities.slice(0, -1));
+
+  const currentPeriodIncomplete = isCurrentPeriodIncomplete({
+    currentRevenue: summary?.revenue ?? 0,
+    priorRevenue: previousSummary?.revenue ?? 0,
+    excludedPartialMonth: excludedPartial,
+    currentActivity,
+    trailingMedianActivity,
+  });
+
   return {
     range,
     periods: periodList,
@@ -233,6 +273,7 @@ export async function loadClientMetrics(
     hasData: periodList.length > 0 && metricsByPeriod.size > 0,
     lastReconciledDate,
     excludedPartialMonth: excludedPartial,
+    currentPeriodIncomplete,
   };
 }
 

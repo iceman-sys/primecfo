@@ -37,7 +37,11 @@ export function deriveRiskSignals(context: FinancialContext): RiskSignals {
   const debtToEbitda = derived.debtToEbitda;
   const leverageElevated = debtToEbitda != null ? debtToEbitda > 4.0 : (bs?.debtToAssets ?? 0) > 1.5;
 
-  const liquidityThin = bs?.quickRatio != null && bs.quickRatio < 0.5;
+  const liquidityThin =
+    !derived.currentPeriodIncomplete &&
+    bs?.quickRatio != null &&
+    bs.quickRatio >= 0 &&
+    bs.quickRatio < 0.5;
 
   let debtServiceAdequate: boolean | null = null;
   if (derived.debtServiceCoverage != null) {
@@ -58,6 +62,7 @@ export function deriveRiskSignals(context: FinancialContext): RiskSignals {
 /**
  * Composite risk posture — never HIGH from runway alone on a cash-flow-positive business.
  * HIGH requires genuine distress: negative cash flow, operating losses, or missed debt coverage.
+ * Incomplete / unreconciled periods must not drive ELEVATED via a false $0-revenue loss signal.
  */
 export function computeRiskPosture(
   context: FinancialContext,
@@ -65,10 +70,14 @@ export function computeRiskPosture(
 ): RiskPosture {
   const signals = deriveRiskSignals(context);
   const { derived } = context;
+  const incomplete = derived.currentPeriodIncomplete === true;
+
+  // On incomplete books, do not treat !profitable as distress — P&L may be empty, not losing.
+  const profitableForDistress = incomplete ? true : signals.profitable;
 
   const genuineDistress =
     (!signals.cashFlowPositive && !signals.nearBreakeven) ||
-    !signals.profitable ||
+    !profitableForDistress ||
     signals.debtServiceAdequate === false;
 
   const watchCount = insights.filter((i) => i.urgency === 'watch' || i.urgency === 'warning').length;
@@ -78,7 +87,11 @@ export function computeRiskPosture(
   let summaryText: string;
   let topAction: string;
 
-  if (genuineDistress && criticalCount > 0) {
+  if (incomplete && !genuineDistress) {
+    // Fall through to watch-item / stable path using cash-flow signals only.
+  }
+
+  if (genuineDistress && criticalCount > 0 && !incomplete) {
     rating = 'HIGH';
     summaryText =
       !signals.profitable
@@ -88,7 +101,7 @@ export function computeRiskPosture(
           : 'Earnings are not covering total debt service. Review loan payments and collection timing.';
     topAction = insights.find((i) => i.urgency === 'critical')?.recommendations?.[0]?.action
       ?? 'Review cash flow drivers and debt payment schedule with your advisor.';
-  } else if (genuineDistress) {
+  } else if (genuineDistress && !incomplete) {
     rating = 'ELEVATED';
     summaryText =
       signals.debtServiceAdequate === false
@@ -97,15 +110,23 @@ export function computeRiskPosture(
           ? 'Net cash flow is roughly flat to slightly declining after draws and financing outflows.'
           : 'One or more core health signals (cash flow or profitability) need attention.';
     topAction = 'Prioritize stabilizing operating cash flow before taking on new obligations.';
-  } else if (signals.leverageElevated || signals.liquidityThin || watchCount >= 2) {
+  } else if (signals.leverageElevated || signals.liquidityThin || watchCount >= 2 || incomplete) {
+    // Incomplete period → at most MODERATE / watch items (never ELEVATED from empty P&L).
     rating = 'MODERATE';
     const parts: string[] = [];
-    if (signals.cashFlowPositive && signals.profitable) {
-      parts.push('Operations are profitable and cash-flow positive');
+    if (incomplete) {
+      parts.push(
+        'Current-period books look incomplete or awaiting reconciliation — revenue-derived risk signals are withheld'
+      );
+    }
+    if (signals.cashFlowPositive && (signals.profitable || incomplete)) {
+      parts.push('Operations appear cash-flow positive on available data');
     } else if (signals.profitable && signals.nearBreakeven) {
       parts.push('Net cash flow is roughly flat to slightly declining while operations remain profitable');
     } else if (signals.profitable) {
       parts.push('Profitable on the P&L but net cash flow is negative after draws and financing outflows');
+    } else if (signals.nearBreakeven) {
+      parts.push('Net cash flow is roughly flat to slightly declining after draws and financing outflows');
     }
     if (signals.leverageElevated) parts.push('balance-sheet leverage warrants a deleveraging plan');
     if (signals.liquidityThin) parts.push('quick liquidity is thin relative to current liabilities');
@@ -113,8 +134,9 @@ export function computeRiskPosture(
       parts.length > 0
         ? `${parts.join('; ')}. Overall position is stable with items to monitor — not in distress.`
         : 'Stable operations with a few areas to watch. No immediate distress signals.';
-    topAction =
-      signals.leverageElevated
+    topAction = incomplete
+      ? 'Reconcile QuickBooks so period metrics and risk posture can refresh on complete data.'
+      : signals.leverageElevated
         ? 'Build debt paydown into the cash flow plan — start with high-interest revolving balances.'
         : 'Maintain collections discipline and track payables timing against cash on hand.';
   } else {

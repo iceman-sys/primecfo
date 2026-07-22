@@ -37,6 +37,8 @@ export interface MetricCard {
   hideTrendBadge?: boolean;
   /** When set, replaces formatted numeric value (e.g. cash-flow positive runway). */
   displayOverride?: string;
+  /** Incomplete / unreconciled period — show pending state instead of alarming numbers. */
+  pendingReconciliation?: boolean;
 }
 
 export type InsightSeverity = 'critical' | 'warning' | 'watch' | 'positive' | 'info';

@@ -395,9 +395,13 @@ export async function generateInsightsFromContext(context: FinancialContext): Pr
     trailingNetCashFlow: context.derived.trailingNetCashFlow,
     revenueGrowthPct: context.derived.revenueGrowthPct,
     recurringRevenueChangePct: context.derived.recurringRevenueChangePct,
-    profitMarginPct: context.summary.data_error ? null : context.summary.profit_margin_pct,
+    profitMarginPct:
+      context.summary.data_error || context.derived.currentPeriodIncomplete
+        ? null
+        : context.summary.profit_margin_pct,
     expenseGrowthPct: context.derived.expenseGrowthPct,
     cashFlowPositive: (context.derived.trailingNetCashFlow ?? 0) >= 0,
+    currentPeriodIncomplete: context.derived.currentPeriodIncomplete,
   };
 
   const insights: AIInsight[] = list.slice(0, 15).map((item, i) => {

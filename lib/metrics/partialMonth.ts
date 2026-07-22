@@ -63,3 +63,47 @@ export function splitPeriodsExcludingPartial<P extends { end_date: string }>(
     excludedPartial: true,
   };
 }
+
+const SPARSE_FLOOR = 100;
+
+/**
+ * Drop a trailing month that looks empty vs history (unreconciled / unsynced books),
+ * even when QBO has no last-reconciled date. Prevents $0-current vs real-prior cascades.
+ */
+export function excludeSparseTrailingPeriod<P extends { id: string }>(
+  windowPeriods: P[],
+  priorPeriods: P[],
+  activityByPeriodId: Map<string, number>
+): { current: P[]; previous: P[]; excludedSparse: boolean } {
+  if (windowPeriods.length < 2) {
+    return { current: windowPeriods, previous: priorPeriods, excludedSparse: false };
+  }
+
+  const last = windowPeriods[windowPeriods.length - 1];
+  const priorInWindow = windowPeriods.slice(0, -1);
+  const lastActivity = activityByPeriodId.get(last.id) ?? 0;
+  const priorActivities = priorInWindow
+    .map((p) => activityByPeriodId.get(p.id) ?? 0)
+    .filter((a) => a >= SPARSE_FLOOR);
+
+  if (priorActivities.length === 0) {
+    return { current: windowPeriods, previous: priorPeriods, excludedSparse: false };
+  }
+
+  const medianPrior =
+    [...priorActivities].sort((a, b) => a - b)[Math.floor(priorActivities.length / 2)] ?? 0;
+
+  const trailingLooksEmpty =
+    lastActivity < SPARSE_FLOOR ||
+    (medianPrior >= SPARSE_FLOOR && lastActivity < medianPrior * 0.25);
+
+  if (!trailingLooksEmpty) {
+    return { current: windowPeriods, previous: priorPeriods, excludedSparse: false };
+  }
+
+  return {
+    current: priorInWindow,
+    previous: priorPeriods.length > 0 ? priorPeriods : priorInWindow,
+    excludedSparse: true,
+  };
+}

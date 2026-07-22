@@ -193,6 +193,7 @@ export interface DashboardDataResponse {
     cashFlowPositive: boolean;
     trailingNetCashFlow: number | null;
     excludedPartialMonth?: boolean;
+    currentPeriodIncomplete?: boolean;
     dataError?: boolean;
     health: {
       runway: 'good' | 'warn' | 'bad';

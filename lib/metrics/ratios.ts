@@ -20,9 +20,10 @@ function percentValue(numerator: number, denominator: number): number | null {
   return Math.round((numerator / denominator) * 1000) / 10;
 }
 
-/** Financial ratios (current/quick): NOT multiplied by 100. */
+/** Financial ratios (current/quick): NOT multiplied by 100. Negative = bad BS inputs → withhold. */
 function ratioValue(numerator: number, denominator: number): number | null {
   if (!denominator || !Number.isFinite(denominator) || !Number.isFinite(numerator)) return null;
+  if (numerator < 0 || denominator < 0) return null;
   return Math.round((numerator / denominator) * 100) / 100;
 }
 

@@ -18,6 +18,10 @@ import {
   formatExactCurrency,
 } from "@/lib/financialData";
 import { formatChange, getPercentChangeSafe } from "@/lib/metrics/displayRules";
+import {
+  PENDING_RECONCILIATION_CONTEXT,
+  PENDING_RECONCILIATION_LABEL,
+} from "@/lib/metrics/periodCompleteness";
 import type { DataQualityAdvisory } from "@/lib/dataQuality/types";
 import { DataQualityMetricBadge } from "./DataQualityAdvisory";
 
@@ -56,11 +60,18 @@ const MetricCards: React.FC<MetricCardsProps> = ({ metrics, dataQualityAdvisory,
       {metrics.map((metric) => {
         const IconComponent = iconMap[metric.icon] || DollarSign;
         const colors = colorMap[metric.color] || colorMap.teal;
-        const percentChange = getPercentChangeSafe(metric.value, metric.previousValue, metric.format);
-        const changeStr = formatChange(metric.value, metric.previousValue, metric.format);
+        const pending = metric.pendingReconciliation === true;
+        const percentChange = pending
+          ? 0
+          : getPercentChangeSafe(metric.value, metric.previousValue, metric.format);
+        const changeStr = pending
+          ? "—"
+          : formatChange(metric.value, metric.previousValue, metric.format);
 
         let displayValue = "";
-        if (metric.displayOverride) {
+        if (pending) {
+          displayValue = metric.displayOverride ?? PENDING_RECONCILIATION_LABEL;
+        } else if (metric.displayOverride) {
           displayValue = metric.displayOverride;
         } else if (metric.title === "Cash Runway" && metric.format !== "text") {
           displayValue = `${metric.value.toFixed(1)} mo`;
@@ -70,8 +81,9 @@ const MetricCards: React.FC<MetricCardsProps> = ({ metrics, dataQualityAdvisory,
         else if (metric.format === "days") displayValue = `${metric.value} days`;
         else displayValue = metric.value.toLocaleString();
 
-        const healthRing =
-          metric.metricHealth === "bad"
+        const healthRing = pending
+          ? "border-slate-600/50"
+          : metric.metricHealth === "bad"
             ? "border-red-500/35 ring-1 ring-red-500/20"
             : metric.metricHealth === "warn"
               ? "border-amber-500/35 ring-1 ring-amber-500/15"
@@ -100,7 +112,7 @@ const MetricCards: React.FC<MetricCardsProps> = ({ metrics, dataQualityAdvisory,
                     clientId={clientId}
                   />
                 ) : null}
-                {!metric.hideTrendBadge ? (
+                {!metric.hideTrendBadge && !pending ? (
                 <div
                   className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
                     metric.trendIsGood
@@ -122,15 +134,19 @@ const MetricCards: React.FC<MetricCardsProps> = ({ metrics, dataQualityAdvisory,
               ) : null}
               </div>
             </div>
-            <p className="text-2xl font-bold text-white mb-1">{displayValue}</p>
+            <p className={`font-bold mb-1 ${pending ? "text-lg text-slate-300" : "text-2xl text-white"}`}>
+              {displayValue}
+            </p>
             <p className="text-sm text-slate-400">{metric.title}</p>
-            {metric.contextLine ? (
-              <p className="text-xs text-slate-500 mt-1.5 leading-snug">{metric.contextLine}</p>
+            {metric.contextLine || pending ? (
+              <p className="text-xs text-slate-500 mt-1.5 leading-snug">
+                {pending ? PENDING_RECONCILIATION_CONTEXT : metric.contextLine}
+              </p>
             ) : null}
             <div className="mt-3 pt-3 border-t border-slate-700/30">
               <p className="text-xs text-slate-500">
                 Previous:{" "}
-                {metric.title === "Cash Runway"
+                {pending || metric.title === "Cash Runway"
                   ? "—"
                   : metric.format === "currency"
                   ? formatCurrency(metric.previousValue)

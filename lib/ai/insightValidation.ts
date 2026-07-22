@@ -88,10 +88,39 @@ export function shouldSuppressInsight(
 ): boolean {
   const category = insight.category.toLowerCase();
   const combined = `${insight.title} ${insight.description}`;
+  const titleLower = insight.title.toLowerCase();
 
   if (isExpenseEfficiencyInsight(insight)) return true;
 
   if (isContradictoryRevenueInsight(insight, context)) return true;
+
+  // Incomplete / unreconciled period — suppress revenue-derived alarms and false "improvements".
+  if (context?.derived.currentPeriodIncomplete) {
+    const hay = `${titleLower} ${category} ${insight.metric ?? ''}`.toLowerCase();
+    const revenueDependent =
+      hay.includes('revenue') ||
+      hay.includes('margin') ||
+      hay.includes('profit') ||
+      hay.includes('seasonal') ||
+      hay.includes('ratio');
+    if (revenueDependent) return true;
+  }
+
+  // Zero / near-zero margin must never be framed as an "improvement".
+  if (
+    isProfitMarginInsight(insight) &&
+    (titleLower.includes('improvement') || titleLower.includes('improved'))
+  ) {
+    const margin = context?.summary.profit_margin_pct;
+    if (
+      context?.summary.data_error ||
+      context?.derived.currentPeriodIncomplete ||
+      (margin != null && Math.abs(margin) < 0.05) ||
+      (insight.metricValue ?? '').trim().startsWith('0.0')
+    ) {
+      return true;
+    }
+  }
 
   if (isTaxInsight(insight)) {
     if (context?.derived.taxExpense == null) return true;
@@ -153,7 +182,7 @@ function isProfitMarginInsight(insight: Pick<AIInsight, 'category' | 'title' | '
 /** Align margin insights with KPI definition: net income ÷ revenue for the current period window. */
 function normalizeProfitMarginInsight(insight: AIInsight, context: FinancialContext): AIInsight {
   if (!isProfitMarginInsight(insight)) return insight;
-  if (context.summary.data_error) return insight;
+  if (context.summary.data_error || context.derived.currentPeriodIncomplete) return insight;
 
   const margin = context.summary.profit_margin_pct;
   const change = context.derived.profitMarginChangePct;
@@ -167,8 +196,24 @@ function normalizeProfitMarginInsight(insight: AIInsight, context: FinancialCont
     description = `Net profit margin is ${margin.toFixed(1)}% for this period. Margin = net income ÷ revenue using the same period totals as your dashboard KPI card.`;
   }
 
+  // Title/severity must match the data — never leave "Improvement" on a flat/zero margin.
+  let title = insight.title;
+  let urgency = insight.urgency;
+  const titleLower = title.toLowerCase();
+  if (
+    (titleLower.includes('improvement') || titleLower.includes('improved')) &&
+    (change == null || change <= 0.05 || Math.abs(margin) < 0.05)
+  ) {
+    title = Math.abs(margin) < 0.05 ? 'Profit Margin Near Zero' : 'Profit Margin';
+    if (urgency === 'positive' || urgency === 'warning') {
+      urgency = Math.abs(margin) < 0.05 ? 'watch' : change != null && change < 0 ? 'watch' : 'info';
+    }
+  }
+
   return {
     ...insight,
+    title,
+    urgency,
     metric: 'Profit Margin',
     metricValue,
     description,

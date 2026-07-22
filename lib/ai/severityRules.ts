@@ -90,6 +90,7 @@ export type SeverityContext = {
   profitMarginPct?: number | null;
   expenseGrowthPct?: number | null;
   cashFlowPositive?: boolean;
+  currentPeriodIncomplete?: boolean;
 };
 
 export function applyInsightSeverityRules(
@@ -119,6 +120,21 @@ export function applyInsightSeverityRules(
     return 'info';
   }
 
+  // Incomplete period: never escalate revenue/margin insights to MONITOR CLOSELY / critical.
+  if (context.currentPeriodIncomplete) {
+    const revenueOrMargin =
+      category.includes('revenue') ||
+      category.includes('margin') ||
+      metric.includes('revenue') ||
+      metric.includes('margin') ||
+      titleLower.includes('revenue') ||
+      titleLower.includes('margin') ||
+      titleLower.includes('profit');
+    if (revenueOrMargin && (severity === 'critical' || severity === 'warning' || severity === 'positive')) {
+      return 'info';
+    }
+  }
+
   const runwayMonths =
     context.netRunwayMonths ??
     context.runwayMonths ??
@@ -141,7 +157,11 @@ export function applyInsightSeverityRules(
   const revPct = isRecurringRevenue
     ? (context.recurringRevenueChangePct ?? parsePercent(insight.metricValue))
     : (context.revenueGrowthPct ?? (metric.includes('revenue') ? parsePercent(insight.metricValue) : null));
-  if (revPct != null && (category.includes('revenue') || metric.includes('revenue'))) {
+  if (
+    !context.currentPeriodIncomplete &&
+    revPct != null &&
+    (category.includes('revenue') || metric.includes('revenue'))
+  ) {
     if (isRecurringRevenue && titleLower.includes('seasonal')) {
       severity = pickMoreSevere(severity, 'info');
     } else if (revPct > 0 && !isRecurringRevenue) {
@@ -156,7 +176,11 @@ export function applyInsightSeverityRules(
   const marginPct =
     context.profitMarginPct ??
     (metric.includes('margin') || titleLower.includes('margin') ? parsePercent(insight.metricValue) : null);
-  if (marginPct != null && (category.includes('margin') || metric.includes('margin'))) {
+  if (
+    !context.currentPeriodIncomplete &&
+    marginPct != null &&
+    (category.includes('margin') || metric.includes('margin'))
+  ) {
     severity = pickMoreSevere(severity, getProfitMarginSeverity(marginPct));
   }
 
@@ -178,8 +202,18 @@ export function applyInsightSeverityRules(
     (category.includes('revenue') || metric.includes('revenue') || titleLower.includes('revenue growth')) &&
     !isRecurringRevenue;
   const growthPct = context.revenueGrowthPct ?? parsePercent(insight.metricValue);
-  if (isRevenueGrowth && growthPct != null && growthPct > 0) {
+  if (isRevenueGrowth && growthPct != null && growthPct > 0 && !context.currentPeriodIncomplete) {
     severity = 'positive';
+  }
+
+  // "Improvement" + zero/flat margin must not stay positive or warning.
+  if (
+    (titleLower.includes('improvement') || titleLower.includes('improved')) &&
+    (metric.includes('margin') || titleLower.includes('margin')) &&
+    marginPct != null &&
+    Math.abs(marginPct) < 0.05
+  ) {
+    severity = 'info';
   }
 
   return severity;

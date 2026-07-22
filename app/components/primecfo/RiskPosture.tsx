@@ -43,7 +43,7 @@ const ratingConfig: Record<
     iconBg: "bg-amber-500/10",
   },
   MODERATE: {
-    label: "MODERATE RISK",
+    label: "STABLE / WATCH ITEMS",
     icon: Eye,
     bg: "bg-blue-500/5",
     border: "border-blue-500/20",

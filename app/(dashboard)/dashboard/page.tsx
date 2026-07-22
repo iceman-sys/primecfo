@@ -98,6 +98,7 @@ function mapCoreToFiveMetrics(
 ): MetricCard[] {
   const ar = core.arAging;
   const arDisplay = Math.max(ar.total, summary.accounts_receivable);
+  const incomplete = core.currentPeriodIncomplete === true;
 
   const cashContext =
     core.undepositedFunds > 500
@@ -113,16 +114,18 @@ function mapCoreToFiveMetrics(
 
   const marginResolved = resolveRatioMetric({
     label: "Profit Margin",
-    ratioPct: core.profitMarginPct,
+    ratioPct: incomplete ? null : core.profitMarginPct,
     numerator: summary.net_income,
-    denominator: summary.revenue,
+    denominator: incomplete ? 0 : summary.revenue,
     numeratorLabel: "Net Income",
     denominatorLabel: "Revenue",
     dataError: core.dataError,
   });
 
   const marginIsRatio =
-    marginResolved.primary.includes("%") && !marginResolved.primary.includes("·");
+    !incomplete &&
+    marginResolved.primary.includes("%") &&
+    !marginResolved.primary.includes("·");
   const marginNumeric = marginIsRatio
     ? parseFloat(marginResolved.primary)
     : summary.net_income;
@@ -143,41 +146,56 @@ function mapCoreToFiveMetrics(
     {
       id: "spec-2",
       title: "Revenue Trend",
-      value: core.revenueChangePct,
+      value: incomplete ? 0 : core.revenueChangePct,
       previousValue: 0,
-      format: "percentage",
-      trend: core.revenueChangePct >= 0 ? "up" : "down",
-      trendIsGood: core.revenueChangePct >= 0,
+      format: incomplete ? "text" : "percentage",
+      trend: incomplete ? "flat" : core.revenueChangePct >= 0 ? "up" : "down",
+      trendIsGood: incomplete ? true : core.revenueChangePct >= 0,
       icon: "DollarSign",
       color: "emerald",
-      metricHealth: core.health.revenue,
-      contextLine: `${formatCurrency(summary.revenue)} this period · ${formatCurrency(previousSummary.revenue)} prior`,
+      metricHealth: incomplete ? undefined : core.health.revenue,
+      contextLine: incomplete
+        ? undefined
+        : `${formatCurrency(summary.revenue)} this period · ${formatCurrency(previousSummary.revenue)} prior`,
       hideTrendBadge: true,
+      pendingReconciliation: incomplete,
+      displayOverride: incomplete ? "Pending reconciliation" : undefined,
     },
     {
       id: "spec-3",
-      title: marginIsRatio ? "Profit Margin" : "Net Income",
-      value: marginIsRatio ? marginNumeric : summary.net_income,
-      previousValue: marginIsRatio
-        ? previousSummary.profit_margin_pct
-        : previousSummary.net_income,
-      format: marginIsRatio ? "percentage" : "currencyExact",
-      ...getTrend(
-        marginIsRatio ? marginNumeric : summary.net_income,
-        marginIsRatio ? previousSummary.profit_margin_pct : previousSummary.net_income,
-        true
-      ),
+      title: incomplete ? "Profit Margin" : marginIsRatio ? "Profit Margin" : "Net Income",
+      value: incomplete ? 0 : marginIsRatio ? marginNumeric : summary.net_income,
+      previousValue: incomplete
+        ? 0
+        : marginIsRatio
+          ? previousSummary.profit_margin_pct
+          : previousSummary.net_income,
+      format: incomplete ? "text" : marginIsRatio ? "percentage" : "currencyExact",
+      ...(incomplete
+        ? { trend: "flat" as const, trendIsGood: true }
+        : getTrend(
+            marginIsRatio ? marginNumeric : summary.net_income,
+            marginIsRatio ? previousSummary.profit_margin_pct : previousSummary.net_income,
+            true
+          )),
       icon: "PieChart",
       color: "violet",
-      metricHealth: core.health.margin,
-      contextLine:
-        marginResolved.explanation ??
-        (marginIsRatio
-          ? "Net income ÷ revenue · current period"
-          : marginResolved.primary.includes("·")
-            ? marginResolved.primary
-            : "Net income for the current period"),
-      displayOverride: marginIsRatio ? undefined : formatExactCurrency(summary.net_income),
+      metricHealth: incomplete ? undefined : core.health.margin,
+      contextLine: incomplete
+        ? undefined
+        : marginResolved.explanation ??
+          (marginIsRatio
+            ? "Net income ÷ revenue · current period"
+            : marginResolved.primary.includes("·")
+              ? marginResolved.primary
+              : "Net income for the current period"),
+      displayOverride: incomplete
+        ? "Pending reconciliation"
+        : marginIsRatio
+          ? undefined
+          : formatExactCurrency(summary.net_income),
+      hideTrendBadge: incomplete,
+      pendingReconciliation: incomplete,
     },
     {
       id: "spec-4",
