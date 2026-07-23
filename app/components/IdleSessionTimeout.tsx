@@ -5,14 +5,13 @@ import { useRouter } from 'next/navigation';
 
 /** Idle session timeout — 20 minutes of no user activity. */
 const IDLE_MS = 20 * 60 * 1000;
-const ACTIVITY_EVENTS: (keyof WindowEventMap)[] = [
+const WINDOW_ACTIVITY_EVENTS = [
   'mousemove',
   'mousedown',
   'keydown',
   'touchstart',
   'scroll',
-  'visibilitychange',
-];
+] as const satisfies ReadonlyArray<keyof WindowEventMap>;
 
 /**
  * Signs the user out after IDLE_MS of inactivity on authenticated surfaces.
@@ -43,9 +42,7 @@ export default function IdleSessionTimeout() {
     };
 
     const arm = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-        return;
-      }
+      if (document.visibilityState === 'hidden') return;
       clearTimer();
       timerRef.current = setTimeout(() => {
         void signOutIdle();
@@ -53,22 +50,26 @@ export default function IdleSessionTimeout() {
     };
 
     const onActivity = () => {
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-        return;
-      }
+      if (document.visibilityState === 'hidden') return;
       arm();
     };
 
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') arm();
+    };
+
     arm();
-    for (const evt of ACTIVITY_EVENTS) {
+    for (const evt of WINDOW_ACTIVITY_EVENTS) {
       window.addEventListener(evt, onActivity, { passive: true });
     }
+    document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
       clearTimer();
-      for (const evt of ACTIVITY_EVENTS) {
+      for (const evt of WINDOW_ACTIVITY_EVENTS) {
         window.removeEventListener(evt, onActivity);
       }
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [router]);
 
