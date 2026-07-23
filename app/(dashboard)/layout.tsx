@@ -12,6 +12,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import Navbar from "@/app/components/primecfo/Navbar";
 import Sidebar from "@/app/components/primecfo/Sidebar";
 import PrimeBackedStrip from "@/app/components/primecfo/PrimeBackedStrip";
+import IdleSessionTimeout from "@/app/components/IdleSessionTimeout";
 
 const queryClient = new QueryClient();
 
@@ -142,6 +143,7 @@ function DashboardShell({ children }: { children: React.ReactNode }) {
       }}
     >
       <div className="min-h-screen bg-slate-950">
+        <IdleSessionTimeout />
         <Navbar
           currentView={currentView}
           onNavigate={handleNavigate}

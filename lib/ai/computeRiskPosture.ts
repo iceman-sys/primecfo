@@ -166,5 +166,23 @@ export function computeRiskPosture(
     topAction = 'Focus on balance-sheet deleveraging and liquidity, not emergency cash conservation.';
   }
 
+  // Consistency: if breakeven / cash-flow-positive insight says stable, posture cannot stay ELEVATED/HIGH.
+  const stableCashInsight = insights.some((i) => {
+    const t = i.title.toLowerCase();
+    return (
+      t.includes('cash flow positive') ||
+      t.includes('operating near breakeven') ||
+      (t.includes('breakeven') && (i.urgency === 'info' || i.urgency === 'positive'))
+    );
+  });
+  if (stableCashInsight && (rating === 'ELEVATED' || rating === 'HIGH') && signals.debtServiceAdequate !== false) {
+    rating = 'MODERATE';
+    if (!summaryText.toLowerCase().includes('stable')) {
+      summaryText =
+        'Net cash flow is roughly flat to slightly declining after draws and financing outflows. Overall position is stable with items to monitor — not in distress.';
+    }
+    topAction = 'Prioritize stabilizing operating cash flow before taking on new obligations.';
+  }
+
   return { rating, summary: summaryText, topAction };
 }

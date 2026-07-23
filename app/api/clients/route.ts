@@ -39,6 +39,10 @@ export async function POST(request: Request) {
     }
   } catch (e) {
     console.error('Client quota check failed:', e);
+    return NextResponse.json(
+      { error: 'Could not verify client limit. Try again.', code: 'quota_check_failed' },
+      { status: 503 }
+    );
   }
 
   let clientId: string | null = null;
@@ -285,24 +289,67 @@ export async function GET(request: Request) {
   }
 }
 
-// PATCH: update client (e.g. notes) for dashboard
+// PATCH: update client notes and/or activation (quota-gated)
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { client_id, notes } = body;
-    const access = await guardClientAccess(client_id);
+    const { client_id, notes, is_active } = body as {
+      client_id?: string;
+      notes?: string | null;
+      is_active?: boolean;
+    };
+
+    const { guardClientOwnership } = await import('@/lib/auth/clientAccess');
+    const access = await guardClientOwnership(client_id);
     if (!access.ok) return access.response;
 
     const supabase = supabaseAdmin();
+    const updates: Record<string, unknown> = {};
+    if (notes !== undefined) updates.notes = notes ?? null;
+
+    if (typeof is_active === 'boolean') {
+      if (is_active === true) {
+        const { data: row } = await supabase
+          .from('clients')
+          .select('is_active')
+          .eq('client_id', access.clientId)
+          .maybeSingle();
+        if (row && row.is_active !== true) {
+          const quota = await getClientQuota({
+            firmScope: isAdminEmail(access.user.email),
+          });
+          if (!quota.canAdd) {
+            return NextResponse.json(
+              {
+                error: upgradeMessageForClientLimit(quota),
+                code: 'client_limit_reached',
+                quota: {
+                  tier: quota.tier,
+                  limit: quota.limit,
+                  activeCount: quota.activeCount,
+                },
+                upgradePath: '/pricing',
+              },
+              { status: 402 }
+            );
+          }
+        }
+      }
+      updates.is_active = is_active;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
+    }
+
     const { error } = await supabase
       .from('clients')
-      .update({ notes: notes ?? null })
-      .eq('client_id', client_id);
-
+      .update(updates)
+      .eq('client_id', access.clientId);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, ...updates });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },

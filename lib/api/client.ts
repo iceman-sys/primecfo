@@ -194,6 +194,8 @@ export interface DashboardDataResponse {
     trailingNetCashFlow: number | null;
     excludedPartialMonth?: boolean;
     currentPeriodIncomplete?: boolean;
+    anchoredToReconciled?: boolean;
+    displayPeriodLabel?: string | null;
     dataError?: boolean;
     health: {
       runway: 'good' | 'warn' | 'bad';

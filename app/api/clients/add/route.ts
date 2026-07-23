@@ -29,6 +29,10 @@ export async function POST(request: Request) {
     }
   } catch (e) {
     console.error('Client quota check failed:', e);
+    return NextResponse.json(
+      { error: 'Could not verify client limit. Try again.', code: 'quota_check_failed' },
+      { status: 503 }
+    );
   }
 
   let clientId: string | null = null;

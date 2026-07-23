@@ -8,9 +8,14 @@ import {
   splitPeriodsExcludingPartial,
   excludeSparseTrailingPeriod,
   filterCompleteTrends,
+  isPeriodComplete,
 } from '@/lib/metrics/partialMonth';
 import { loadTrailingNetCashFlow } from '@/lib/metrics/cashFlowMetrics';
 import { isCurrentPeriodIncomplete } from '@/lib/metrics/periodCompleteness';
+import {
+  formatReconciledWindowLabel,
+  selectReconciledWindow,
+} from '@/lib/metrics/reconciledWindow';
 import { median } from '@/lib/dataQuality/utils';
 
 export type PeriodRow = {
@@ -55,6 +60,10 @@ export type ClientMetricsBundle = {
   excludedPartialMonth: boolean;
   /** True when the current window looks empty / unreconciled vs history. */
   currentPeriodIncomplete: boolean;
+  /** True when metrics were anchored to the last fully reconciled window. */
+  anchoredToReconciled: boolean;
+  /** User-facing label, e.g. "Showing Mar–May 2026 · reconciled". */
+  displayPeriodLabel: string | null;
 };
 
 function getStartDateCutoff(monthsBack: number): string {
@@ -185,8 +194,18 @@ export async function loadClientMetrics(
   const rangeStartDates = new Set(rangeInfos.map((r) => r.start_date));
   const windowPeriods = periodList.filter((p) => rangeStartDates.has(p.start_date));
   const periodCount = range === '3m' ? 3 : range === '6m' ? 6 : range === '12m' ? 12 : 4;
-  const effectiveWindow =
+  const calendarWindow =
     windowPeriods.length > 0 ? windowPeriods : periodList.slice(-periodCount);
+
+  // Root fix: when the calendar window includes unreconciled months, anchor to
+  // the last fully reconciled window of the same length.
+  const { window: effectiveWindow, anchored: anchoredToReconciled } = selectReconciledWindow(
+    periodList,
+    calendarWindow,
+    periodCount,
+    lastReconciledDate,
+    isPeriodComplete
+  );
 
   const firstIdx = effectiveWindow.length
     ? periodList.findIndex((p) => p.id === effectiveWindow[0].id)
@@ -262,6 +281,11 @@ export async function loadClientMetrics(
     trailingMedianActivity,
   });
 
+  const displayPeriodLabel =
+    anchoredToReconciled || (excludedPartial && lastReconciledDate && currentWindow.length > 0)
+      ? formatReconciledWindowLabel(currentWindow)
+      : null;
+
   return {
     range,
     periods: periodList,
@@ -274,6 +298,8 @@ export async function loadClientMetrics(
     lastReconciledDate,
     excludedPartialMonth: excludedPartial,
     currentPeriodIncomplete,
+    anchoredToReconciled: anchoredToReconciled || Boolean(displayPeriodLabel),
+    displayPeriodLabel,
   };
 }
 

@@ -102,7 +102,10 @@ export function shouldSuppressInsight(
       hay.includes('margin') ||
       hay.includes('profit') ||
       hay.includes('seasonal') ||
-      hay.includes('ratio');
+      hay.includes('ratio') ||
+      hay.includes('leverage') ||
+      hay.includes('debt-to') ||
+      hay.includes('ebitda');
     if (revenueDependent) return true;
   }
 
@@ -187,27 +190,27 @@ function normalizeProfitMarginInsight(insight: AIInsight, context: FinancialCont
   const margin = context.summary.profit_margin_pct;
   const change = context.derived.profitMarginChangePct;
   const metricValue = `${margin.toFixed(1)}%`;
-  let description = insight.description;
 
+  // Title + severity must agree with the data (never "Improvement" + MONITOR CLOSELY).
+  let title: string;
+  let urgency: AIInsight['urgency'];
+  if (change != null && change > 1) {
+    title = 'Profit Margin Improvement';
+    urgency = 'positive';
+  } else if (change != null && change < -1) {
+    title = 'Profit Margin Decline';
+    urgency = 'watch';
+  } else {
+    title = 'Profit Margin Stable';
+    urgency = 'info';
+  }
+
+  let description: string;
   if (change != null && Math.abs(change) >= 0.05) {
     const dir = change >= 0 ? 'up' : 'down';
     description = `Net profit margin is ${margin.toFixed(1)}% for this period (${dir} ${Math.abs(change).toFixed(1)} pts vs prior). Margin = net income ÷ revenue using the same period totals as your dashboard KPI card.`;
   } else {
     description = `Net profit margin is ${margin.toFixed(1)}% for this period. Margin = net income ÷ revenue using the same period totals as your dashboard KPI card.`;
-  }
-
-  // Title/severity must match the data — never leave "Improvement" on a flat/zero margin.
-  let title = insight.title;
-  let urgency = insight.urgency;
-  const titleLower = title.toLowerCase();
-  if (
-    (titleLower.includes('improvement') || titleLower.includes('improved')) &&
-    (change == null || change <= 0.05 || Math.abs(margin) < 0.05)
-  ) {
-    title = Math.abs(margin) < 0.05 ? 'Profit Margin Near Zero' : 'Profit Margin';
-    if (urgency === 'positive' || urgency === 'warning') {
-      urgency = Math.abs(margin) < 0.05 ? 'watch' : change != null && change < 0 ? 'watch' : 'info';
-    }
   }
 
   return {
@@ -228,10 +231,40 @@ export function applyInsightDataValidation(
     .filter((insight) => !shouldSuppressInsight(insight, context))
     .map((insight) => {
       const normalized = normalizeProfitMarginInsight(insight, context);
-      if (!isMissingMetric(normalized.metricValue)) return normalized;
-      if (ALARM_SEVERITIES.has(normalized.urgency)) {
-        return { ...normalized, urgency: 'info' as const };
+      const aligned = alignPositiveTitleWithSeverity(normalized);
+      if (!isMissingMetric(aligned.metricValue)) return aligned;
+      if (ALARM_SEVERITIES.has(aligned.urgency)) {
+        return { ...aligned, urgency: 'info' as const };
       }
-      return normalized;
+      return aligned;
     });
+}
+
+/** Never pair a positive-framed title with a caution/critical severity. */
+function alignPositiveTitleWithSeverity(insight: AIInsight): AIInsight {
+  const titleLower = insight.title.toLowerCase();
+  const negativeCue =
+    titleLower.includes('decline') ||
+    titleLower.includes('constraint') ||
+    titleLower.includes('risk') ||
+    titleLower.includes('warning') ||
+    titleLower.includes('pressure') ||
+    titleLower.includes('tight') ||
+    titleLower.includes('drop') ||
+    titleLower.includes('loss');
+  if (negativeCue) return insight;
+
+  const positiveTitle =
+    titleLower.includes('improvement') ||
+    titleLower.includes('improved') ||
+    (titleLower.includes('growth') && !titleLower.includes('capacity')) ||
+    titleLower.includes('strong') ||
+    titleLower.includes('healthy') ||
+    (titleLower.includes('positive') && !titleLower.includes('cash flow pending'));
+
+  if (!positiveTitle) return insight;
+  if (insight.urgency === 'critical' || insight.urgency === 'warning' || insight.urgency === 'watch') {
+    return { ...insight, urgency: 'positive' };
+  }
+  return insight;
 }

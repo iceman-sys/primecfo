@@ -110,7 +110,30 @@ function toInsight(
   };
 }
 
-function buildCashRunwayInsight(context: FinancialContext): AIInsight {
+function buildCashRunwayInsight(context: FinancialContext): AIInsight | null {
+  // Incomplete P&L window: cash-flow runway can still use CFS, but suppress when
+  // the empty period would distort the breakeven threshold / contradict risk gate.
+  if (context.derived.currentPeriodIncomplete) {
+    const net = context.derived.trailingNetCashFlow;
+    if (net == null) return null;
+    // Only keep a neutral cash-flow note — never a runway countdown off empty revenue.
+    if (net >= 0) {
+      return toInsight(
+        {
+          title: 'Operating Near Breakeven',
+          description:
+            'Net cash flow looks roughly flat to positive on available cash-flow data. Revenue-period metrics are pending reconciliation, so runway is not scored until books are current.',
+          urgency: 'info',
+          category: 'Cash Runway',
+          metric: 'Net Cash Flow',
+          metricValue: undefined,
+        },
+        'runway'
+      );
+    }
+    return null;
+  }
+
   const months = periodMonthsForRange(context.reportRange);
   const monthlyRevenue = context.summary.revenue > 0 ? context.summary.revenue / months : 0;
 

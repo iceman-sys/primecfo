@@ -27,7 +27,7 @@ export function computePeriodEbitda(input: {
   if (
     input.netIncomeFallback != null &&
     Number.isFinite(input.netIncomeFallback) &&
-    interest > 0
+    (interest > 0 || da > 0 || (input.incomeTaxExpense ?? 0) > 0)
   ) {
     const ebitda = input.netIncomeFallback + interest + (input.incomeTaxExpense ?? 0) + da;
     return ebitda > 0 ? ebitda : null;

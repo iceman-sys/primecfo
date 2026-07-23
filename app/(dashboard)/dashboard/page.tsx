@@ -355,7 +355,8 @@ export default function DashboardPage() {
         ? mapDashboardDataToMetrics(dashboardData.summary, dashboardData.previousSummary)
         : [];
   const chartData: ChartDataPoint[] = dashboardData ? mapTrendsToChartData(dashboardData.trends) : [];
-  const selectedPeriodLabel = RANGE_TO_LABEL[range];
+  const selectedPeriodLabel =
+    dashboardData?.coreMetrics?.displayPeriodLabel?.trim() || RANGE_TO_LABEL[range];
   const hasSyncedData = dashboardData?.period != null;
   const insights: AIInsight[] = insightsData?.insights ?? [];
   const riskPosture: RiskPosture | null = insightsData?.riskPosture ?? null;

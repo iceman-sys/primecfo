@@ -130,6 +130,8 @@ export async function GET(request: NextRequest) {
     dataError: finSummary.data_error,
     excludedPartialMonth: bundle.excludedPartialMonth,
     currentPeriodIncomplete: bundle.currentPeriodIncomplete,
+    anchoredToReconciled: bundle.anchoredToReconciled,
+    displayPeriodLabel: bundle.displayPeriodLabel,
     health: {
       runway: runwayHealth(runway.runwayMonths, cashFlowPositive),
       ar: arHealth(arRatioPast30),
