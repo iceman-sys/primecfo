@@ -65,7 +65,26 @@ function buildPrompt(context: FinancialContext): string {
   const prev = previousSummary;
   const lines: string[] = [
     `Period: ${periodLabel}`,
+    `Reporting basis (display): ${derived.displayBasis}.`,
   ];
+
+  if (derived.displayBasis === 'Cash') {
+    lines.push(
+      'Cash basis: "revenue" means collections, not billings. Never frame a cash-basis revenue dip as a demand/sales problem when open invoices (A/R aging) are elevated — say it may be slower collections.'
+    );
+  } else {
+    lines.push(
+      'Accrual basis: revenue means billings. Pair profitability with A/R aging and cash flow — profitable-on-paper + rising open invoices is a collections trap.'
+    );
+  }
+
+  if (derived.openArTotal != null && derived.openArTotal > 0) {
+    lines.push(
+      `Open invoices (A/R aging, basis-neutral): $${derived.openArTotal.toFixed(2)}. Prefer this over balance-sheet AR on cash basis.`
+    );
+  } else if (derived.hasInvoicingActivity === false) {
+    lines.push('No invoicing/bill activity detected — do not generate A/R aging, DSO, or collections insights.');
+  }
 
   if (derived.dataError) {
     lines.push(

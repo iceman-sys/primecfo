@@ -3,6 +3,9 @@ import { guardClientAccess } from '@/lib/auth/clientAccess';
 import { loadClientMetrics } from '@/lib/metrics/loadClientMetrics';
 import { computeAnalyticsKpis } from '@/lib/metrics/ratios';
 import { validatePeriodTotals } from '@/lib/metrics/validateTrends';
+import { parseArAgingBuckets } from '@/lib/reporting/parseArAging';
+import { loadClientBasisSettings } from '@/lib/qbo/clientBasis';
+import { supabaseAdmin } from '@/lib/qbo/supabaseAdmin';
 import type { ReportRange } from '@/lib/qbo/reports';
 
 /**
@@ -27,12 +30,43 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const sb = supabaseAdmin();
+  const [{ data: arReport }, { data: apReport }, basis] = await Promise.all([
+    sb
+      .from('financial_reports')
+      .select('raw_json')
+      .eq('client_id', access.clientId)
+      .eq('report_type', 'ar_aging')
+      .order('synced_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    sb
+      .from('financial_reports')
+      .select('raw_json')
+      .eq('client_id', access.clientId)
+      .eq('report_type', 'ap_aging')
+      .order('synced_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    loadClientBasisSettings(access.clientId),
+  ]);
+
+  const arBuckets = arReport?.raw_json ? parseArAgingBuckets(arReport.raw_json) : null;
+  const apBuckets = apReport?.raw_json ? parseArAgingBuckets(apReport.raw_json) : null;
+  const useAging = basis.hasInvoicingActivity !== false;
+
   const windowTrends = bundle.windowTrends;
   const kpis = computeAnalyticsKpis(
     bundle.summary,
     windowTrends,
     bundle.runway.runwayMonths,
-    range
+    range,
+    useAging
+      ? {
+          openArFromAging: arBuckets && arBuckets.total > 0 ? arBuckets.total : null,
+          openApFromAging: apBuckets && apBuckets.total > 0 ? apBuckets.total : null,
+        }
+      : undefined
   );
 
   // Incomplete period: do not show alarming margins/ratios as if $0 revenue were real.
@@ -77,6 +111,7 @@ export async function GET(request: NextRequest) {
     validation,
     dataError: bundle.summary?.data_error ?? false,
     currentPeriodIncomplete: bundle.currentPeriodIncomplete,
+    displayBasis: basis.displayBasis,
   });
 }
 

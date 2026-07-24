@@ -6,7 +6,9 @@ import { CreditCard, ExternalLink, Loader2, Calendar } from "lucide-react";
 import { formatSubscriptionLabel } from "@/lib/billing/displayPlan";
 import ContactHelpBlock from "@/app/components/primecfo/ContactHelpBlock";
 import MfaSettings from "@/app/components/primecfo/MfaSettings";
+import ReportingBasisSettings from "@/app/components/primecfo/ReportingBasisSettings";
 import { CALENDAR_URL } from "@/app/lib/pricing-plans";
+import { useClientContext } from "@/contexts/ClientContext";
 
 type BillingStatus = {
   hasSubscription: boolean;
@@ -45,6 +47,7 @@ function formatStatus(status: string): string {
 }
 
 export default function SettingsPage() {
+  const { selectedClient } = useClientContext();
   const [billing, setBilling] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [portalPending, setPortalPending] = useState(false);
@@ -220,8 +223,13 @@ export default function SettingsPage() {
       />
 
       <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-2">Preferences</h3>
-        <p className="text-slate-400 text-sm">Additional settings will appear here.</p>
+        <h3 className="text-lg font-semibold text-white mb-2">Reporting basis</h3>
+        <p className="text-slate-400 text-sm mb-4">
+          Choose Cash or Accrual for P&amp;L and balance sheet display. Defaults to the company&apos;s
+          QuickBooks report preference. A/R and A/P aging are pulled whenever the company invoices or
+          pays bills — independent of basis.
+        </p>
+        <ReportingBasisSettings clientId={selectedClient?.id ?? null} />
       </div>
     </div>
   );

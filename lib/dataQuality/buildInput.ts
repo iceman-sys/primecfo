@@ -34,6 +34,8 @@ export async function buildDataQualityInput(
     .maybeSingle();
 
   const arBuckets = parseArAgingBuckets(arReport?.raw_json ?? {});
+  // Prefer aging total for high-AR detection (cash-basis BS AR is often $0).
+  const openAr = arBuckets.total > 0 ? arBuckets.total : summary.accounts_receivable;
 
   let bsRaw =
     (await loadIntegratedReportRaw(clientId, range, 'balance_sheet')) ??
@@ -60,7 +62,7 @@ export async function buildDataQualityInput(
     lastReconciledDate,
     currentMonthTxnCount,
     trailingMedianMonthlyTxnCount,
-    accountsReceivable: summary.accounts_receivable,
+    accountsReceivable: openAr,
     avgMonthlyRevenue,
     arOver90Days: arBuckets.days91_plus,
     totalEquity: bsSnapshot?.totalEquity ?? null,

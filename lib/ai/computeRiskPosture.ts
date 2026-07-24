@@ -2,6 +2,7 @@ import type { FinancialContext } from '@/lib/ai/getFinancialContext';
 import type { RiskPosture } from '@/lib/financialData';
 import type { AIInsight } from '@/lib/financialData';
 import { periodMonthsForRange } from '@/lib/metrics/periodMonths';
+import { isCashBasisWithInvoicing, formatMoneyShort } from '@/lib/ai/basisGuards';
 
 export type RiskSignals = {
   cashFlowPositive: boolean;
@@ -71,9 +72,11 @@ export function computeRiskPosture(
   const signals = deriveRiskSignals(context);
   const { derived } = context;
   const incomplete = derived.currentPeriodIncomplete === true;
+  const cashBasisInvoicing = isCashBasisWithInvoicing(context);
 
   // On incomplete books, do not treat !profitable as distress — P&L may be empty, not losing.
-  const profitableForDistress = incomplete ? true : signals.profitable;
+  // On cash-basis + invoicing, do not escalate from AR-blind P&L (Phase 1.5 interim guard).
+  const profitableForDistress = incomplete || cashBasisInvoicing ? true : signals.profitable;
 
   const genuineDistress =
     (!signals.cashFlowPositive && !signals.nearBreakeven) ||
@@ -87,11 +90,11 @@ export function computeRiskPosture(
   let summaryText: string;
   let topAction: string;
 
-  if (incomplete && !genuineDistress) {
-    // Fall through to watch-item / stable path using cash-flow signals only.
+  if ((incomplete || cashBasisInvoicing) && !genuineDistress) {
+    // Fall through to watch-item / stable path.
   }
 
-  if (genuineDistress && criticalCount > 0 && !incomplete) {
+  if (genuineDistress && criticalCount > 0 && !incomplete && !cashBasisInvoicing) {
     rating = 'HIGH';
     summaryText =
       !signals.profitable
@@ -101,7 +104,7 @@ export function computeRiskPosture(
           : 'Earnings are not covering total debt service. Review loan payments and collection timing.';
     topAction = insights.find((i) => i.urgency === 'critical')?.recommendations?.[0]?.action
       ?? 'Review cash flow drivers and debt payment schedule with your advisor.';
-  } else if (genuineDistress && !incomplete) {
+  } else if (genuineDistress && !incomplete && !cashBasisInvoicing) {
     rating = 'ELEVATED';
     summaryText =
       signals.debtServiceAdequate === false
@@ -110,8 +113,8 @@ export function computeRiskPosture(
           ? 'Net cash flow is roughly flat to slightly declining after draws and financing outflows.'
           : 'One or more core health signals (cash flow or profitability) need attention.';
     topAction = 'Prioritize stabilizing operating cash flow before taking on new obligations.';
-  } else if (signals.leverageElevated || signals.liquidityThin || watchCount >= 2 || incomplete) {
-    // Incomplete period → at most MODERATE / watch items (never ELEVATED from empty P&L).
+  } else if (signals.leverageElevated || signals.liquidityThin || watchCount >= 2 || incomplete || cashBasisInvoicing) {
+    // Incomplete / cash-basis invoicing → at most MODERATE (never ELEVATED from AR-blind P&L).
     rating = 'MODERATE';
     const parts: string[] = [];
     if (incomplete) {
@@ -119,7 +122,15 @@ export function computeRiskPosture(
         'Current-period books look incomplete or awaiting reconciliation — revenue-derived risk signals are withheld'
       );
     }
-    if (signals.cashFlowPositive && (signals.profitable || incomplete)) {
+    if (cashBasisInvoicing) {
+      const ar = derived.openArTotal;
+      parts.push(
+        ar != null && ar > 0
+          ? `Cash-basis reporting with ${formatMoneyShort(ar)} in open invoices — collections, not demand, may drive the cash picture`
+          : 'Cash-basis reporting with invoicing activity — review A/R aging alongside cash runway'
+      );
+    }
+    if (signals.cashFlowPositive && (signals.profitable || incomplete || cashBasisInvoicing)) {
       parts.push('Operations appear cash-flow positive on available data');
     } else if (signals.profitable && signals.nearBreakeven) {
       parts.push('Net cash flow is roughly flat to slightly declining while operations remain profitable');
@@ -136,6 +147,8 @@ export function computeRiskPosture(
         : 'Stable operations with a few areas to watch. No immediate distress signals.';
     topAction = incomplete
       ? 'Reconcile QuickBooks so period metrics and risk posture can refresh on complete data.'
+      : cashBasisInvoicing
+        ? 'Review A/R aging and collections before treating cash-basis revenue dips as a demand problem.'
       : signals.leverageElevated
         ? 'Build debt paydown into the cash flow plan — start with high-interest revolving balances.'
         : 'Maintain collections discipline and track payables timing against cash on hand.';

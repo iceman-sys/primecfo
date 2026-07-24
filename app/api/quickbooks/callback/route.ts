@@ -135,6 +135,20 @@ export async function GET(request: NextRequest) {
     }
     console.log('✅ Connection status updated:', connectionData);
 
+    // Detect and store QBO ReportBasis default (Phase 1 accounting basis).
+    try {
+      const { fetchQboReportBasis, saveQboReportBasis } = await import('@/lib/qbo/clientBasis');
+      const { detectInvoicingActivity } = await import('@/lib/qbo/invoicingActivity');
+      const { saveInvoicingActivityFlag } = await import('@/lib/qbo/clientBasis');
+      const basis = await fetchQboReportBasis(clientId);
+      if (basis) await saveQboReportBasis(clientId, basis);
+      const hasInvoicing = await detectInvoicingActivity(clientId);
+      await saveInvoicingActivityFlag(clientId, hasInvoicing);
+      console.log('✅ ReportBasis / invoicing activity saved', { basis, hasInvoicing });
+    } catch (prefErr) {
+      console.warn('⚠️ Preferences/invoicing probe skipped:', prefErr);
+    }
+
     // Redirect based on where the connection was initiated
     let redirectUrl: string;
     if (returnTo === 'add') {

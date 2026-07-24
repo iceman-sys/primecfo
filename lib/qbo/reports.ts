@@ -367,6 +367,7 @@ export async function deriveAndSaveMetricsForPeriod(
  * Sync QuickBooks reports for a client.
  * - Per calendar period: P&L + Balance Sheet for metrics/trends (monthly or quarterly).
  * - Integrated span: multi-column reports for Financial Reports viewer + optional reports.
+ * - Display basis from client settings (override ?? QBO ReportPrefs); aging when invoicing exists.
  */
 export async function syncReportsForClient(
   clientId: string,
@@ -377,13 +378,43 @@ export async function syncReportsForClient(
   const effectivePeriodType: PeriodType = range === '4q' ? 'quarter' : 'month';
   const granularPeriods = getDateRanges(range, effectivePeriodType);
   const integrated = getSingleDateRange(range, periodType);
-  const reportTypes = includeOptional
-    ? [...REQUIRED_REPORT_TYPES, ...OPTIONAL_REPORT_TYPES]
-    : REQUIRED_REPORT_TYPES;
   const errors: string[] = [];
   let reportsSaved = 0;
 
   await getValidQuickBooksAccessToken(clientId);
+
+  // Refresh QBO ReportBasis + invoicing activity (Phase 1 accounting basis).
+  const { fetchQboReportBasis, loadClientBasisSettings, saveQboReportBasis, saveInvoicingActivityFlag } =
+    await import('@/lib/qbo/clientBasis');
+  const { detectInvoicingActivity } = await import('@/lib/qbo/invoicingActivity');
+
+  try {
+    const detected = await fetchQboReportBasis(clientId);
+    if (detected) await saveQboReportBasis(clientId, detected);
+  } catch (e) {
+    console.warn('[QuickBooks] ReportBasis refresh skipped', e);
+  }
+
+  let hasInvoicing = false;
+  try {
+    hasInvoicing = await detectInvoicingActivity(clientId);
+    await saveInvoicingActivityFlag(clientId, hasInvoicing);
+  } catch (e) {
+    console.warn('[QuickBooks] Invoicing activity probe skipped', e);
+  }
+
+  const basisSettings = await loadClientBasisSettings(clientId);
+  const displayBasis = basisSettings.displayBasis;
+  // Aging is basis-independent fact; Accrual is the conventional QBO param for open balances.
+  const agingBasis = 'Accrual' as const;
+
+  const optionalTypes = OPTIONAL_REPORT_TYPES.filter((t) => {
+    if (t === 'ar_aging' || t === 'ap_aging') return hasInvoicing;
+    return true;
+  });
+  const reportTypes = includeOptional
+    ? [...REQUIRED_REPORT_TYPES, ...optionalTypes]
+    : REQUIRED_REPORT_TYPES;
 
   // ── Per-period sync (metrics + trend charts) ─────────────────────────────
   for (const period of granularPeriods) {
@@ -408,7 +439,7 @@ export async function syncReportsForClient(
           reportType,
           period.start_date,
           period.end_date,
-          'Cash'
+          displayBasis
         );
         await saveReport(clientId, reportType, periodId, raw);
         reportsSaved++;
@@ -444,12 +475,18 @@ export async function syncReportsForClient(
 
   for (const reportType of reportTypes) {
     try {
+      const method =
+        reportType === 'ar_aging' || reportType === 'ap_aging'
+          ? agingBasis
+          : reportType === 'cash_flow'
+            ? 'Cash'
+            : displayBasis;
       const raw = await fetchReportFromQuickBooks(
         clientId,
         reportType,
         integrated.start_date,
         integrated.end_date,
-        'Cash',
+        method,
         range
       );
       await saveReport(clientId, reportType, integratedPeriodId, raw);

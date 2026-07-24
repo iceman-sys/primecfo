@@ -125,6 +125,25 @@ export function shouldSuppressInsight(
     }
   }
 
+  // Suppress AR-based insights when the company has no invoicing/bill activity.
+  if (
+    context &&
+    context.derived.hasInvoicingActivity === false &&
+    context.derived.openArTotal == null
+  ) {
+    const hay = `${titleLower} ${category} ${insight.metric ?? ''}`.toLowerCase();
+    if (
+      hay.includes('receivable') ||
+      hay.includes(' a/r') ||
+      hay.includes('ar aging') ||
+      hay.includes('dso') ||
+      hay.includes('collections') ||
+      hay.includes('unpaid invoice')
+    ) {
+      return true;
+    }
+  }
+
   if (isTaxInsight(insight)) {
     if (context?.derived.taxExpense == null) return true;
     if (isMissingMetric(insight.metricValue)) return true;

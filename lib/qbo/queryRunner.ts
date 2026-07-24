@@ -39,6 +39,22 @@ export async function queryAllEntities<T>(
   return all;
 }
 
+/** Lightweight existence probe — returns true if at least one entity matches. */
+export async function entityExists(
+  clientId: string,
+  entityName: string,
+  resultKey: string
+): Promise<boolean> {
+  const query = `SELECT Id FROM ${entityName} MAXRESULTS 1`;
+  const res = await quickBooksRequest<QboQueryResponse>(clientId, {
+    path: `/v3/company/{realmId}/query`,
+    searchParams: { query },
+  });
+  const chunk = res.QueryResponse?.[resultKey];
+  if (Array.isArray(chunk)) return chunk.length > 0;
+  return chunk != null;
+}
+
 export async function sumBankAccountBalances(clientId: string): Promise<number> {
   const accounts = await fetchBankAccounts(clientId);
   return accounts.reduce((s, a) => s + a.balance, 0);

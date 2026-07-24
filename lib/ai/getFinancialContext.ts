@@ -94,6 +94,12 @@ export type FinancialContext = {
     dataError: boolean;
     excludedPartialMonth: boolean;
     currentPeriodIncomplete: boolean;
+    /** Client display basis (Cash | Accrual). */
+    displayBasis: 'Cash' | 'Accrual';
+    /** Open A/R from aging when invoicing activity exists. */
+    openArTotal: number | null;
+    /** True when company has invoices/bills — aging available. */
+    hasInvoicingActivity: boolean;
   };
   balanceSheet: BalanceSheetInsightInput | null;
   balanceSheetContext: BalanceSheetContext | null;
@@ -274,6 +280,25 @@ export async function getFinancialContext(
   });
   const annualizedEbitda = periodEbitda != null ? annualizeEbitda(periodEbitda, periodMonths) : null;
 
+  const { loadClientBasisSettings } = await import('@/lib/qbo/clientBasis');
+  const { parseArAgingBuckets } = await import('@/lib/reporting/parseArAging');
+  const { supabaseAdmin } = await import('@/lib/qbo/supabaseAdmin');
+  const basis = await loadClientBasisSettings(clientId);
+  const sb = supabaseAdmin();
+  const { data: arReport } = await sb
+    .from('financial_reports')
+    .select('raw_json')
+    .eq('client_id', clientId)
+    .eq('report_type', 'ar_aging')
+    .order('synced_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const arBuckets = arReport?.raw_json ? parseArAgingBuckets(arReport.raw_json) : null;
+  const openArTotal =
+    basis.hasInvoicingActivity !== false && arBuckets && arBuckets.total > 0
+      ? arBuckets.total
+      : null;
+
   const balanceSheet = buildBalanceSheetInsightInput(
     range,
     bsSnapshot,
@@ -285,7 +310,7 @@ export async function getFinancialContext(
     netOperatingIncome,
     operatingCashFlow,
     ownerDraws,
-    summary.accounts_receivable
+    openArTotal ?? summary.accounts_receivable
   );
 
   const debtServiceCoverage = balanceSheet ? computeDebtServiceCoverage(balanceSheet) : null;
@@ -338,6 +363,9 @@ export async function getFinancialContext(
       dataError: summary.data_error ?? false,
       excludedPartialMonth: bundle.excludedPartialMonth,
       currentPeriodIncomplete: bundle.currentPeriodIncomplete,
+      displayBasis: basis.displayBasis,
+      openArTotal,
+      hasInvoicingActivity: basis.hasInvoicingActivity === true,
     },
     balanceSheet,
     balanceSheetContext,

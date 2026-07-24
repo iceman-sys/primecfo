@@ -9,6 +9,11 @@ import { evaluateIncrementalMargin } from '@/lib/ai/growthCapacityInsight';
 import { applyBalanceSheetInsights } from '@/lib/ai/balanceSheetInsights';
 import { enrichInsights } from '@/lib/ai/insightEnrichment';
 import { SEVERITY_ORDER } from '@/lib/ai/generateInsights';
+import {
+  formatMoneyShort,
+  isCashBasisWithInvoicing,
+  openArMaterialVsCash,
+} from '@/lib/ai/basisGuards';
 
 function periodMonthsForRange(range: FinancialContext['reportRange']): number {
   if (range === '3m') return 3;
@@ -116,7 +121,6 @@ function buildCashRunwayInsight(context: FinancialContext): AIInsight | null {
   if (context.derived.currentPeriodIncomplete) {
     const net = context.derived.trailingNetCashFlow;
     if (net == null) return null;
-    // Only keep a neutral cash-flow note — never a runway countdown off empty revenue.
     if (net >= 0) {
       return toInsight(
         {
@@ -134,6 +138,27 @@ function buildCashRunwayInsight(context: FinancialContext): AIInsight | null {
     return null;
   }
 
+  // Phase 1.5 interim guard: cash-basis + invoicing — don't ship AR-blind runway.
+  if (isCashBasisWithInvoicing(context)) {
+    const ar = context.derived.openArTotal;
+    const arNote =
+      ar != null && ar > 0
+        ? ` You have ${formatMoneyShort(ar)} in unpaid invoices (aging) — collections is often the primary cash lever before runway math.`
+        : ' Open invoices (if any) should be reviewed on the A/R aging report before treating runway as constrained.';
+    return toInsight(
+      {
+        title: 'Cash Position — Review Collections',
+        description:
+          `Reporting basis is Cash, so P&L revenue reflects collections, not billings.${arNote} Runway countdown is caveated until collections and open A/R are read together.`,
+        urgency: 'info',
+        category: 'Cash Runway',
+        metric: ar != null && ar > 0 ? 'Open Invoices' : 'Cash Basis',
+        metricValue: ar != null && ar > 0 ? formatMoneyShort(ar) : undefined,
+      },
+      'runway'
+    );
+  }
+
   const months = periodMonthsForRange(context.reportRange);
   const monthlyRevenue = context.summary.revenue > 0 ? context.summary.revenue / months : 0;
 
@@ -144,10 +169,15 @@ function buildCashRunwayInsight(context: FinancialContext): AIInsight | null {
     monthlyRevenue,
   });
 
+  let description = evalResult.message;
+  if (openArMaterialVsCash(context) && context.derived.openArTotal != null) {
+    description += ` Collectible A/R of ${formatMoneyShort(context.derived.openArTotal)} is at least half of cash on hand — prioritizing collections is the primary near-term lever.`;
+  }
+
   return toInsight(
     {
       title: evalResult.title,
-      description: evalResult.message,
+      description,
       urgency: evalResult.severity,
       category: 'Cash Runway',
       metric: evalResult.showRunway
@@ -185,6 +215,26 @@ function buildRevenueTrendInsight(context: FinancialContext): AIInsight | null {
     return null;
   }
 
+  let message = evalResult.message;
+  // Basis-aware language: cash revenue = collections; don't frame as demand when AR elevated.
+  if (
+    context.derived.displayBasis === 'Cash' &&
+    (context.derived.openArTotal ?? 0) > 0 &&
+    (context.derived.revenueGrowthPct ?? 0) < -5
+  ) {
+    message =
+      `Cash-basis revenue reflects collections. You have ${formatMoneyShort(context.derived.openArTotal!)} in open invoices (aging report) — a dip here often means slower collections, not slower sales. ` +
+      message;
+  } else if (
+    context.derived.displayBasis === 'Accrual' &&
+    (context.derived.openArTotal ?? 0) > 0 &&
+    context.summary.net_income > 0 &&
+    openArMaterialVsCash(context)
+  ) {
+    message +=
+      ` Accrual profit with elevated open invoices (${formatMoneyShort(context.derived.openArTotal!)}) is a classic collections trap — read A/R aging alongside the cash flow statement.`;
+  }
+
   const metricLabel =
     evalResult.title.includes('Composition') || evalResult.title.includes('Concentration')
       ? 'Revenue Mix'
@@ -193,7 +243,7 @@ function buildRevenueTrendInsight(context: FinancialContext): AIInsight | null {
   return toInsight(
     {
       title: evalResult.title,
-      description: evalResult.message,
+      description: message,
       urgency: evalResult.severity,
       category: 'Revenue',
       metric: metricLabel,

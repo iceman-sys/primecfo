@@ -44,7 +44,13 @@ export function computeAnalyticsKpis(
   summary: SummaryMetrics | null,
   trends: TrendPoint[],
   runwayMonths: number | null,
-  range: '3m' | '6m' | '12m' | '4q' = '12m'
+  range: '3m' | '6m' | '12m' | '4q' = '12m',
+  opts?: {
+    /** Open AR from aging report — preferred over BS AR (cash-basis BS AR is often $0). */
+    openArFromAging?: number | null;
+    /** Open AP from aging report. */
+    openApFromAging?: number | null;
+  }
 ): AnalyticsKpis {
   if (!summary) {
     return {
@@ -70,25 +76,46 @@ export function computeAnalyticsKpis(
   const grossMargin = percentValue(grossProfit, revenue);
   const netMargin = summary.data_error ? null : percentValue(summary.net_income, revenue);
 
-  const currentRatio = ratioValue(summary.current_assets, summary.current_liabilities);
+  const openAr =
+    opts?.openArFromAging != null && Number.isFinite(opts.openArFromAging)
+      ? Math.max(0, opts.openArFromAging)
+      : summary.accounts_receivable;
+  const openAp =
+    opts?.openApFromAging != null && Number.isFinite(opts.openApFromAging)
+      ? Math.max(0, opts.openApFromAging)
+      : summary.accounts_payable;
 
-  // Quick ratio = (cash + AR) / current liabilities — same balance-sheet cash basis as current ratio
-  const quickAssets = summary.cash + summary.accounts_receivable;
-  const quickRatio = ratioValue(quickAssets, summary.current_liabilities);
+  // Liquidity: prefer aging overlay for AR/AP when available (cash-basis BS may exclude them).
+  const currentAssetsForRatio =
+    opts?.openArFromAging != null
+      ? summary.cash + openAr + Math.max(0, summary.current_assets - summary.cash - summary.accounts_receivable)
+      : summary.current_assets;
+  const currentLiabForRatio =
+    opts?.openApFromAging != null
+      ? openAp + Math.max(0, summary.current_liabilities - summary.accounts_payable)
+      : summary.current_liabilities;
+
+  const currentRatio = ratioValue(currentAssetsForRatio, currentLiabForRatio);
+  const quickAssets = summary.cash + openAr;
+  const quickRatio = ratioValue(quickAssets, currentLiabForRatio);
 
   const days = periodDays(range);
-  const dso = daysValue(summary.accounts_receivable, revenue, days);
+  const dso = daysValue(openAr, revenue, days);
   const cogs = Math.abs(summary.cogs) || null;
-  const dpo = cogs ? daysValue(summary.accounts_payable, cogs, days) : null;
+  const dpo = cogs ? daysValue(openAp, cogs, days) : null;
 
   const dsoNote =
-    dso === 0 && summary.accounts_receivable === 0
+    dso === 0 && openAr === 0
       ? 'No outstanding receivables at period end'
-      : null;
+      : opts?.openArFromAging != null
+        ? 'DSO from A/R aging (open invoices)'
+        : null;
   const dpoNote =
-    dpo === 0 && summary.accounts_payable === 0
+    dpo === 0 && openAp === 0
       ? 'No outstanding payables at period end'
-      : null;
+      : opts?.openApFromAging != null
+        ? 'DPO from A/P aging (open bills)'
+        : null;
 
   const last3 = trends
     .map((t) => t.expenses)
@@ -102,11 +129,11 @@ export function computeAnalyticsKpis(
       revenue,
       net_income: summary.net_income,
       grossProfit,
-      current_assets: summary.current_assets,
-      current_liabilities: summary.current_liabilities,
+      current_assets: currentAssetsForRatio,
+      current_liabilities: currentLiabForRatio,
       quick_assets: quickAssets,
-      ar: summary.accounts_receivable,
-      ap: summary.accounts_payable,
+      ar: openAr,
+      ap: openAp,
       cogs: summary.cogs,
       grossMargin,
       netMargin,
